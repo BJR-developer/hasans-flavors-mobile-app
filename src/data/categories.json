@@ -1,0 +1,57 @@
+[
+  {
+    "id": "all",
+    "name": "All Dishes",
+    "icon": "utensils",
+    "count": 57
+  },
+  {
+    "id": "biryani",
+    "name": "Biryani & Rice",
+    "match": "biryani|rice",
+    "icon": "bowl-rice",
+    "count": 19
+  },
+  {
+    "id": "curries",
+    "name": "Curries & Karahi",
+    "match": "curry|karahi|haleem|nihari",
+    "icon": "flame",
+    "count": 9
+  },
+  {
+    "id": "bbq",
+    "name": "BBQ & Kababs",
+    "match": "kabab|bbq|tikka",
+    "icon": "beef",
+    "count": 5
+  },
+  {
+    "id": "rolls",
+    "name": "Rolls & Fast Food",
+    "match": "roll|burger|wrap|bite",
+    "icon": "sandwich",
+    "count": 12
+  },
+  {
+    "id": "breads",
+    "name": "Fresh Breads & Roti",
+    "match": "roti|naan|paratha|chapati",
+    "icon": "wheat",
+    "count": 3
+  },
+  {
+    "id": "combos",
+    "name": "Party Bilao & Combos",
+    "match": "bilao|combo|platter",
+    "icon": "users",
+    "count": 3
+  },
+  {
+    "id": "desserts",
+    "name": "Desserts & Drinks",
+    "match": "kheer|halwa|sweet|lassi|chai|drink",
+    "icon": "cup-soda",
+    "count": 0
+  }
+]

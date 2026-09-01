@@ -1,56 +1,130 @@
-# Welcome to your Expo app 👋
+# 🥘 Hasan's Flavors — Full Restaurant Ecosystem Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An end-to-end multi-role restaurant application built with **React Native**, **Expo (SDK 57)**, **Expo Router**, and **TypeScript** for **Hasan's Flavors** (100% Halal Certified Pakistani & Indian Cuisine).
 
-## Get started
+---
 
-1. Install dependencies
+## 🏛️ System Architecture & The 6 Pillars
 
-   ```bash
-   npm install
-   ```
+This application delivers a unified single-codebase ecosystem covering both customer dining/delivery and back-of-house restaurant operations:
 
-2. Start the app
+| Pillar | Screen / Module | Route | Key Capabilities |
+| :--- | :--- | :--- | :--- |
+| **1. 📱 Digital Menu** | Home & Interactive Menu | `/(tabs)` & `/(tabs)/menu` | 57+ Halal dishes, Category pills, Search, Spice filters (Mild to Fiery), Chef picks |
+| **2. 🔲 QR Table Ordering** | Dine-In QR Scanner | `/qr-scan` | Simulated QR camera scanner, Table 01–15 selector, Guest party size picker |
+| **3. 🛒 Cart & Checkout** | Cart, Checkout & Tracker | `/(tabs)/cart`, `/checkout`, `/track/[id]` | Dine-In/Delivery toggle, Promo codes (`HASAN10`, `HALALFIRST`), GCash/Cash/Card, 4-step live order tracker |
+| **4. 🍳 Kitchen Display (KDS)** | Kitchen Orders Board | `/staff/kds` | Real-time Kanban columns (New Orders ➔ Cooking ➔ Ready), Elapsed prep timers, Tap-to-bump status |
+| **5. 💰 Cashier POS** | Cashier Register & Tabs | `/staff/pos` | Tap-to-add POS grid, Table tabs, Discount & tax calculations, Digital printed receipt modal |
+| **6. 📊 Owner Dashboard** | Analytics & Stock Control | `/staff/owner` | Today's Gross Revenue, Total Orders, AOV, Active tables, Best-sellers leaderboard, Live Out-of-Stock toggle |
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🎨 Design System: "Saffron & Spice"
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+* **Primary Spice Red**: `#D32F2F` / `#B71C1C`
+* **Saffron Gold**: `#F57C00` / `#FFB300`
+* **Halal Badge Green**: `#2E7D32`
+* **Warm Cream Background**: `#FAF9F8` / `#FFFDF9`
+* **Charcoal Slate**: `#1A1A1A` / `#2D2A27`
+* **Border Radius**: 16px cards, 12px buttons, 24px pills
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 💾 State Management & Real-Time Sync (Zustand)
 
-When you're ready, run:
+All modules are interconnected via reactive Zustand stores in `src/store/`:
+1. **`useCartStore`**: Handles items, portion size selections, spice level modifiers, sides/add-ons checklist, coupon discounts, tax, and delivery fee calculation.
+2. **`useOrderStore`**: Central order queue. When a customer or cashier places an order, it **instantly appears on the Kitchen KDS board** and updates the Owner Dashboard revenue stats.
+3. **`useTableStore`**: Manages dining room table occupancy (Table 01 to 15) and active guest sessions.
+4. **`useMenuStore`**: Live dish inventory and instant out-of-stock toggling.
+5. **`useRoleStore`**: Seamless switching between Customer App and Staff Operational modes with PIN protection.
 
+---
+
+## 🔑 Quick Demo Credentials
+
+To switch between modes in the app, tap the **"Staff Mode"** button in the top header or navigate to **Account ➔ Enter Staff PIN**:
+
+* **Staff Mode (Kitchen KDS & Cashier POS)**: `1234`
+* **Owner Analytics Mode**: `8888`
+* **Superuser Bypass**: `0000`
+
+---
+
+## 🚀 How to Run
+
+### 1. Install Dependencies
 ```bash
-npm run reset-project
+cd mobile-app
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Start Development Server
+```bash
+# Start Metro bundler
+npx expo start
 
-### Other setup steps
+# Run on Android Device / Emulator
+npx expo run:android # or press 'a' in terminal
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+# Run on Web Simulator
+npx expo start --web
+```
 
-## Learn more
+### 3. Type Checking & Verification
+```bash
+npx tsc --noEmit
+npx expo export --platform web
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📁 Project Directory Structure
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+mobile-app/
+├── src/
+│   ├── app/                     # Expo Router file-based routes
+│   │   ├── (tabs)/              # Customer Tab Navigation
+│   │   │   ├── _layout.tsx      # 5 bottom tabs with live cart badge
+│   │   │   ├── index.tsx        # Home Screen with Hero Banners & Chef Picks
+│   │   │   ├── menu.tsx         # Digital Menu with Search & Spice Filters
+│   │   │   ├── cart.tsx         # Cart with Dine-In vs Delivery calculations
+│   │   │   ├── orders.tsx       # Active & Past Orders list
+│   │   │   └── profile.tsx      # Gold Loyalty Rewards Club & Halal credentials
+│   │   ├── dish/[id].tsx        # Dish Detail & Customization Modal
+│   │   ├── checkout.tsx         # Full Checkout & Payment flow
+│   │   ├── track/[id].tsx       # Live 4-Step Order Tracker & ETA
+│   │   ├── qr-scan.tsx          # QR Table Dine-In Scanner & Selector
+│   │   ├── staff/
+│   │   │   ├── kds.tsx          # Kitchen Display System (KDS)
+│   │   │   ├── pos.tsx          # Cashier POS Terminal & Receipts
+│   │   │   └── owner.tsx        # Owner Analytics & Inventory Toggle
+│   │   ├── _layout.tsx          # Root Stack layout & Global Role Switcher Modal
+│   │   └── index.tsx            # Root redirect
+│   ├── components/              # Reusable UI components
+│   │   ├── Header.tsx           # Navigation bar with Table Badge & Role Switcher
+│   │   ├── DishCard.tsx         # Grid & Horizontal food card with Halal tags
+│   │   ├── SpiceMeter.tsx       # Visual spice flame indicator
+│   │   ├── CategoryPill.tsx     # Filter category pills
+│   │   ├── CartFloatingBar.tsx  # Sticky bottom cart trigger
+│   │   └── RoleSwitcherModal.tsx# PIN-protected view switcher
+│   ├── constants/
+│   │   └── theme.ts             # Saffron & Spice design tokens
+│   ├── data/
+│   │   ├── menu.json            # 57 clean items from halalfood.com.ph
+│   │   ├── categories.json      # Structured restaurant categories
+│   │   └── options.ts           # Portions, Addons, Spice levels & Coupons
+│   ├── store/                   # Zustand reactive state stores
+│   │   ├── useCartStore.ts
+│   │   ├── useOrderStore.ts
+│   │   ├── useMenuStore.ts
+│   │   ├── useTableStore.ts
+│   │   ├── useRoleStore.ts
+│   │   └── useFavoritesStore.ts
+│   └── types/
+│       └── index.ts             # Complete TypeScript interfaces
+├── app.json
+├── package.json
+└── tsconfig.json
+```
