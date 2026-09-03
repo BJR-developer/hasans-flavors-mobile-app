@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function TabLayout() {
@@ -16,15 +16,15 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
           backgroundColor: Colors.card,
-          borderTopColor: Colors.borderLight,
+          borderTopColor: Colors.border,
           borderTopWidth: 1,
           height: 60,
           paddingBottom: 8,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: Typography.fontSize.xs,
+          fontWeight: '500',
         },
       }}
     >
@@ -52,7 +52,7 @@ export default function TabLayout() {
           title: 'Cart',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.cartIconWrapper}>
-              <Ionicons name={focused ? 'cart' : 'cart-outline'} size={22} color={color} />
+              <Ionicons name={focused ? 'bag' : 'bag-outline'} size={22} color={color} />
               {itemCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{itemCount}</Text>
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   badge: {
     position: 'absolute',
     top: -4,
-    right: -10,
+    right: -8,
     backgroundColor: Colors.primary,
     borderRadius: Radius.round,
     minWidth: 16,
@@ -103,6 +103,6 @@ const styles = StyleSheet.create({
   badgeText: {
     color: Colors.textLight,
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

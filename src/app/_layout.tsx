@@ -1,19 +1,18 @@
-import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RoleSwitcherModal } from '@/components/RoleSwitcherModal';
 import { Colors } from '@/constants/theme';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide splash screen once mounted
+    // Hide native splash screen quickly so our animated splash or root component mounts smoothly
     const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 400);
+      SplashScreen.hideAsync().catch(() => { });
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
@@ -27,6 +26,11 @@ export default function RootLayout() {
           animation: 'slide_from_right',
         }}
       >
+        <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="splash" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="auth/signin" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="auth/signup" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="dish/[id]"
@@ -38,6 +42,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
         <Stack.Screen name="track/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="chat" options={{ headerShown: false }} />
         <Stack.Screen
           name="qr-scan"
           options={{
@@ -46,13 +51,7 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
-        <Stack.Screen name="staff/kds" options={{ headerShown: false }} />
-        <Stack.Screen name="staff/pos" options={{ headerShown: false }} />
-        <Stack.Screen name="staff/owner" options={{ headerShown: false }} />
       </Stack>
-
-      {/* Global Role Switcher Modal */}
-      <RoleSwitcherModal />
     </SafeAreaProvider>
   );
 }

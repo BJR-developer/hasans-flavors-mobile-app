@@ -1,104 +1,190 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Linking,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { Header } from '@/components/Header';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
-import { useRoleStore } from '@/store/useRoleStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useTableStore } from '@/store/useTableStore';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { currentRole, setRole } = useRoleStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const currentTable = useTableStore((state) => state.currentTable);
   const clearTable = useTableStore((state) => state.clearTable);
 
-  const handleOpenStaffModal = () => {
-    try {
-      Haptics.selectionAsync();
-    } catch {}
-    useRoleStore.setState({ isPinModalOpen: true });
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch { }
+            logout();
+          },
+        },
+      ]
+    );
   };
 
   const handleLeaveTable = () => {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch {}
+    } catch { }
     clearTable();
+  };
+
+  const handleReplaySplash = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch { }
+    router.push('/splash' as any);
+  };
+
+  const handleReplayOnboarding = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch { }
+    router.push('/onboarding' as any);
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Header title="My Account" />
+      <Header title="Account" />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Card */}
-        <View style={styles.userCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarEmoji}>👤</Text>
+        {/* User Card: Authenticated vs Guest */}
+        {isAuthenticated && user ? (
+          <View style={styles.userCard}>
+            <View style={styles.avatarWrapper}>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatarCircle}>
+                  <Ionicons name="person" size={24} color={Colors.textSecondary} />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.userInfo}>
+              <View style={styles.userNameRow}>
+                <Text style={styles.userName}>{user.name}</Text>
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedText}>{user.tier}</Text>
+                </View>
+              </View>
+              <Text style={styles.userEmail}>{user.email}</Text>
+              <Text style={styles.userPhone}>{user.phone}</Text>
+            </View>
           </View>
-          <View style={styles.userInfo}>
-            <View style={styles.userNameRow}>
-              <Text style={styles.userName}>Jamilur Rahman</Text>
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={Colors.halalGreen} />
-                <Text style={styles.verifiedText}>Member</Text>
+        ) : (
+          /* Guest Banner */
+          <View style={styles.guestCard}>
+            <View style={styles.guestTopRow}>
+              <View style={styles.guestAvatar}>
+                <Ionicons name="person-circle-outline" size={40} color={Colors.textSecondary} />
+              </View>
+              <View style={styles.guestTextCol}>
+                <Text style={styles.guestTitle}>Welcome to Hasan's Flavors</Text>
+                <Text style={styles.guestSubtitle}>
+                  Sign in or create an account to earn Spice Club points and save addresses.
+                </Text>
               </View>
             </View>
-            <Text style={styles.userEmail}>jamilur@example.com • +63 917 888 2345</Text>
-          </View>
-        </View>
 
-        {/* Hasan's Loyalty Rewards Card */}
+            <View style={styles.guestButtonRow}>
+              <TouchableOpacity
+                style={styles.guestSignInBtn}
+                onPress={() => router.push('/auth/signin' as any)}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.guestSignInText}>Sign In</Text>
+                <Ionicons name="arrow-forward" size={14} color={Colors.textLight} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.guestSignUpBtn}
+                onPress={() => router.push('/auth/signup' as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.guestSignUpText}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Loyalty Rewards Card */}
         <View style={styles.loyaltyCard}>
           <View style={styles.loyaltyHeader}>
-            <View style={styles.loyaltyBadge}>
-              <Ionicons name="trophy" size={16} color="#FFD700" />
-              <Text style={styles.loyaltyBadgeText}>GOLD REWARDS</Text>
-            </View>
+            <Text style={styles.loyaltyBadgeText}>SPICE CLUB REWARDS</Text>
             <Text style={styles.pointsText}>
-              <Text style={styles.boldPoints}>480</Text> pts
+              <Text style={styles.boldPoints}>{isAuthenticated ? user?.loyaltyPoints : '0'}</Text> pts
             </Text>
           </View>
 
-          <Text style={styles.loyaltyTitle}>Hasan's Spice Club Points</Text>
+          <Text style={styles.loyaltyTitle}>Loyalty Points Balance</Text>
           <Text style={styles.loyaltySub}>
-            Earn 1 point for every ₱10 spent. You're 20 points away from a FREE Chicken Dum Kabab!
+            {isAuthenticated
+              ? `You have ${user?.loyaltyPoints} points. 20 more points to unlock a complimentary specialty naan.`
+              : 'Earn 1 point for every ₱10 spent and receive 100 bonus welcome points on signup.'}
           </Text>
 
-          {/* Progress Bar */}
+          {/* Clean Progress Bar */}
           <View style={styles.loyaltyProgressTrack}>
-            <View style={[styles.loyaltyProgressFill, { width: '96%' }]} />
+            <View
+              style={[
+                styles.loyaltyProgressFill,
+                { width: isAuthenticated ? '94%' : '10%' },
+              ]}
+            />
           </View>
 
           <View style={styles.loyaltyFooter}>
-            <Text style={styles.loyaltyLevel}>Progress: 480 / 500 Pts</Text>
-            <TouchableOpacity style={styles.redeemBtn}>
-              <Text style={styles.redeemBtnText}>Redeem Rewards</Text>
+            <Text style={styles.loyaltyLevel}>
+              {isAuthenticated ? `${user?.loyaltyPoints} / 500 Pts` : '0 / 500 Pts'}
+            </Text>
+            <TouchableOpacity
+              style={styles.redeemBtn}
+              onPress={() => {
+                if (!isAuthenticated) {
+                  router.push('/auth/signin' as any);
+                } else {
+                  Alert.alert('Rewards', 'Redeem 500 pts for free Garlic Naan or Kabab at checkout.');
+                }
+              }}
+            >
+              <Text style={styles.redeemBtnText}>
+                {isAuthenticated ? 'Redeem' : 'Join Club'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Dine-in Table Status */}
+        {/* Dine-in Table Status if assigned */}
         {currentTable && (
           <View style={styles.sectionCard}>
             <View style={styles.tableActiveRow}>
               <View style={styles.tableInfoCol}>
-                <Text style={styles.sectionCardTitle}>Currently Dining In</Text>
+                <Text style={styles.sectionCardTitle}>Current Table</Text>
                 <Text style={styles.tableNumberText}>Assigned to {currentTable}</Text>
               </View>
               <TouchableOpacity style={styles.leaveTableBtn} onPress={handleLeaveTable}>
@@ -108,104 +194,82 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Halal Certification & Restaurant Details */}
+        {/* App Navigation Rows */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionCardTitle}>Halal & Kitchen Standards</Text>
+          <Text style={styles.sectionCardTitle}>Features & Support</Text>
 
-          <View style={styles.halalFeatureRow}>
-            <View style={[styles.halalIconCircle, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="shield-checkmark" size={20} color={Colors.halalGreen} />
+          <TouchableOpacity style={styles.menuRow} onPress={handleReplaySplash} activeOpacity={0.7}>
+            <Ionicons name="sparkles-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuItemTitle}>Brand Splash</Text>
+              <Text style={styles.menuItemSub}>Replay the brand intro</Text>
             </View>
-            <View style={styles.halalFeatureText}>
-              <Text style={styles.halalTitle}>100% Zabihah Halal Certified</Text>
-              <Text style={styles.halalDesc}>
-                All meats and poultry are sourced exclusively from certified Halal Islamic suppliers.
-              </Text>
-            </View>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
 
-          <View style={styles.halalFeatureRow}>
-            <View style={[styles.halalIconCircle, { backgroundColor: '#FFF3E0' }]}>
-              <Ionicons name="restaurant" size={20} color={Colors.saffronDark} />
+          <TouchableOpacity style={styles.menuRow} onPress={handleReplayOnboarding} activeOpacity={0.7}>
+            <Ionicons name="images-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuItemTitle}>Onboarding Walkthrough</Text>
+              <Text style={styles.menuItemSub}>Browse app overview slides</Text>
             </View>
-            <View style={styles.halalFeatureText}>
-              <Text style={styles.halalTitle}>Authentic Heirloom Spices</Text>
-              <Text style={styles.halalDesc}>
-                Basmati grains and fresh whole garam masalas blended in-house daily.
-              </Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/chat' as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubbles-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuItemTitle}>Kitchen & Support Chat</Text>
+              <Text style={styles.menuItemSub}>Live assistance for dietary queries and orders</Text>
             </View>
-          </View>
-
-          <View style={styles.halalFeatureRow}>
-            <View style={[styles.halalIconCircle, { backgroundColor: '#E3F2FD' }]}>
-              <Ionicons name="location" size={20} color="#1565C0" />
-            </View>
-            <View style={styles.halalFeatureText}>
-              <Text style={styles.halalTitle}>Hasan's Flavors Kitchen & Dine-In</Text>
-              <Text style={styles.halalDesc}>
-                Official Website: halalfood.com.ph • Delivery Hotline: (02) 8891-2345
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Staff & Operational Switcher Section */}
-        <View style={[styles.sectionCard, styles.staffPortalCard]}>
-          <View style={styles.staffHeader}>
-            <View style={styles.staffIconBadge}>
-              <Ionicons name="business" size={20} color={Colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.staffPortalTitle}>Restaurant Operations Portal</Text>
-              <Text style={styles.staffPortalSub}>Switch to Kitchen (KDS), Cashier (POS), or Owner Dashboard</Text>
-            </View>
-          </View>
-
-          <View style={styles.staffButtonGrid}>
-            <TouchableOpacity
-              style={styles.staffBtn}
-              onPress={() => {
-                useRoleStore.getState().setRole('kds');
-                router.replace('/staff/kds' as any);
-              }}
-            >
-              <Ionicons name="flame" size={20} color="#E65100" />
-              <Text style={styles.staffBtnText}>Kitchen KDS</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.staffBtn}
-              onPress={() => {
-                useRoleStore.getState().setRole('pos');
-                router.replace('/staff/pos' as any);
-              }}
-            >
-              <Ionicons name="calculator" size={20} color="#1565C0" />
-              <Text style={styles.staffBtnText}>Cashier POS</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.staffBtn}
-              onPress={() => {
-                useRoleStore.getState().setRole('owner');
-                router.replace('/staff/owner' as any);
-              }}
-            >
-              <Ionicons name="stats-chart" size={20} color="#2E7D32" />
-              <Text style={styles.staffBtnText}>Owner Portal</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.switchModeFullBtn} onPress={handleOpenStaffModal}>
-            <Ionicons name="key-outline" size={16} color={Colors.primary} />
-            <Text style={styles.switchModeFullBtnText}>Enter Staff PIN / Switch Mode</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
 
+        {/* Halal Guarantee */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionCardTitle}>Halal & Heritage Guarantee</Text>
+
+          <View style={styles.halalFeatureRow}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.halalFeatureText}>
+              <Text style={styles.halalTitle}>100% Zabihah Halal Certified</Text>
+              <Text style={styles.halalDesc}>
+                All beef, mutton, and poultry are sourced exclusively from certified halal suppliers.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.halalFeatureRow}>
+            <Ionicons name="restaurant-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.halalFeatureText}>
+              <Text style={styles.halalTitle}>Authentic Heirloom Spices</Text>
+              <Text style={styles.halalDesc}>
+                Aged basmati grains and whole garam masalas hand-ground daily in-house.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Sign Out Button (if logged in) */}
+        {isAuthenticated && (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+            <Text style={styles.logoutButtonText}>Sign Out</Text>
+          </TouchableOpacity>
+        )}
+
         {/* App Version Info */}
         <View style={styles.footerInfo}>
-          <Text style={styles.versionText}>Hasan's Flavors Restaurant Ecosystem v1.0.0 (Expo SDK 57)</Text>
-          <Text style={styles.copyText}>© 2026 Hasan's Flavors • Powered by Stitch & Expo</Text>
+          <Text style={styles.versionText}>Hasan's Flavors • v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -221,7 +285,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 90,
     gap: Spacing.md,
   },
@@ -231,21 +295,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
     gap: 12,
+    ...Shadows.subtle,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: Radius.round,
   },
   avatarCircle: {
-    width: 52,
-    height: 52,
+    width: 50,
+    height: 50,
     borderRadius: Radius.round,
-    backgroundColor: '#FFEBEE',
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  avatarEmoji: {
-    fontSize: 24,
   },
   userInfo: {
     flex: 1,
@@ -256,34 +325,104 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   userName: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.halalGreenLight,
+    backgroundColor: Colors.surface,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: Radius.round,
-    gap: 2,
+    borderRadius: Radius.xs,
   },
   verifiedText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.halalGreenDark,
+    fontSize: 10,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   userEmail: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textMuted,
     marginTop: 2,
   },
+  userPhone: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  guestCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.md,
+    ...Shadows.subtle,
+  },
+  guestTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  guestAvatar: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guestTextCol: {
+    flex: 1,
+  },
+  guestTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  guestSubtitle: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  guestButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  guestSignInBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.text,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+  },
+  guestSignInText: {
+    color: Colors.textLight,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
+  },
+  guestSignUpBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  guestSignUpText: {
+    color: Colors.text,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '500',
+  },
   loyaltyCard: {
-    backgroundColor: '#1E1B18',
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    ...Shadows.card,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   loyaltyHeader: {
     flexDirection: 'row',
@@ -291,53 +430,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  loyaltyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.round,
-    gap: 4,
-  },
   loyaltyBadgeText: {
-    color: '#FFD700',
+    color: Colors.textMuted,
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    letterSpacing: 0.8,
   },
   pointsText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
   },
   boldPoints: {
-    color: '#FFD700',
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
+    color: Colors.text,
+    fontSize: Typography.fontSize.md,
+    fontWeight: '700',
   },
   loyaltyTitle: {
-    color: Colors.textLight,
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
-    marginBottom: 4,
+    color: Colors.text,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   loyaltySub: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 11,
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSize.xs,
     lineHeight: 16,
     marginBottom: Spacing.md,
   },
   loyaltyProgressTrack: {
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 4,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
     overflow: 'hidden',
     marginBottom: Spacing.sm,
   },
   loyaltyProgressFill: {
     height: '100%',
-    backgroundColor: '#FFD700',
-    borderRadius: 4,
+    backgroundColor: Colors.text,
+    borderRadius: 2,
   },
   loyaltyFooter: {
     flexDirection: 'row',
@@ -345,33 +475,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loyaltyLevel: {
-    color: 'rgba(255,255,255,0.6)',
+    color: Colors.textMuted,
     fontSize: 10,
   },
   redeemBtn: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   redeemBtnText: {
-    color: '#1A1A1A',
-    fontWeight: '800',
+    color: Colors.text,
+    fontWeight: '600',
     fontSize: 11,
   },
   sectionCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   sectionCardTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  menuIcon: {
+    width: 24,
+  },
+  menuTextCol: {
+    flex: 1,
+  },
+  menuItemTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  menuItemSub: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 1,
   },
   tableActiveRow: {
     flexDirection: 'row',
@@ -382,126 +538,66 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tableNumberText: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: '800',
-    color: Colors.halalGreenDark,
-    marginTop: -4,
+    fontSize: Typography.fontSize.md,
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: 2,
   },
   leaveTableBtn: {
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 12,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   leaveTableText: {
     color: Colors.error,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 11,
   },
   halalFeatureRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: Spacing.md,
-  },
-  halalIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.round,
-    justifyContent: 'center',
-    alignItems: 'center',
+    gap: 10,
+    marginBottom: Spacing.sm,
   },
   halalFeatureText: {
     flex: 1,
   },
   halalTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
     color: Colors.text,
   },
   halalDesc: {
     fontSize: 11,
     color: Colors.textSecondary,
     marginTop: 2,
-    lineHeight: 16,
+    lineHeight: 15,
   },
-  staffPortalCard: {
-    backgroundColor: '#FFF8F8',
-    borderColor: '#FFDEDE',
-  },
-  staffHeader: {
+  logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: Spacing.md,
-  },
-  staffIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  staffPortalTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  staffPortalSub: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginTop: 1,
-  },
-  staffButtonGrid: {
-    flexDirection: 'row',
     gap: 8,
-    marginBottom: Spacing.md,
-  },
-  staffBtn: {
-    flex: 1,
     backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    gap: 6,
     borderWidth: 1,
     borderColor: Colors.border,
-    ...Shadows.subtle,
-  },
-  staffBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  switchModeFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF0F0',
-    borderWidth: 1,
-    borderColor: '#FFCACA',
+    paddingVertical: 12,
     borderRadius: Radius.md,
-    paddingVertical: 10,
-    gap: 6,
   },
-  switchModeFullBtnText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.primary,
+  logoutButtonText: {
+    color: Colors.error,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
   },
   footerInfo: {
     alignItems: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   versionText: {
     fontSize: 11,
     color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  copyText: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    marginTop: 2,
   },
 });

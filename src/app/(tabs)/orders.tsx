@@ -35,15 +35,15 @@ export default function OrdersScreen() {
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return { label: 'Order Received', bg: '#FFF8E1', color: '#F57F17', icon: 'time-outline' };
+        return { label: 'Received', color: Colors.textSecondary, icon: 'time-outline' };
       case 'preparing':
-        return { label: 'Cooking in Kitchen', bg: '#FFF3E0', color: '#E65100', icon: 'flame-outline' };
+        return { label: 'In Kitchen', color: Colors.primary, icon: 'flame-outline' };
       case 'ready':
-        return { label: 'Ready for Service', bg: '#E8F5E9', color: '#2E7D32', icon: 'checkmark-circle-outline' };
+        return { label: 'Ready', color: Colors.halalGreen, icon: 'checkmark-circle-outline' };
       case 'completed':
-        return { label: 'Delivered / Completed', bg: '#F5F5F5', color: '#616161', icon: 'checkmark-done-outline' };
+        return { label: 'Delivered', color: Colors.textMuted, icon: 'checkmark-outline' };
       case 'cancelled':
-        return { label: 'Cancelled', bg: '#FFEBEE', color: '#C62828', icon: 'close-circle-outline' };
+        return { label: 'Cancelled', color: Colors.error, icon: 'close-outline' };
     }
   };
 
@@ -69,7 +69,7 @@ export default function OrdersScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Header title="Your Orders" />
 
-      {/* Filter Tabs (Active vs History) */}
+      {/* Segmented Filter Tabs */}
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tabBtn, filterTab === 'active' && styles.activeTabBtn]}
@@ -81,7 +81,7 @@ export default function OrdersScreen() {
           }}
         >
           <Text style={[styles.tabText, filterTab === 'active' && styles.activeTabText]}>
-            Active Orders ({activeOrders.length})
+            Active ({activeOrders.length})
           </Text>
         </TouchableOpacity>
 
@@ -95,7 +95,7 @@ export default function OrdersScreen() {
           }}
         >
           <Text style={[styles.tabText, filterTab === 'history' && styles.activeTabText]}>
-            Past Orders ({pastOrders.length})
+            Past ({pastOrders.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -107,16 +107,14 @@ export default function OrdersScreen() {
       >
         {displayedOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-            </View>
+            <Ionicons name="receipt-outline" size={40} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>
-              {filterTab === 'active' ? 'No active orders' : 'No order history yet'}
+              {filterTab === 'active' ? 'No active orders' : 'No order history'}
             </Text>
             <Text style={styles.emptySub}>
               {filterTab === 'active'
-                ? "You don't have any ongoing orders right now. Order some hot Biryani!"
-                : "When you place an order, it will appear here for easy reordering."}
+                ? 'Your ongoing orders will appear here in real-time.'
+                : 'When you place an order, it will appear here for easy reordering.'}
             </Text>
             <TouchableOpacity
               style={styles.orderNowBtn}
@@ -133,7 +131,7 @@ export default function OrdersScreen() {
 
             return (
               <View key={order.id} style={styles.orderCard}>
-                {/* Order Card Header */}
+                {/* Header */}
                 <View style={styles.cardHeader}>
                   <View>
                     <View style={styles.orderNumberRow}>
@@ -141,10 +139,10 @@ export default function OrdersScreen() {
                       <View style={styles.typeBadge}>
                         <Text style={styles.typeBadgeText}>
                           {order.type === 'dine_in'
-                            ? `🍽️ ${order.tableNumber || 'Dine-In'}`
+                            ? order.tableNumber || 'Dine-In'
                             : order.type === 'delivery'
-                            ? '🛵 Delivery'
-                            : '🛍️ Takeout'}
+                            ? 'Delivery'
+                            : 'Takeout'}
                         </Text>
                       </View>
                     </View>
@@ -154,8 +152,8 @@ export default function OrdersScreen() {
                     </Text>
                   </View>
 
-                  <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-                    <Ionicons name={badge.icon as any} size={12} color={badge.color} />
+                  <View style={styles.statusBadge}>
+                    <Ionicons name={badge.icon as any} size={13} color={badge.color} />
                     <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.label}</Text>
                   </View>
                 </View>
@@ -176,7 +174,7 @@ export default function OrdersScreen() {
                     {remainingCount > 0 && (
                       <Text style={styles.remainingItemsText}>+ {remainingCount} other item{remainingCount > 1 ? 's' : ''}</Text>
                     )}
-                    <Text style={styles.orderTotal}>Total: ₱{order.total.toLocaleString()}</Text>
+                    <Text style={styles.orderTotal}>₱{order.total.toLocaleString()}</Text>
                   </View>
                 </View>
 
@@ -187,16 +185,16 @@ export default function OrdersScreen() {
                       style={styles.trackBtn}
                       onPress={() => handleTrackOrder(order.id)}
                     >
-                      <Ionicons name="location" size={16} color={Colors.textLight} />
-                      <Text style={styles.trackBtnText}>Live Order Tracker</Text>
+                      <Ionicons name="location-outline" size={15} color={Colors.textLight} />
+                      <Text style={styles.trackBtnText}>Track Order</Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       style={styles.reorderBtn}
                       onPress={() => handleReorder(order)}
                     >
-                      <Ionicons name="reload" size={16} color={Colors.primary} />
-                      <Text style={styles.reorderBtnText}>Reorder Same Items</Text>
+                      <Ionicons name="refresh-outline" size={15} color={Colors.text} />
+                      <Text style={styles.reorderBtnText}>Reorder</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -217,9 +215,9 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: Colors.card,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.border,
   },
   tabBtn: {
     flex: 1,
@@ -229,22 +227,22 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTabBtn: {
-    borderBottomColor: Colors.primary,
+    borderBottomColor: Colors.text,
   },
   tabText: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.textMuted,
   },
   activeTabText: {
-    color: Colors.primary,
-    fontWeight: '800',
+    color: Colors.text,
+    fontWeight: '600',
   },
   container: {
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 90,
     gap: Spacing.md,
   },
@@ -254,19 +252,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 40,
   },
-  emptyIconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.round,
-    backgroundColor: '#F0EFEA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
   emptyTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.md,
+    fontWeight: '600',
     color: Colors.text,
+    marginTop: Spacing.md,
     marginBottom: 4,
   },
   emptySub: {
@@ -277,23 +267,23 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   orderNowBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     paddingHorizontal: Spacing.xl,
     paddingVertical: 10,
     borderRadius: Radius.md,
   },
   orderNowBtnText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
   orderCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -309,19 +299,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   orderNumber: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   typeBadge: {
-    backgroundColor: '#F0EFEA',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.xs,
   },
   typeBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.textSecondary,
   },
   orderDate: {
@@ -332,14 +322,15 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.round,
+    borderRadius: Radius.xs,
     gap: 4,
   },
   statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
   itemSummaryRow: {
     flexDirection: 'row',
@@ -348,28 +339,28 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemThumb: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: Radius.md,
-    backgroundColor: '#F0EFEA',
+    backgroundColor: Colors.surface,
   },
   itemSummaryTextCol: {
     flex: 1,
   },
   firstItemName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   remainingItemsText: {
     fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   orderTotal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontWeight: '600',
+    color: Colors.text,
     marginTop: 4,
   },
   cardFooter: {
@@ -378,33 +369,33 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   trackBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: Radius.md,
     gap: 6,
   },
   trackBtnText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
   reorderBtn: {
-    backgroundColor: '#FFF2F2',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: '#FFD6D6',
+    borderColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: Radius.md,
     gap: 6,
   },
   reorderBtnText: {
-    color: Colors.primary,
-    fontWeight: '700',
+    color: Colors.text,
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
 });

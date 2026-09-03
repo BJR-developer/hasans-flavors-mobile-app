@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
-import { SpiceMeter } from '@/components/SpiceMeter';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useFavoritesStore } from '@/store/useFavoritesStore';
@@ -78,14 +77,14 @@ export default function DishDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Image Container */}
+        {/* Hero Image */}
         <View style={styles.heroImageWrapper}>
           <Image source={{ uri: dish.imageUrl }} style={styles.heroImage} resizeMode="cover" />
 
-          {/* Top Bar Floating Buttons */}
+          {/* Floating Top Navigation */}
           <SafeAreaView style={styles.floatingTopBar} edges={['top']}>
-            <TouchableOpacity style={styles.iconCircle} onPress={() => router.back()}>
-              <Ionicons name="chevron-back" size={22} color={Colors.text} />
+            <TouchableOpacity style={styles.iconCircle} onPress={() => router.back()} hitSlop={8}>
+              <Ionicons name="arrow-back" size={20} color={Colors.text} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -96,39 +95,35 @@ export default function DishDetailScreen() {
                 } catch {}
                 toggleFavorite(dish.id);
               }}
+              hitSlop={8}
             >
               <Ionicons
                 name={isFav ? 'heart' : 'heart-outline'}
-                size={22}
+                size={20}
                 color={isFav ? Colors.primary : Colors.text}
               />
             </TouchableOpacity>
           </SafeAreaView>
 
-          {/* Dietary & Halal Badges */}
-          <View style={styles.badgeRow}>
-            {dish.isHalal && (
-              <View style={styles.halalBadge}>
-                <Text style={styles.halalBadgeText}>حلال 100% HALAL</Text>
-              </View>
-            )}
-            {dish.isChefSpecial && (
-              <View style={styles.specialBadge}>
-                <Text style={styles.specialBadgeText}>⭐ CHEF'S SIGNATURE</Text>
-              </View>
-            )}
-          </View>
+          {/* Subtle Tag */}
+          {dish.isChefSpecial && (
+            <View style={styles.specialBadge}>
+              <Text style={styles.specialBadgeText}>CHEF'S SELECTION</Text>
+            </View>
+          )}
         </View>
 
-        {/* Dish Info Card */}
+        {/* Dish Info Header */}
         <View style={styles.infoCard}>
           <View style={styles.categoryRatingRow}>
             <Text style={styles.categoryText}>{dish.category}</Text>
-            <View style={styles.ratingBox}>
-              <Ionicons name="star" size={14} color="#FFA000" />
-              <Text style={styles.ratingText}>{dish.rating}</Text>
-              <Text style={styles.reviewCount}>({dish.reviewCount} reviews)</Text>
-            </View>
+            {dish.rating && (
+              <View style={styles.ratingBox}>
+                <Ionicons name="star" size={13} color={Colors.textSecondary} />
+                <Text style={styles.ratingText}>{dish.rating}</Text>
+                <Text style={styles.reviewCount}>({dish.reviewCount})</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.dishName}>{dish.name}</Text>
@@ -138,26 +133,26 @@ export default function DishDetailScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Ionicons name="time-outline" size={16} color={Colors.saffronDark} />
+              <Ionicons name="time-outline" size={15} color={Colors.textSecondary} />
               <Text style={styles.statLabel}>{dish.preparationTime}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="flame-outline" size={16} color={Colors.primary} />
+              <Ionicons name="flame-outline" size={15} color={Colors.textSecondary} />
               <Text style={styles.statLabel}>{dish.calories}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.halalGreen} />
-              <Text style={styles.statLabel}>Fresh Everyday</Text>
+              <Ionicons name="shield-checkmark-outline" size={15} color={Colors.textSecondary} />
+              <Text style={styles.statLabel}>Halal Certified</Text>
             </View>
           </View>
         </View>
 
         {/* Portion Size Selection */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>1. Select Portion Size</Text>
-          <Text style={styles.sectionSub}>Choose portion size for this dish</Text>
+          <Text style={styles.sectionTitle}>Portion Size</Text>
+          <Text style={styles.sectionSub}>Select desired serving size</Text>
 
           <View style={styles.optionsList}>
             {PORTION_OPTIONS.map((p) => {
@@ -196,8 +191,8 @@ export default function DishDetailScreen() {
 
         {/* Spice Level Selection */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>2. Choose Spice Level</Text>
-          <Text style={styles.sectionSub}>Adjust chili heat according to your preference</Text>
+          <Text style={styles.sectionTitle}>Spice Level</Text>
+          <Text style={styles.sectionSub}>Adjust heat to your taste</Text>
 
           <View style={styles.spiceGrid}>
             {SPICE_LEVELS.map((s) => {
@@ -213,10 +208,16 @@ export default function DishDetailScreen() {
                     setSelectedSpiceLevel(s.level);
                   }}
                 >
-                  <Text style={styles.spiceEmoji}>{s.icon}</Text>
-                  <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
-                    {s.label}
-                  </Text>
+                  <View style={styles.spiceCardHeader}>
+                    <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
+                      {s.label}
+                    </Text>
+                    <Ionicons
+                      name="flame"
+                      size={14}
+                      color={selected ? Colors.primary : Colors.border}
+                    />
+                  </View>
                   <Text style={styles.spiceDesc} numberOfLines={2}>
                     {s.description}
                   </Text>
@@ -228,8 +229,8 @@ export default function DishDetailScreen() {
 
         {/* Extra Addons Checklist */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>3. Pair with Sides & Add-ons</Text>
-          <Text style={styles.sectionSub}>Optional sides to elevate your meal</Text>
+          <Text style={styles.sectionTitle}>Sides & Add-ons</Text>
+          <Text style={styles.sectionSub}>Optional sides to complete your meal</Text>
 
           <View style={styles.optionsList}>
             {ADDON_OPTIONS.map((addon) => {
@@ -242,7 +243,7 @@ export default function DishDetailScreen() {
                 >
                   <View style={styles.optionLeft}>
                     <View style={[styles.checkboxSquare, selected && styles.checkboxSquareActive]}>
-                      {selected && <Ionicons name="checkmark" size={14} color={Colors.textLight} />}
+                      {selected && <Ionicons name="checkmark" size={12} color={Colors.textLight} />}
                     </View>
                     <Text style={[styles.optionTitle, selected && styles.selectedOptionTitle]}>
                       {addon.name}
@@ -258,12 +259,12 @@ export default function DishDetailScreen() {
           </View>
         </View>
 
-        {/* Kitchen Special Request */}
+        {/* Kitchen Cooking Notes */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>4. Kitchen Cooking Notes</Text>
+          <Text style={styles.sectionTitle}>Special Instructions</Text>
           <TextInput
             style={styles.notesInput}
-            placeholder="E.g. No raw onions, less oil, gravy on side..."
+            placeholder="E.g. less oil, gravy on side..."
             placeholderTextColor={Colors.textMuted}
             value={specialNotes}
             onChangeText={setSpecialNotes}
@@ -288,8 +289,9 @@ export default function DishDetailScreen() {
                   setQuantity(quantity - 1);
                 }
               }}
+              hitSlop={6}
             >
-              <Ionicons name="remove" size={18} color={quantity === 1 ? Colors.textMuted : Colors.text} />
+              <Ionicons name="remove" size={16} color={quantity === 1 ? Colors.textMuted : Colors.text} />
             </TouchableOpacity>
 
             <Text style={styles.qtyNumber}>{quantity}</Text>
@@ -302,8 +304,9 @@ export default function DishDetailScreen() {
                 } catch {}
                 setQuantity(quantity + 1);
               }}
+              hitSlop={6}
             >
-              <Ionicons name="add" size={18} color={Colors.text} />
+              <Ionicons name="add" size={16} color={Colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -312,7 +315,7 @@ export default function DishDetailScreen() {
             <View>
               <Text style={styles.addToCartText}>Add to Cart</Text>
               <Text style={styles.addToCartSub}>
-                {selectedPortion.name} • {selectedAddons.length} addons
+                {selectedPortion.name}
               </Text>
             </View>
             <Text style={styles.totalPriceText}>₱{totalPrice.toLocaleString()}</Text>
@@ -336,9 +339,9 @@ const styles = StyleSheet.create({
   },
   heroImageWrapper: {
     position: 'relative',
-    height: 300,
+    height: 280,
     width: '100%',
-    backgroundColor: '#EAE8E3',
+    backgroundColor: Colors.surface,
   },
   heroImage: {
     width: '100%',
@@ -351,52 +354,39 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: Radius.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: Colors.glassBg,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.subtle,
-  },
-  badgeRow: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    left: Spacing.md,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  halalBadge: {
-    backgroundColor: Colors.halalGreen,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-  },
-  halalBadgeText: {
-    color: Colors.textLight,
-    fontWeight: '800',
-    fontSize: 11,
-    letterSpacing: 0.5,
   },
   specialBadge: {
-    backgroundColor: Colors.saffron,
-    paddingHorizontal: 10,
+    position: 'absolute',
+    bottom: Spacing.md,
+    left: Spacing.lg,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.xs,
   },
   specialBadgeText: {
     color: Colors.textLight,
-    fontWeight: '800',
-    fontSize: 11,
+    fontWeight: '600',
+    fontSize: 10,
+    letterSpacing: 0.6,
   },
   infoCard: {
     backgroundColor: Colors.card,
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: Colors.border,
   },
   categoryRatingRow: {
     flexDirection: 'row',
@@ -406,10 +396,10 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.saffronDark,
-    fontWeight: '700',
+    color: Colors.textMuted,
+    fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   ratingBox: {
     flexDirection: 'row',
@@ -418,7 +408,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   reviewCount: {
@@ -426,15 +416,16 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   dishName: {
-    fontSize: Typography.fontSize.xxl,
-    fontWeight: '900',
+    fontSize: Typography.fontSize.xl,
+    fontWeight: '700',
     color: Colors.text,
+    letterSpacing: -0.3,
     marginVertical: 4,
   },
   dishPrice: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
+    color: Colors.text,
     marginBottom: Spacing.sm,
   },
   description: {
@@ -446,10 +437,12 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9F8F6',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     padding: Spacing.md,
     justifyContent: 'space-around',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statItem: {
     flexDirection: 'row',
@@ -458,12 +451,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   statDivider: {
     width: 1,
-    height: 16,
+    height: 14,
     backgroundColor: Colors.border,
   },
   sectionCard: {
@@ -472,16 +465,16 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   sectionSub: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
     marginBottom: Spacing.md,
     marginTop: 2,
   },
@@ -496,11 +489,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.surface,
   },
   selectedOptionRow: {
-    borderColor: Colors.primary,
-    backgroundColor: '#FFF8F8',
+    borderColor: Colors.text,
+    backgroundColor: Colors.card,
   },
   optionLeft: {
     flexDirection: 'row',
@@ -508,57 +501,57 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: Colors.primary,
+    borderColor: Colors.text,
   },
   radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.primary,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.text,
   },
   checkboxSquare: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSquareActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
   },
   optionTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
   },
   selectedOptionTitle: {
-    color: Colors.primaryDark,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   optionServes: {
     fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: 1,
   },
   optionDelta: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.textSecondary,
   },
   selectedOptionDelta: {
-    color: Colors.primary,
+    fontWeight: '600',
+    color: Colors.text,
   },
   spiceGrid: {
     flexDirection: 'row',
@@ -567,27 +560,29 @@ const styles = StyleSheet.create({
   },
   spiceCard: {
     width: (width - 48) / 2,
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   spiceCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: '#FFF8F8',
+    borderColor: Colors.text,
+    backgroundColor: Colors.card,
   },
-  spiceEmoji: {
-    fontSize: 18,
+  spiceCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
   spiceLevelName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   spiceLevelNameSelected: {
-    color: Colors.primary,
+    color: Colors.text,
   },
   spiceDesc: {
     fontSize: 10,
@@ -595,7 +590,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   notesInput: {
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -603,7 +598,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.text,
     textAlignVertical: 'top',
-    height: 80,
+    height: 70,
   },
   footerSafeArea: {
     position: 'absolute',
@@ -618,14 +613,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
     gap: 12,
     ...Shadows.elevated,
   },
   quantityStepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F4F0',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -635,36 +630,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   qtyNumber: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
-    minWidth: 24,
+    minWidth: 20,
     textAlign: 'center',
   },
   addToCartBtn: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 10,
+    paddingVertical: 11,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    ...Shadows.card,
   },
   addToCartText: {
     color: Colors.textLight,
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
   addToCartSub: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 10,
   },
   totalPriceText: {
     color: Colors.textLight,
-    fontWeight: '900',
-    fontSize: Typography.fontSize.md,
+    fontWeight: '700',
+    fontSize: Typography.fontSize.sm,
   },
   errorContainer: {
     flex: 1,
@@ -673,19 +667,19 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   errorText: {
-    fontSize: Typography.fontSize.lg,
+    fontSize: Typography.fontSize.md,
     color: Colors.error,
-    fontWeight: '800',
+    fontWeight: '600',
     marginBottom: Spacing.md,
   },
   backButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radius.md,
   },
   backButtonText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Typography } from '@/constants/theme';
 
 interface SpiceMeterProps {
   level: number; // 1 to 4
@@ -9,17 +10,29 @@ interface SpiceMeterProps {
 }
 
 export const SpiceMeter: React.FC<SpiceMeterProps> = ({ level, showLabel = false, size = 'md' }) => {
-  const labels = ['', 'Mild', 'Medium', 'Spicy', 'Extra Fiery'];
-  const flames = ['', '🌶️', '🌶️🌶️', '🌶️🌶️🌶️', '🔥🌶️'];
+  const labels = ['', 'Mild', 'Medium', 'Spicy', 'Fiery'];
+  const activeLevel = Math.min(4, Math.max(1, level));
 
-  const fontSize = size === 'sm' ? 10 : size === 'lg' ? 14 : 12;
+  const iconSize = size === 'sm' ? 12 : size === 'lg' ? 16 : 14;
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.flames, { fontSize }]}>{flames[Math.min(4, Math.max(1, level))]}</Text>
+      <View style={styles.peppersRow}>
+        {[1, 2, 3, 4].map((step) => {
+          const isFilled = step <= activeLevel;
+          return (
+            <Ionicons
+              key={step}
+              name={isFilled ? 'flame' : 'flame-outline'}
+              size={iconSize}
+              color={isFilled ? Colors.primary : Colors.border}
+            />
+          );
+        })}
+      </View>
       {showLabel && (
-        <Text style={[styles.label, { fontSize: fontSize - 1 }]}>
-          {labels[Math.min(4, Math.max(1, level))]}
+        <Text style={[styles.label, size === 'sm' && styles.labelSm, size === 'lg' && styles.labelLg]}>
+          {labels[activeLevel]}
         </Text>
       )}
     </View>
@@ -30,13 +43,22 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  flames: {
-    letterSpacing: -1,
+  peppersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   label: {
-    color: Colors.saffronDark,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  labelSm: {
+    fontSize: 10,
+  },
+  labelLg: {
+    fontSize: Typography.fontSize.sm,
   },
 });

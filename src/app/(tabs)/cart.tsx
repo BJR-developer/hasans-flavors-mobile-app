@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,7 +60,7 @@ export default function CartScreen() {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch {}
-      setPromoError('Invalid coupon code. Try HASAN10, HALALFIRST, or BIRYANI20');
+      setPromoError('Invalid coupon code. Try HASAN10 or BIRYANI20');
     }
   };
 
@@ -78,12 +77,10 @@ export default function CartScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <Header title="Your Cart" />
         <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconCircle}>
-            <Ionicons name="cart-outline" size={48} color={Colors.primary} />
-          </View>
+          <Ionicons name="bag-outline" size={48} color={Colors.textMuted} />
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySub}>
-            Explore our delicious authentic Halal Biryanis, Curries, and BBQ specialties to add them to your cart.
+            Explore our authentic Halal dishes and add items to begin your order.
           </Text>
           <TouchableOpacity
             style={styles.browseButton}
@@ -106,9 +103,9 @@ export default function CartScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Order Dining Mode Selector */}
+        {/* Dining Mode Segmented Selector */}
         <View style={styles.diningTypeCard}>
-          <Text style={styles.cardHeaderTitle}>Order Dining Type</Text>
+          <Text style={styles.sectionTitle}>Dining Method</Text>
           <View style={styles.typeSelectorRow}>
             <TouchableOpacity
               style={[styles.typeButton, deliveryType === 'dine_in' && styles.activeTypeButton]}
@@ -117,7 +114,11 @@ export default function CartScreen() {
                 if (!currentTable) router.push('/qr-scan' as any);
               }}
             >
-              <Text style={styles.typeEmoji}>🍽️</Text>
+              <Ionicons
+                name="restaurant-outline"
+                size={16}
+                color={deliveryType === 'dine_in' ? Colors.textLight : Colors.textSecondary}
+              />
               <Text style={[styles.typeLabel, deliveryType === 'dine_in' && styles.activeTypeLabel]}>
                 Dine-In {currentTable ? `(${currentTable})` : ''}
               </Text>
@@ -127,7 +128,11 @@ export default function CartScreen() {
               style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
               onPress={() => setDeliveryType('delivery')}
             >
-              <Text style={styles.typeEmoji}>🛵</Text>
+              <Ionicons
+                name="bicycle-outline"
+                size={16}
+                color={deliveryType === 'delivery' ? Colors.textLight : Colors.textSecondary}
+              />
               <Text style={[styles.typeLabel, deliveryType === 'delivery' && styles.activeTypeLabel]}>
                 Delivery
               </Text>
@@ -137,7 +142,11 @@ export default function CartScreen() {
               style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
               onPress={() => setDeliveryType('takeout')}
             >
-              <Text style={styles.typeEmoji}>🛍️</Text>
+              <Ionicons
+                name="bag-handle-outline"
+                size={16}
+                color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
+              />
               <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
                 Takeout
               </Text>
@@ -146,11 +155,11 @@ export default function CartScreen() {
 
           {deliveryType === 'dine_in' && (
             <View style={styles.dineInNotice}>
-              <Ionicons name="restaurant-outline" size={16} color={Colors.primary} />
+              <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
               <Text style={styles.dineInNoticeText}>
                 {currentTable
-                  ? `Seated at ${currentTable}. Fast kitchen delivery to your seat.`
-                  : 'Please scan or select your table number for direct table delivery.'}
+                  ? `Assigned to ${currentTable}. Service will be delivered to your table.`
+                  : 'Please select your table number for direct table delivery.'}
               </Text>
               {!currentTable && (
                 <TouchableOpacity onPress={() => router.push('/qr-scan' as any)}>
@@ -164,7 +173,7 @@ export default function CartScreen() {
             <View style={styles.freeDeliveryProgressBar}>
               <View style={styles.deliveryProgressHeader}>
                 <Text style={styles.deliveryProgressTitle}>
-                  {subtotal >= 1000 ? '🎉 You unlocked FREE delivery!' : `Add ₱${1000 - subtotal} more for FREE delivery`}
+                  {subtotal >= 1000 ? 'Free delivery unlocked' : `Add ₱${1000 - subtotal} more for free delivery`}
                 </Text>
                 <Text style={styles.deliveryProgressPct}>
                   {Math.min(100, Math.round((subtotal / 1000) * 100))}%
@@ -185,9 +194,9 @@ export default function CartScreen() {
         {/* Cart Item Rows */}
         <View style={styles.itemsCard}>
           <View style={styles.itemsCardHeader}>
-            <Text style={styles.cardHeaderTitle}>Order Items ({items.length})</Text>
-            <TouchableOpacity onPress={clearCart}>
-              <Text style={styles.clearCartText}>Clear All</Text>
+            <Text style={styles.sectionTitle}>Order Items ({items.length})</Text>
+            <TouchableOpacity onPress={clearCart} hitSlop={6}>
+              <Text style={styles.clearCartText}>Clear all</Text>
             </TouchableOpacity>
           </View>
 
@@ -229,7 +238,7 @@ export default function CartScreen() {
                     >
                       <Ionicons
                         name={item.quantity === 1 ? 'trash-outline' : 'remove'}
-                        size={16}
+                        size={15}
                         color={item.quantity === 1 ? Colors.error : Colors.text}
                       />
                     </TouchableOpacity>
@@ -241,7 +250,7 @@ export default function CartScreen() {
                       onPress={() => updateQuantity(item.cartItemId, 1)}
                       hitSlop={8}
                     >
-                      <Ionicons name="add" size={16} color={Colors.text} />
+                      <Ionicons name="add" size={15} color={Colors.text} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -252,18 +261,18 @@ export default function CartScreen() {
 
         {/* Promo Code Box */}
         <View style={styles.promoCard}>
-          <Text style={styles.cardHeaderTitle}>Promotions & Coupons</Text>
+          <Text style={styles.sectionTitle}>Promotions</Text>
           {promoCode ? (
             <View style={styles.activePromoRow}>
               <View style={styles.activePromoLeft}>
-                <Ionicons name="pricetag" size={18} color={Colors.halalGreen} />
+                <Ionicons name="pricetag-outline" size={16} color={Colors.text} />
                 <View>
                   <Text style={styles.appliedCode}>{promoCode}</Text>
                   <Text style={styles.appliedSavings}>Saved ₱{discountAmount.toLocaleString()}</Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={removePromoCode}>
-                <Ionicons name="close-circle" size={20} color={Colors.error} />
+              <TouchableOpacity onPress={removePromoCode} hitSlop={6}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -288,7 +297,6 @@ export default function CartScreen() {
             </View>
           )}
 
-          {/* Quick Coupons suggestion */}
           {!promoCode && (
             <View style={styles.quickCouponsRow}>
               <TouchableOpacity
@@ -298,17 +306,7 @@ export default function CartScreen() {
                   applyPromoCode('HASAN10');
                 }}
               >
-                <Text style={styles.quickCouponText}>🏷️ HASAN10 (10% OFF)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickCouponPill}
-                onPress={() => {
-                  setPromoInput('HALALFIRST');
-                  applyPromoCode('HALALFIRST');
-                }}
-              >
-                <Text style={styles.quickCouponText}>🎁 HALALFIRST (₱50 OFF)</Text>
+                <Text style={styles.quickCouponText}>HASAN10 (10% OFF)</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -316,7 +314,7 @@ export default function CartScreen() {
 
         {/* Bill Summary Card */}
         <View style={styles.summaryCard}>
-          <Text style={styles.cardHeaderTitle}>Payment Breakdown</Text>
+          <Text style={styles.sectionTitle}>Summary</Text>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
@@ -332,14 +330,14 @@ export default function CartScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee</Text>
               <Text style={styles.summaryVal}>
-                {deliveryFee === 0 ? <Text style={styles.freeText}>FREE</Text> : `₱${deliveryFee}`}
+                {deliveryFee === 0 ? 'FREE' : `₱${deliveryFee}`}
               </Text>
             </View>
           )}
 
           {deliveryType === 'dine_in' && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Dine-In Service (5%)</Text>
+              <Text style={styles.summaryLabel}>Service Charge (5%)</Text>
               <Text style={styles.summaryVal}>₱{serviceFee.toLocaleString()}</Text>
             </View>
           )}
@@ -354,7 +352,7 @@ export default function CartScreen() {
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Grand Total</Text>
+            <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.grandTotalVal}>₱{total.toLocaleString()}</Text>
           </View>
         </View>
@@ -372,8 +370,8 @@ export default function CartScreen() {
           style={styles.checkoutBtn}
           onPress={handleProceedToCheckout}
         >
-          <Text style={styles.checkoutBtnText}>Proceed to Checkout</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.textLight} />
+          <Text style={styles.checkoutBtnText}>Checkout</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -389,7 +387,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 110,
     gap: Spacing.md,
   },
@@ -399,54 +397,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.xxl,
   },
-  emptyIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: Radius.round,
-    backgroundColor: '#FFEBEE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
   emptyTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.md,
+    fontWeight: '600',
     color: Colors.text,
-    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
+    marginBottom: 4,
   },
   emptySub: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: Colors.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: Spacing.xl,
+    lineHeight: 18,
+    marginBottom: Spacing.lg,
   },
   browseButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
     gap: 8,
-    ...Shadows.card,
   },
   browseButtonText: {
     color: Colors.textLight,
-    fontWeight: '700',
-    fontSize: Typography.fontSize.md,
+    fontWeight: '600',
+    fontSize: Typography.fontSize.sm,
   },
   diningTypeCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
-  cardHeaderTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+  sectionTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -459,51 +448,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9F8F6',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
-    paddingVertical: 10,
+    paddingVertical: 9,
     gap: 6,
   },
   activeTypeButton: {
-    backgroundColor: '#FFEBEE',
-    borderColor: Colors.primary,
-  },
-  typeEmoji: {
-    fontSize: 14,
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
   },
   typeLabel: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.textSecondary,
   },
   activeTypeLabel: {
-    color: Colors.primary,
+    color: Colors.textLight,
+    fontWeight: '600',
   },
   dineInNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8F0',
+    backgroundColor: Colors.surface,
     padding: Spacing.sm,
     borderRadius: Radius.sm,
     marginTop: Spacing.sm,
-    gap: 8,
+    gap: 6,
   },
   dineInNoticeText: {
     flex: 1,
     fontSize: 11,
-    color: Colors.saffronDark,
+    color: Colors.textSecondary,
   },
   pickTableLink: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     color: Colors.primary,
     textDecorationLine: 'underline',
   },
   freeDeliveryProgressBar: {
     marginTop: Spacing.sm,
-    backgroundColor: '#F0F9F0',
+    backgroundColor: Colors.surface,
     padding: Spacing.sm,
     borderRadius: Radius.sm,
   },
@@ -514,43 +501,43 @@ const styles = StyleSheet.create({
   },
   deliveryProgressTitle: {
     fontSize: 11,
-    fontWeight: '700',
-    color: Colors.halalGreenDark,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   deliveryProgressPct: {
     fontSize: 11,
-    fontWeight: '800',
-    color: Colors.halalGreenDark,
+    fontWeight: '600',
+    color: Colors.text,
   },
   progressBarTrack: {
-    height: 6,
-    backgroundColor: '#D1E7DD',
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.halalGreen,
-    borderRadius: 3,
+    backgroundColor: Colors.text,
+    borderRadius: 2,
   },
   itemsCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   itemsCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   clearCartText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.error,
-    fontWeight: '600',
+    color: Colors.textMuted,
+    fontWeight: '500',
   },
   itemRow: {
     flexDirection: 'row',
@@ -560,17 +547,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemImage: {
-    width: 65,
-    height: 65,
+    width: 60,
+    height: 60,
     borderRadius: Radius.md,
-    backgroundColor: '#F0EFEA',
+    backgroundColor: Colors.surface,
   },
   itemInfo: {
     flex: 1,
   },
   itemName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   itemCustomizationRow: {
@@ -581,12 +568,12 @@ const styles = StyleSheet.create({
   },
   itemPortionText: {
     fontSize: 11,
-    color: Colors.saffronDark,
-    fontWeight: '600',
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   addonsText: {
     fontSize: 10,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
     marginTop: 2,
   },
   specialNoteText: {
@@ -602,14 +589,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   itemPrice: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
   },
   quantityStepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F4F0',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -620,18 +607,18 @@ const styles = StyleSheet.create({
   },
   qtyText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
-    minWidth: 20,
+    minWidth: 18,
     textAlign: 'center',
   },
   promoCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   promoInputRow: {
     flexDirection: 'row',
@@ -639,17 +626,17 @@ const styles = StyleSheet.create({
   },
   promoInput: {
     flex: 1,
-    backgroundColor: '#F9F8F6',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     fontSize: Typography.fontSize.xs,
     color: Colors.text,
-    height: 40,
+    height: 38,
   },
   applyBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.sm,
     justifyContent: 'center',
@@ -657,20 +644,19 @@ const styles = StyleSheet.create({
   },
   applyBtnText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: Typography.fontSize.xs,
   },
   promoErrorText: {
     color: Colors.error,
     fontSize: 11,
     marginTop: 4,
-    fontWeight: '600',
   },
   activePromoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: Colors.surface,
     padding: Spacing.sm,
     borderRadius: Radius.sm,
   },
@@ -681,38 +667,36 @@ const styles = StyleSheet.create({
   },
   appliedCode: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '800',
-    color: Colors.halalGreenDark,
+    fontWeight: '600',
+    color: Colors.text,
   },
   appliedSavings: {
     fontSize: 10,
-    color: Colors.halalGreen,
-    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   quickCouponsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 6,
     marginTop: Spacing.sm,
   },
   quickCouponPill: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.round,
+    borderRadius: Radius.xs,
   },
   quickCouponText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: Colors.saffronDark,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   summaryCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -725,26 +709,21 @@ const styles = StyleSheet.create({
   },
   summaryVal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
-  },
-  freeText: {
-    color: Colors.halalGreen,
-    fontWeight: '800',
   },
   discountLabel: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.halalGreen,
-    fontWeight: '600',
+    color: Colors.primary,
   },
   discountVal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.halalGreen,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.border,
     marginVertical: Spacing.sm,
   },
   totalRow: {
@@ -753,14 +732,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   grandTotalVal: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
+    color: Colors.text,
   },
   footerContainer: {
     position: 'absolute',
@@ -772,7 +751,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -781,26 +760,25 @@ const styles = StyleSheet.create({
   footerTotalCol: {},
   footerTotalLabel: {
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
   },
   footerTotalAmount: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
+    color: Colors.text,
   },
   checkoutBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
     gap: 8,
-    ...Shadows.card,
   },
   checkoutBtnText: {
     color: Colors.textLight,
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
 });

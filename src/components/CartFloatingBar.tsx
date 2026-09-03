@@ -27,17 +27,14 @@ export const CartFloatingBar: React.FC = () => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{itemCount}</Text>
           </View>
-          <View>
-            <Text style={styles.itemsLabel}>
-              {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
-            </Text>
-            <Text style={styles.viewCartHint}>Tap to view & checkout</Text>
-          </View>
+          <Text style={styles.itemsLabel}>
+            View Cart ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+          </Text>
         </View>
 
         <View style={styles.right}>
           <Text style={styles.totalText}>₱{total.toLocaleString()}</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.textLight} />
+          <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
         </View>
       </TouchableOpacity>
     </View>
@@ -47,16 +44,16 @@ export const CartFloatingBar: React.FC = () => {
 const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
-    bottom: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
+    bottom: Spacing.lg,
+    left: Spacing.lg,
+    right: Spacing.lg,
     zIndex: 99,
   },
   bar: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -65,29 +62,25 @@ const styles = StyleSheet.create({
   left: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   badge: {
-    backgroundColor: Colors.textLight,
-    width: 28,
-    height: 28,
+    backgroundColor: Colors.primary,
+    width: 24,
+    height: 24,
     borderRadius: Radius.round,
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeText: {
-    color: Colors.primary,
-    fontWeight: '800',
-    fontSize: 13,
+    color: Colors.textLight,
+    fontWeight: '700',
+    fontSize: 11,
   },
   itemsLabel: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
-  },
-  viewCartHint: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
   },
   right: {
     flexDirection: 'row',
@@ -96,7 +89,7 @@ const styles = StyleSheet.create({
   },
   totalText: {
     color: Colors.textLight,
-    fontWeight: '800',
-    fontSize: Typography.fontSize.md,
+    fontWeight: '700',
+    fontSize: Typography.fontSize.sm,
   },
 });

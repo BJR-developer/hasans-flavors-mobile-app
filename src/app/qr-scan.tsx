@@ -6,8 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Dimensions,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,8 +15,6 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useTableStore } from '@/store/useTableStore';
 import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
-
-const { width } = Dimensions.get('window');
 
 export default function QRTableScreen() {
   const router = useRouter();
@@ -47,19 +43,19 @@ export default function QRTableScreen() {
     setTimeout(() => {
       setIsCameraScanning(false);
       handleConfirmTable(selectedTableNum);
-    }, 1200);
+    }, 1000);
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Header title="Dine-In QR Ordering" showBack />
+      <Header title="Table Ordering" showBack />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* QR Scanner Simulation Card */}
+        {/* QR Scanner Card */}
         <View style={styles.scannerCard}>
           <View style={styles.scannerViewport}>
             <View style={styles.cornerTL} />
@@ -68,31 +64,29 @@ export default function QRTableScreen() {
             <View style={styles.cornerBR} />
 
             <Ionicons
-              name="qr-code"
-              size={120}
-              color={isCameraScanning ? Colors.primary : '#333333'}
+              name="qr-code-outline"
+              size={90}
+              color={Colors.textSecondary}
             />
-
-            {isCameraScanning && <View style={styles.scanningLaser} />}
           </View>
 
           <Text style={styles.scannerInstruction}>
-            Point camera at the QR code standee on your restaurant dining table
+            Scan the QR code located on your table standee
           </Text>
 
           <TouchableOpacity
             activeOpacity={0.9}
-            style={[styles.scanActionBtn, isCameraScanning && styles.scanningActiveBtn]}
+            style={styles.scanActionBtn}
             onPress={handleSimulateScan}
             disabled={isCameraScanning}
           >
             <Ionicons
-              name={isCameraScanning ? 'sync' : 'camera'}
+              name={isCameraScanning ? 'sync-outline' : 'camera-outline'}
               size={18}
               color={Colors.textLight}
             />
             <Text style={styles.scanActionBtnText}>
-              {isCameraScanning ? 'Scanning Table QR...' : 'Scan Table QR Code'}
+              {isCameraScanning ? 'Scanning QR...' : 'Scan Table QR'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -102,7 +96,7 @@ export default function QRTableScreen() {
           <View style={styles.guestHeaderRow}>
             <Text style={styles.cardTitle}>Number of Guests</Text>
             <Text style={styles.activeGuestCountBadge}>
-              👥 {selectedGuests} {selectedGuests === 1 ? 'Guest' : 'Guests'}
+              {selectedGuests} {selectedGuests === 1 ? 'Guest' : 'Guests'}
             </Text>
           </View>
 
@@ -144,10 +138,10 @@ export default function QRTableScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Custom Guest Count Input & Stepper */}
+          {/* Custom Guest Count Stepper */}
           {isCustomGuest && (
             <View style={styles.customGuestContainer}>
-              <Text style={styles.customGuestPrompt}>Type party size or use stepper:</Text>
+              <Text style={styles.customGuestPrompt}>Custom Party Size:</Text>
               <View style={styles.stepperRow}>
                 <TouchableOpacity
                   style={styles.stepperBtn}
@@ -159,7 +153,7 @@ export default function QRTableScreen() {
                     }
                   }}
                 >
-                  <Ionicons name="remove" size={20} color={Colors.text} />
+                  <Ionicons name="remove" size={18} color={Colors.text} />
                 </TouchableOpacity>
 
                 <TextInput
@@ -188,17 +182,17 @@ export default function QRTableScreen() {
                     updateGuestCount(next);
                   }}
                 >
-                  <Ionicons name="add" size={20} color={Colors.text} />
+                  <Ionicons name="add" size={18} color={Colors.text} />
                 </TouchableOpacity>
               </View>
             </View>
           )}
         </View>
 
-        {/* Manual Table Selector Grid */}
+        {/* Table Selector Grid */}
         <View style={styles.card}>
           <View style={styles.tableHeaderRow}>
-            <Text style={styles.cardTitle}>Or Select Your Table Number</Text>
+            <Text style={styles.cardTitle}>Or Select Table</Text>
             <View style={styles.legendRow}>
               <View style={styles.legendDotAvailable} />
               <Text style={styles.legendText}>Available</Text>
@@ -228,14 +222,14 @@ export default function QRTableScreen() {
                   }}
                 >
                   <Ionicons
-                    name="restaurant"
-                    size={20}
+                    name="restaurant-outline"
+                    size={18}
                     color={
                       isSelected
-                        ? Colors.primary
+                        ? Colors.text
                         : isOccupied
                         ? Colors.textMuted
-                        : Colors.halalGreen
+                        : Colors.textSecondary
                     }
                   />
                   <Text
@@ -256,11 +250,11 @@ export default function QRTableScreen() {
           </View>
         </View>
 
-        {/* Active Seated Table Banner if already assigned */}
+        {/* Active Seated Table Banner */}
         {currentTable && (
           <View style={styles.currentActiveCard}>
             <View style={styles.currentActiveLeft}>
-              <Ionicons name="checkmark-circle" size={24} color={Colors.halalGreen} />
+              <Ionicons name="checkmark-circle-outline" size={20} color={Colors.textSecondary} />
               <View>
                 <Text style={styles.currentActiveTitle}>Currently Seated at {currentTable}</Text>
                 <Text style={styles.currentActiveSub}>Party of {guestCount} guests</Text>
@@ -275,7 +269,7 @@ export default function QRTableScreen() {
                 clearTable();
               }}
             >
-              <Text style={styles.releaseBtnText}>Leave Table</Text>
+              <Text style={styles.releaseBtnText}>Release</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -289,9 +283,9 @@ export default function QRTableScreen() {
           onPress={() => handleConfirmTable(selectedTableNum)}
         >
           <Text style={styles.confirmBtnText}>
-            Confirm {selectedTableNum} & Open Menu
+            Confirm {selectedTableNum}
           </Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.textLight} />
+          <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -307,117 +301,102 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 90,
     gap: Spacing.md,
   },
   scannerCard: {
-    backgroundColor: '#1E1B18',
-    borderRadius: Radius.xl,
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
     padding: Spacing.xl,
     alignItems: 'center',
-    ...Shadows.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   scannerViewport: {
-    width: 200,
-    height: 200,
-    borderRadius: Radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 170,
+    height: 170,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   cornerTL: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    width: 24,
-    height: 24,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: Colors.primary,
+    top: 8,
+    left: 8,
+    width: 20,
+    height: 20,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.text,
   },
   cornerTR: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 24,
-    height: 24,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderColor: Colors.primary,
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderColor: Colors.text,
   },
   cornerBL: {
     position: 'absolute',
-    bottom: 10,
-    left: 10,
-    width: 24,
-    height: 24,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: Colors.primary,
+    bottom: 8,
+    left: 8,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: Colors.text,
   },
   cornerBR: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
-    width: 24,
-    height: 24,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderColor: Colors.primary,
-  },
-  scanningLaser: {
-    position: 'absolute',
-    top: '50%',
-    left: 12,
-    right: 12,
-    height: 2,
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
+    bottom: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: Colors.text,
   },
   scannerInstruction: {
-    color: 'rgba(255,255,255,0.75)',
+    color: Colors.textSecondary,
     fontSize: Typography.fontSize.xs,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   scanActionBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: 12,
-    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
     gap: 8,
-    ...Shadows.card,
-  },
-  scanningActiveBtn: {
-    backgroundColor: '#B71C1C',
   },
   scanActionBtnText: {
     color: Colors.textLight,
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
   card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   cardTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -429,12 +408,8 @@ const styles = StyleSheet.create({
   },
   activeGuestCountBadge: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '800',
-    color: Colors.primary,
-    backgroundColor: '#FFF0F0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.round,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   guestSelectorRow: {
     flexDirection: 'row',
@@ -442,8 +417,8 @@ const styles = StyleSheet.create({
   },
   guestPill: {
     flex: 1,
-    paddingVertical: 10,
-    backgroundColor: '#FAF9F8',
+    paddingVertical: 9,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
@@ -451,17 +426,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   guestPillActive: {
-    backgroundColor: '#FFEBEE',
-    borderColor: Colors.primary,
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
   },
   guestPillText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.textSecondary,
   },
   guestPillTextActive: {
-    color: Colors.primary,
-    fontWeight: '800',
+    color: Colors.textLight,
+    fontWeight: '600',
   },
   customGuestContainer: {
     marginTop: Spacing.md,
@@ -475,27 +450,26 @@ const styles = StyleSheet.create({
   customGuestPrompt: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F4F0',
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   stepperBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   customGuestInput: {
-    width: 44,
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    width: 36,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
     textAlign: 'center',
-    paddingVertical: 4,
   },
   tableHeaderRow: {
     flexDirection: 'row',
@@ -509,16 +483,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendDotAvailable: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.halalGreen,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.textSecondary,
   },
   legendDotOccupied: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.textMuted,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border,
   },
   legendText: {
     fontSize: 10,
@@ -527,36 +501,33 @@ const styles = StyleSheet.create({
   tableGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     justifyContent: 'flex-start',
   },
   tableGridItem: {
     width: '31%',
-    backgroundColor: '#FAF9F8',
-    borderWidth: 1.5,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   tableGridItemSelected: {
-    backgroundColor: '#FFF8F8',
-    borderColor: Colors.primary,
+    backgroundColor: Colors.card,
+    borderColor: Colors.text,
   },
   tableGridItemOccupied: {
-    backgroundColor: '#F5F5F5',
-    borderColor: '#EEEEEE',
-    opacity: 0.6,
+    opacity: 0.45,
   },
   tableNumberLabel: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.text,
   },
   tableNumberLabelSelected: {
-    color: Colors.primary,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   tableNumberLabelOccupied: {
     color: Colors.textMuted,
@@ -566,58 +537,61 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   currentActiveCard: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   currentActiveLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   currentActiveTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '800',
-    color: Colors.halalGreenDark,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
+    color: Colors.text,
   },
   currentActiveSub: {
     fontSize: 11,
-    color: Colors.halalGreen,
+    color: Colors.textSecondary,
     marginTop: 1,
   },
   releaseBtn: {
     backgroundColor: Colors.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   releaseBtnText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.error,
   },
   footer: {
     backgroundColor: Colors.card,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
   },
   confirmBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     gap: 8,
-    ...Shadows.card,
   },
   confirmBtnText: {
     color: Colors.textLight,
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
 });

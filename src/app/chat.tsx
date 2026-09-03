@@ -38,13 +38,13 @@ export default function LiveChatScreen() {
     {
       id: 'msg-0',
       sender: 'system',
-      text: `Connected with Hasan's Flavors Support${currentTable ? ` • Dining at ${currentTable}` : ''}. Average response time: < 1 min.`,
+      text: `Support connected${currentTable ? ` • Table ${currentTable}` : ''}. Response time < 1 min.`,
       time: 'Just now',
     },
     {
       id: 'msg-1',
       sender: 'agent',
-      text: `Assalamu Alaikum & Welcome! How can we assist you with your order${currentTable ? ` at ${currentTable}` : ''} today?`,
+      text: `Hello! How can we assist you with your order${currentTable ? ` at ${currentTable}` : ''} today?`,
       time: 'Just now',
     },
   ]);
@@ -53,11 +53,11 @@ export default function LiveChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const quickPrompts = [
-    { label: '📍 Where is my order?', action: 'where_order' },
-    { label: '🍴 Extra spoons & napkins', action: 'cutlery' },
-    { label: '🌶️ Extra Gravy / Raita', action: 'gravy' },
-    { label: '🧊 Cold Water / Ice', action: 'water' },
-    { label: '💳 Request Bill / Bill Out', action: 'bill' },
+    { label: 'Order Status', action: 'where_order' },
+    { label: 'Extra Cutlery & Napkins', action: 'cutlery' },
+    { label: 'Extra Gravy / Raita', action: 'gravy' },
+    { label: 'Cold Water', action: 'water' },
+    { label: 'Request Bill', action: 'bill' },
   ];
 
   useEffect(() => {
@@ -94,21 +94,21 @@ export default function LiveChatScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
 
-      let replyText = "Thank you! Our kitchen & floor team have been notified and are attending to your request.";
+      let replyText = "Thank you. Our kitchen and floor team have been notified and are attending to your request.";
       const lower = text.toLowerCase();
 
-      if (lower.includes('where') || lower.includes('status') || lower.includes('track')) {
+      if (lower.includes('status') || lower.includes('where') || lower.includes('track')) {
         replyText = activeOrder
-          ? `Your order #${activeOrder.orderNumber} is currently in progress (${activeOrder.status === 'preparing' ? 'Cooking in Kitchen' : activeOrder.status}). It will be served hot shortly!`
-          : `Your order is cooking fresh in the kitchen. Expected delivery within 15-20 minutes!`;
-      } else if (lower.includes('spoon') || lower.includes('napkin') || lower.includes('cutlery') || lower.includes('plate')) {
-        replyText = `Understood! Our floor server is bringing fresh cutlery, spoons, and napkins directly to ${currentTable || 'your table'}.`;
-      } else if (lower.includes('gravy') || lower.includes('raita') || lower.includes('sauce') || lower.includes('spicy')) {
-        replyText = `Noted! Extra Biryani gravy and chilled cucumber raita are being packed for you right away.`;
+          ? `Your order #${activeOrder.orderNumber} is currently ${activeOrder.status === 'preparing' ? 'being cooked in the kitchen' : activeOrder.status}. It will be served shortly.`
+          : `Your order is cooking fresh in the kitchen. Expected delivery within 15-20 minutes.`;
+      } else if (lower.includes('cutlery') || lower.includes('spoon') || lower.includes('napkin')) {
+        replyText = `Understood. Our floor server is bringing cutlery and napkins directly to ${currentTable || 'your table'}.`;
+      } else if (lower.includes('gravy') || lower.includes('raita') || lower.includes('sauce')) {
+        replyText = `Noted. Extra Biryani gravy and chilled raita are being prepared for you.`;
       } else if (lower.includes('water') || lower.includes('ice') || lower.includes('drink')) {
-        replyText = `Sure thing! Complimentary iced water is on its way to ${currentTable || 'your table'}.`;
-      } else if (lower.includes('bill') || lower.includes('pay') || lower.includes('check')) {
-        replyText = `We have informed the cashier. The server will bring the receipt or you can pay via GCash/Card anytime.`;
+        replyText = `Complimentary iced water is on its way to ${currentTable || 'your table'}.`;
+      } else if (lower.includes('bill') || lower.includes('check') || lower.includes('pay')) {
+        replyText = `The server has been notified to bring the receipt. You may also settle via GCash or card.`;
       }
 
       setMessages((prev) => [
@@ -128,38 +128,25 @@ export default function LiveChatScreen() {
       Haptics.selectionAsync();
     } catch {}
     Linking.openURL('tel:+639178882345').catch(() => {
-      Alert.alert("Restaurant Hotline", "Call Hasan's Flavors at +63 917 888 2345");
+      Alert.alert("Restaurant Hotline", "Call +63 917 888 2345");
     });
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Top Chat Header */}
+      {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
+          <Ionicons name="arrow-back" size={20} color={Colors.text} />
         </TouchableOpacity>
 
         <View style={styles.agentInfoCol}>
-          <View style={styles.agentTitleRow}>
-            <Image
-              source={require('../../assets/images/hasan_logo.jpg')}
-              style={styles.agentAvatar}
-              resizeMode="cover"
-            />
-            <View>
-              <Text style={styles.agentName}>Hasan's Live Help</Text>
-              <View style={styles.onlineStatusRow}>
-                <View style={styles.onlineDot} />
-                <Text style={styles.onlineText}>Kitchen & Floor Staff Online</Text>
-              </View>
-            </View>
-          </View>
+          <Text style={styles.agentName}>Support & Kitchen Desk</Text>
+          <Text style={styles.onlineText}>Online</Text>
         </View>
 
         <TouchableOpacity style={styles.phoneCallBtn} onPress={handleCallHotline} activeOpacity={0.8}>
-          <Ionicons name="call" size={16} color={Colors.primary} />
-          <Text style={styles.phoneCallText}>Call</Text>
+          <Ionicons name="call-outline" size={16} color={Colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -174,9 +161,9 @@ export default function LiveChatScreen() {
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Quick FAQ Suggestion Pills */}
+          {/* Quick Request Chips */}
           <View style={styles.quickPromptsSection}>
-            <Text style={styles.quickPromptsLabel}>⚡ Quick Requests & Assistance:</Text>
+            <Text style={styles.quickPromptsLabel}>Quick Requests</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPromptsRow}>
               {quickPrompts.map((item, idx) => (
                 <TouchableOpacity
@@ -196,7 +183,6 @@ export default function LiveChatScreen() {
             if (msg.sender === 'system') {
               return (
                 <View key={msg.id} style={styles.systemBubble}>
-                  <Ionicons name="shield-checkmark" size={14} color={Colors.halalGreen} />
                   <Text style={styles.systemText}>{msg.text}</Text>
                 </View>
               );
@@ -205,13 +191,6 @@ export default function LiveChatScreen() {
             const isUser = msg.sender === 'user';
             return (
               <View key={msg.id} style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowAgent]}>
-                {!isUser && (
-                  <Image
-                    source={require('../../assets/images/hasan_logo.jpg')}
-                    style={styles.msgAvatar}
-                    resizeMode="cover"
-                  />
-                )}
                 <View style={[styles.messageBubble, isUser ? styles.bubbleUser : styles.bubbleAgent]}>
                   <Text style={[styles.messageText, isUser ? styles.messageTextUser : styles.messageTextAgent]}>
                     {msg.text}
@@ -226,24 +205,19 @@ export default function LiveChatScreen() {
 
           {isTyping && (
             <View style={[styles.messageRow, styles.messageRowAgent]}>
-              <Image
-                source={require('../../assets/images/hasan_logo.jpg')}
-                style={styles.msgAvatar}
-                resizeMode="cover"
-              />
               <View style={[styles.messageBubble, styles.bubbleAgent, styles.typingBubble]}>
-                <Text style={styles.typingText}>Hasan's staff is typing...</Text>
+                <Text style={styles.typingText}>Staff is typing...</Text>
               </View>
             </View>
           )}
         </ScrollView>
 
-        {/* Bottom Chat Input Bar */}
+        {/* Bottom Input Bar */}
         <SafeAreaView edges={['bottom']} style={styles.inputBarSafeArea}>
           <View style={styles.inputBar}>
             <TextInput
               style={styles.textInput}
-              placeholder="Type your message or request here..."
+              placeholder="Type your message or request..."
               placeholderTextColor={Colors.textMuted}
               value={inputMessage}
               onChangeText={setInputMessage}
@@ -258,7 +232,7 @@ export default function LiveChatScreen() {
               activeOpacity={0.8}
             >
               <Ionicons
-                name="send"
+                name="arrow-up"
                 size={18}
                 color={inputMessage.trim().length > 0 ? Colors.textLight : Colors.textMuted}
               />
@@ -279,103 +253,66 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 60,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    ...Shadows.subtle,
+    borderBottomColor: Colors.border,
   },
   backBtn: {
-    padding: 6,
+    padding: 4,
   },
   agentInfoCol: {
     flex: 1,
-    marginLeft: 8,
-  },
-  agentTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  agentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.round,
-    borderWidth: 1.5,
-    borderColor: '#FFE0B2',
+    marginLeft: 10,
   },
   agentName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '800',
+    fontWeight: '600',
     color: Colors.text,
   },
-  onlineStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 1,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.halalGreen,
-  },
   onlineText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
     color: Colors.halalGreen,
+    fontWeight: '500',
   },
   phoneCallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF0F0',
-    borderWidth: 1,
-    borderColor: '#FFD4D4',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    width: 36,
+    height: 36,
     borderRadius: Radius.round,
-    gap: 4,
-  },
-  phoneCallText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.primary,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesScroll: {
     flex: 1,
   },
   messagesContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 20,
     gap: 12,
   },
   quickPromptsSection: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    marginBottom: 4,
-    ...Shadows.subtle,
+    marginBottom: 8,
   },
   quickPromptsLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textMuted,
     marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   quickPromptsRow: {
-    gap: 8,
+    gap: 6,
   },
   quickPromptPill: {
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 12,
@@ -383,33 +320,26 @@ const styles = StyleSheet.create({
     borderRadius: Radius.round,
   },
   quickPromptText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primaryDark,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '500',
+    color: Colors.text,
   },
   systemBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8F5E9',
-    borderRadius: Radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
     alignSelf: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     marginVertical: 4,
-    maxWidth: '92%',
   },
   systemText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: Colors.halalGreenDark,
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
     marginVertical: 2,
   },
   messageRowUser: {
@@ -418,29 +348,19 @@ const styles = StyleSheet.create({
   messageRowAgent: {
     justifyContent: 'flex-start',
   },
-  msgAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
   messageBubble: {
-    maxWidth: '78%',
+    maxWidth: '80%',
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderRadius: Radius.lg,
-    ...Shadows.subtle,
   },
   bubbleUser: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 2,
+    backgroundColor: Colors.text,
   },
   bubbleAgent: {
     backgroundColor: Colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderBottomLeftRadius: 2,
+    borderColor: Colors.border,
   },
   messageText: {
     fontSize: Typography.fontSize.sm,
@@ -448,11 +368,11 @@ const styles = StyleSheet.create({
   },
   messageTextUser: {
     color: Colors.textLight,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   messageTextAgent: {
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   messageTime: {
     fontSize: 9,
@@ -460,7 +380,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   timeUser: {
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.6)',
   },
   timeAgent: {
     color: Colors.textMuted,
@@ -476,20 +396,20 @@ const styles = StyleSheet.create({
   inputBarSafeArea: {
     backgroundColor: Colors.card,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: 8,
     gap: 8,
   },
   textInput: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 90,
-    backgroundColor: '#FAF9F8',
+    minHeight: 38,
+    maxHeight: 80,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.lg,
@@ -499,14 +419,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: Radius.round,
-    backgroundColor: '#F0EFEA',
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
   },
 });

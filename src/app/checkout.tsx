@@ -6,8 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,7 +60,7 @@ export default function CheckoutScreen() {
     const order = placeOrder({
       type: deliveryType,
       items,
-      customerName: customerName.trim() || 'Valued Customer',
+      customerName: customerName.trim() || 'Customer',
       customerPhone: customerPhone.trim(),
       deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
       tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
@@ -77,8 +75,6 @@ export default function CheckoutScreen() {
     });
 
     clearCart();
-
-    // Route to live tracker
     router.replace(`/track/${order.id}` as any);
   };
 
@@ -91,32 +87,36 @@ export default function CheckoutScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Order Type Confirmation Banner */}
+        {/* Order Type Confirmation */}
         <View style={styles.orderTypeCard}>
-          <View style={styles.orderTypeLeft}>
-            <View style={styles.orderTypeIconCircle}>
-              <Text style={styles.orderTypeEmoji}>
-                {deliveryType === 'dine_in' ? '🍽️' : deliveryType === 'delivery' ? '🛵' : '🛍️'}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.orderTypeTitle}>
-                {deliveryType === 'dine_in'
-                  ? `Dine-In (${currentTable || 'Table 04'})`
-                  : deliveryType === 'delivery'
-                  ? 'Delivery to Your Address'
-                  : 'Self-Pickup Takeout'}
-              </Text>
-              <Text style={styles.orderTypeSub}>
-                Estimated preparation: {deliveryType === 'delivery' ? '30-40 mins' : '15-20 mins'}
-              </Text>
-            </View>
+          <Ionicons
+            name={
+              deliveryType === 'dine_in'
+                ? 'restaurant-outline'
+                : deliveryType === 'delivery'
+                ? 'bicycle-outline'
+                : 'bag-handle-outline'
+            }
+            size={20}
+            color={Colors.text}
+          />
+          <View style={styles.orderTypeInfo}>
+            <Text style={styles.orderTypeTitle}>
+              {deliveryType === 'dine_in'
+                ? `Dine-In • ${currentTable || 'Table 04'}`
+                : deliveryType === 'delivery'
+                ? 'Delivery'
+                : 'Takeout'}
+            </Text>
+            <Text style={styles.orderTypeSub}>
+              Estimated preparation: {deliveryType === 'delivery' ? '30-40 mins' : '15-20 mins'}
+            </Text>
           </View>
         </View>
 
         {/* Customer Contact & Delivery Info */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>1. Customer Details</Text>
+          <Text style={styles.cardTitle}>Customer Details</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Full Name</Text>
@@ -148,27 +148,18 @@ export default function CheckoutScreen() {
                 style={[styles.input, styles.textArea]}
                 value={deliveryAddress}
                 onChangeText={setDeliveryAddress}
-                placeholder="Complete delivery address, floor, unit number"
+                placeholder="Unit, building, street, city"
                 placeholderTextColor={Colors.textMuted}
                 multiline
                 numberOfLines={2}
               />
             </View>
           )}
-
-          {deliveryType === 'dine_in' && (
-            <View style={styles.tableInfoBox}>
-              <Ionicons name="restaurant" size={18} color={Colors.halalGreen} />
-              <Text style={styles.tableInfoText}>
-                Order will be dispatched directly to <Text style={styles.bold}>{currentTable || 'Table 04'}</Text>
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Payment Method Selector */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>2. Select Payment Method</Text>
+          <Text style={styles.cardTitle}>Payment Method</Text>
 
           <View style={styles.paymentList}>
             {/* GCash Option */}
@@ -185,20 +176,14 @@ export default function CheckoutScreen() {
                 <View style={[styles.radioCircle, paymentMethod === 'gcash' && styles.radioActive]}>
                   {paymentMethod === 'gcash' && <View style={styles.radioDot} />}
                 </View>
-                <View style={[styles.paymentIconBox, { backgroundColor: '#E3F2FD' }]}>
-                  <Text style={styles.paymentLogoText}>GC</Text>
-                </View>
                 <View>
                   <Text style={styles.paymentName}>GCash / QR Ph</Text>
-                  <Text style={styles.paymentDesc}>Fast & instant digital wallet</Text>
+                  <Text style={styles.paymentDesc}>Digital wallet instant payment</Text>
                 </View>
-              </View>
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularBadgeText}>POPULAR</Text>
               </View>
             </TouchableOpacity>
 
-            {/* Cash on Delivery / Counter Option */}
+            {/* Cash Option */}
             <TouchableOpacity
               style={[styles.paymentOption, paymentMethod === 'cash' && styles.paymentOptionSelected]}
               onPress={() => {
@@ -212,19 +197,16 @@ export default function CheckoutScreen() {
                 <View style={[styles.radioCircle, paymentMethod === 'cash' && styles.radioActive]}>
                   {paymentMethod === 'cash' && <View style={styles.radioDot} />}
                 </View>
-                <View style={[styles.paymentIconBox, { backgroundColor: '#E8F5E9' }]}>
-                  <Ionicons name="cash-outline" size={20} color={Colors.halalGreen} />
-                </View>
                 <View>
                   <Text style={styles.paymentName}>
-                    {deliveryType === 'dine_in' ? 'Pay at Counter / Table Cash' : 'Cash on Delivery (COD)'}
+                    {deliveryType === 'dine_in' ? 'Cash at Table / Counter' : 'Cash on Delivery (COD)'}
                   </Text>
-                  <Text style={styles.paymentDesc}>Pay exact cash upon arrival</Text>
+                  <Text style={styles.paymentDesc}>Pay upon receipt</Text>
                 </View>
               </View>
             </TouchableOpacity>
 
-            {/* Card / Visa Mastercard */}
+            {/* Card Option */}
             <TouchableOpacity
               style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentOptionSelected]}
               onPress={() => {
@@ -238,23 +220,20 @@ export default function CheckoutScreen() {
                 <View style={[styles.radioCircle, paymentMethod === 'card' && styles.radioActive]}>
                   {paymentMethod === 'card' && <View style={styles.radioDot} />}
                 </View>
-                <View style={[styles.paymentIconBox, { backgroundColor: '#FFF3E0' }]}>
-                  <Ionicons name="card-outline" size={20} color={Colors.saffronDark} />
-                </View>
                 <View>
                   <Text style={styles.paymentName}>Credit / Debit Card</Text>
-                  <Text style={styles.paymentDesc}>Visa, Mastercard, JCB</Text>
+                  <Text style={styles.paymentDesc}>Visa, Mastercard</Text>
                 </View>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Tip for Staff & Kitchen */}
+        {/* Staff Tip */}
         <View style={styles.card}>
           <View style={styles.tipHeader}>
-            <Text style={styles.cardTitle}>3. Tip for Restaurant Staff</Text>
-            <Text style={styles.tipSub}>100% goes to staff & cooks</Text>
+            <Text style={styles.cardTitle}>Staff Gratuity</Text>
+            <Text style={styles.tipSub}>Directly to kitchen team</Text>
           </View>
 
           <View style={styles.tipRow}>
@@ -272,7 +251,7 @@ export default function CheckoutScreen() {
                   }}
                 >
                   <Text style={[styles.tipPillText, active && styles.tipPillTextActive]}>
-                    {amount === 0 ? 'No Tip' : `₱${amount}`}
+                    {amount === 0 ? 'None' : `₱${amount}`}
                   </Text>
                 </TouchableOpacity>
               );
@@ -282,12 +261,12 @@ export default function CheckoutScreen() {
 
         {/* Special Instructions */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>4. Special Instructions</Text>
+          <Text style={styles.cardTitle}>Special Instructions</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={specialInstructions}
             onChangeText={setSpecialInstructions}
-            placeholder="Special gate code, buzzer, or packaging preference..."
+            placeholder="Gate code, dietary notes, or packaging request..."
             placeholderTextColor={Colors.textMuted}
             multiline
             numberOfLines={2}
@@ -346,7 +325,7 @@ export default function CheckoutScreen() {
 
           {tipAmount > 0 && (
             <View style={styles.calcRow}>
-              <Text style={styles.calcLabel}>Staff Tip</Text>
+              <Text style={styles.calcLabel}>Staff Gratuity</Text>
               <Text style={styles.calcVal}>₱{tipAmount.toLocaleString()}</Text>
             </View>
           )}
@@ -363,7 +342,7 @@ export default function CheckoutScreen() {
       {/* Place Order CTA Footer */}
       <View style={styles.footer}>
         <View>
-          <Text style={styles.footerTotalLabel}>Total to Pay</Text>
+          <Text style={styles.footerTotalLabel}>Total Amount</Text>
           <Text style={styles.footerTotalAmount}>₱{grandTotal.toLocaleString()}</Text>
         </View>
 
@@ -372,8 +351,8 @@ export default function CheckoutScreen() {
           style={styles.placeOrderBtn}
           onPress={handlePlaceOrder}
         >
-          <Text style={styles.placeOrderBtnText}>Place Order Now</Text>
-          <Ionicons name="checkmark-circle" size={20} color={Colors.textLight} />
+          <Text style={styles.placeOrderBtnText}>Place Order</Text>
+          <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -389,55 +368,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 110,
     gap: Spacing.md,
   },
   orderTypeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  orderTypeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: Colors.border,
     gap: 12,
+    ...Shadows.subtle,
   },
-  orderTypeIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.round,
-    backgroundColor: '#FFEBEE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  orderTypeEmoji: {
-    fontSize: 20,
+  orderTypeInfo: {
+    flex: 1,
   },
   orderTypeTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   orderTypeSub: {
     fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.md,
-    ...Shadows.subtle,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
   },
   cardTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -445,40 +414,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '500',
     color: Colors.textSecondary,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 9,
     fontSize: Typography.fontSize.xs,
     color: Colors.text,
   },
   textArea: {
-    height: 60,
+    height: 56,
     textAlignVertical: 'top',
-  },
-  tableInfoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    padding: Spacing.sm,
-    borderRadius: Radius.sm,
-    gap: 8,
-    marginTop: 4,
-  },
-  tableInfoText: {
-    fontSize: 11,
-    color: Colors.halalGreenDark,
-  },
-  bold: {
-    fontWeight: '800',
   },
   paymentList: {
     gap: Spacing.sm,
@@ -491,11 +444,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: '#FAF9F8',
+    backgroundColor: Colors.surface,
   },
   paymentOptionSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: '#FFF8F8',
+    borderColor: Colors.text,
+    backgroundColor: Colors.card,
   },
   paymentLeft: {
     flexDirection: 'row',
@@ -504,55 +457,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioActive: {
-    borderColor: Colors.primary,
+    borderColor: Colors.text,
   },
   radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.primary,
-  },
-  paymentIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paymentLogoText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#1565C0',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.text,
   },
   paymentName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   paymentDesc: {
     fontSize: 10,
     color: Colors.textMuted,
     marginTop: 1,
-  },
-  popularBadge: {
-    backgroundColor: Colors.primaryLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  popularBadgeText: {
-    color: Colors.primaryDark,
-    fontSize: 9,
-    fontWeight: '800',
   },
   tipHeader: {
     flexDirection: 'row',
@@ -562,8 +492,7 @@ const styles = StyleSheet.create({
   },
   tipSub: {
     fontSize: 11,
-    color: Colors.halalGreen,
-    fontWeight: '600',
+    color: Colors.textMuted,
   },
   tipRow: {
     flexDirection: 'row',
@@ -571,25 +500,25 @@ const styles = StyleSheet.create({
   },
   tipPill: {
     flex: 1,
-    paddingVertical: 10,
-    backgroundColor: '#FAF9F8',
+    paddingVertical: 9,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
   tipPillActive: {
-    backgroundColor: '#FFEBEE',
-    borderColor: Colors.primary,
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
   },
   tipPillText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.textSecondary,
   },
   tipPillTextActive: {
-    color: Colors.primary,
-    fontWeight: '800',
+    color: Colors.textLight,
+    fontWeight: '600',
   },
   summaryItemRow: {
     flexDirection: 'row',
@@ -598,16 +527,16 @@ const styles = StyleSheet.create({
   },
   summaryItemQty: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '800',
-    color: Colors.primary,
-    width: 28,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    width: 24,
   },
   summaryItemInfo: {
     flex: 1,
   },
   summaryItemName: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.text,
   },
   summaryItemPortion: {
@@ -616,12 +545,12 @@ const styles = StyleSheet.create({
   },
   summaryItemPrice: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.text,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.border,
     marginVertical: Spacing.sm,
   },
   calcRow: {
@@ -635,17 +564,17 @@ const styles = StyleSheet.create({
   },
   calcVal: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
   },
   discountLabel: {
     fontSize: 11,
-    color: Colors.halalGreen,
+    color: Colors.primary,
   },
   discountVal: {
     fontSize: 11,
-    fontWeight: '700',
-    color: Colors.halalGreen,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   finalTotalRow: {
     flexDirection: 'row',
@@ -653,14 +582,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   finalTotalLabel: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '900',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
     color: Colors.text,
   },
   finalTotalVal: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
+    color: Colors.text,
   },
   footer: {
     position: 'absolute',
@@ -672,7 +601,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -680,26 +609,25 @@ const styles = StyleSheet.create({
   },
   footerTotalLabel: {
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
   },
   footerTotalAmount: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '900',
-    color: Colors.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
+    color: Colors.text,
   },
   placeOrderBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
     gap: 8,
-    ...Shadows.card,
   },
   placeOrderBtnText: {
     color: Colors.textLight,
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Typography.fontSize.sm,
   },
 });
