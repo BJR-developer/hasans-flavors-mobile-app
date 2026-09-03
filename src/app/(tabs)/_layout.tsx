@@ -2,11 +2,17 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   const itemCount = useCartStore((state) => state.getItemCount());
+
+  // Generous bottom padding calculation considering system gesture bar & nav items
+  const bottomPadding = insets.bottom > 0 ? insets.bottom + 6 : Platform.OS === 'ios' ? 28 : 22;
+  const tabHeight = 56 + bottomPadding;
 
   return (
     <Tabs
@@ -18,8 +24,8 @@ export default function TabLayout() {
           backgroundColor: Colors.card,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: Platform.select({ ios: 88, default: 68 }),
-          paddingBottom: Platform.select({ ios: 28, default: 10 }),
+          height: tabHeight,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
           elevation: 8,
           shadowColor: Colors.text,
@@ -29,9 +35,9 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
+          fontFamily: Typography.fontFamily.semiBold,
           fontWeight: '600',
           marginTop: 2,
-          paddingBottom: 2,
         },
         tabBarIconStyle: {
           marginTop: 2,

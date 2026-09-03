@@ -52,38 +52,48 @@ export interface CartItem {
   totalPrice: number;
 }
 
-export type OrderStatus = 'received' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
-export type DeliveryType = 'dine_in' | 'delivery' | 'takeout';
-export type PaymentMethod = 'cash' | 'gcash' | 'maya' | 'card';
-export type UserRole = 'customer' | 'staff' | 'kds' | 'owner';
-
-export interface OrderTimeline {
-  status: OrderStatus;
-  timestamp: string;
-  title: string;
-  description: string;
-}
+export type OrderType = 'dine_in' | 'takeout' | 'delivery';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+export type PaymentMethod = 'cash' | 'gcash' | 'card';
+export type PaymentStatus = 'paid' | 'unpaid';
 
 export interface Order {
   id: string;
   orderNumber: string;
+  type: OrderType;
+  tableNumber?: string;
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
   items: CartItem[];
   subtotal: number;
-  deliveryFee: number;
   tax: number;
+  serviceFee: number;
+  deliveryFee: number;
   discount: number;
   total: number;
   status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  deliveryType: DeliveryType;
-  tableNumber?: string;
   paymentMethod: PaymentMethod;
-  customerName: string;
-  customerPhone: string;
-  deliveryAddress?: string;
-  orderNotes?: string;
-  estimatedTime: string;
+  paymentStatus: PaymentStatus;
   createdAt: string;
-  timeline: OrderTimeline[];
+  estimatedMinutes: number;
+  specialNotes?: string;
+}
+
+export interface TableSession {
+  tableNumber: string;
+  guestCount: number;
+  status: 'available' | 'occupied' | 'billing';
+  activeOrderId?: string;
+  joinedAt?: string;
+}
+
+export type UserRole = 'customer' | 'kds' | 'pos' | 'owner';
+
+export interface DailyStats {
+  todayRevenue: number;
+  orderCount: number;
+  activeTables: number;
+  avgPrepTimeMinutes: number;
+  topSellingItems: { name: string; sold: number; revenue: number }[];
 }

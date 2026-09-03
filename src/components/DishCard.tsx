@@ -1,11 +1,11 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Dish } from '@/types';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
-import { Dish } from '@/types';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface DishCardProps {
   dish: Dish;
@@ -29,7 +29,7 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
     e.stopPropagation();
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch { }
+    } catch {}
     addItem(dish, 1);
   };
 
@@ -156,21 +156,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   categoryText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: 10,
     color: Colors.textMuted,
-    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   dishTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     letterSpacing: -0.2,
   },
   dishDescription: {
     fontSize: 11,
     color: Colors.textSecondary,
+    fontFamily: Typography.fontFamily.regular,
     lineHeight: 15,
     marginTop: 2,
   },
@@ -188,7 +190,8 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
   addButton: {
@@ -202,6 +205,7 @@ const styles = StyleSheet.create({
   soldOutText: {
     fontSize: 11,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.textMuted,
   },
 });

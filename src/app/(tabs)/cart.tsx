@@ -26,31 +26,28 @@ export default function CartScreen() {
     items,
     deliveryType,
     promoCode,
-    promoError,
     discountAmount,
     setDeliveryType,
     updateQuantity,
     clearCart,
     applyPromoCode,
     removePromoCode,
-    setPromoError,
     getSubtotal,
     getDeliveryFee,
     getTax,
     getTotal,
-    getFreeDeliveryProgress,
   } = useCartStore();
 
   const currentTable = useTableStore((state) => state.currentTable);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState('');
 
   const subtotal = getSubtotal();
   const deliveryFee = getDeliveryFee();
   const tax = getTax();
   const total = getTotal();
-  const freeDeliveryProgress = getFreeDeliveryProgress();
 
   const handleApplyPromo = () => {
     if (!promoInput.trim()) {
@@ -60,9 +57,12 @@ export default function CartScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    const success = applyPromoCode(promoInput.trim().toUpperCase());
-    if (success) {
+    const res = applyPromoCode(promoInput.trim().toUpperCase());
+    if (res.success) {
       setPromoInput('');
+      setPromoError('');
+    } else {
+      setPromoError(res.message);
     }
   };
 
@@ -274,59 +274,6 @@ export default function CartScreen() {
         {/* 
           PROMOTIONS & COUPONS SECTION:
           Hidden temporarily per request. We will implement and activate coupon redemption in the next release.
-        */}
-        {/*
-        <View style={styles.promoCard}>
-          <Text style={styles.sectionTitle}>Promotions</Text>
-          {promoCode ? (
-            <View style={styles.activePromoRow}>
-              <View style={styles.activePromoLeft}>
-                <Ionicons name="pricetag-outline" size={16} color={Colors.primary} />
-                <View>
-                  <Text style={styles.appliedCode}>{promoCode}</Text>
-                  <Text style={styles.appliedSavings}>Saved ₱{discountAmount.toLocaleString()}</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={removePromoCode} hitSlop={6}>
-                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View>
-              <View style={styles.promoInputRow}>
-                <TextInput
-                  style={styles.promoInput}
-                  placeholder="Enter coupon code (e.g. HASAN10)"
-                  placeholderTextColor={Colors.textMuted}
-                  value={promoInput}
-                  onChangeText={(t) => {
-                    setPromoInput(t);
-                    setPromoError('');
-                  }}
-                  autoCapitalize="characters"
-                />
-                <TouchableOpacity style={styles.applyBtn} onPress={handleApplyPromo}>
-                  <Text style={styles.applyBtnText}>Apply</Text>
-                </TouchableOpacity>
-              </View>
-              {promoError ? <Text style={styles.promoErrorText}>{promoError}</Text> : null}
-            </View>
-          )}
-
-          {!promoCode && (
-            <View style={styles.quickCouponsRow}>
-              <TouchableOpacity
-                style={styles.quickCouponPill}
-                onPress={() => {
-                  setPromoInput('HASAN10');
-                  applyPromoCode('HASAN10');
-                }}
-              >
-                <Text style={styles.quickCouponText}>HASAN10 (10% OFF)</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
         */}
 
         {/* Bill Summary Card */}
@@ -616,89 +563,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     minWidth: 18,
     textAlign: 'center',
-  },
-  promoCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.subtle,
-  },
-  promoInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  promoInput: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    height: 42,
-    fontSize: Typography.fontSize.xs,
-    color: Colors.text,
-  },
-  applyBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 42,
-  },
-  applyBtnText: {
-    color: Colors.textLight,
-    fontWeight: '700',
-    fontSize: Typography.fontSize.xs,
-  },
-  promoErrorText: {
-    color: Colors.error,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  activePromoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primaryMuted,
-    padding: Spacing.md,
-    borderRadius: Radius.md,
-  },
-  activePromoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  appliedCode: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  appliedSavings: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-  },
-  quickCouponsRow: {
-    marginTop: Spacing.sm,
-  },
-  quickCouponPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderStyle: 'dashed',
-    borderRadius: Radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  quickCouponText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: Colors.textSecondary,
   },
   summaryCard: {
     backgroundColor: Colors.card,

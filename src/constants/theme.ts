@@ -47,10 +47,11 @@ export const Colors = {
 
 export const Typography = {
   fontFamily: {
-    regular: 'System',
-    medium: 'System',
-    bold: 'System',
-    heavy: 'System',
+    regular: 'PlusJakartaSans_400Regular',
+    medium: 'PlusJakartaSans_500Medium',
+    semiBold: 'PlusJakartaSans_600SemiBold',
+    bold: 'PlusJakartaSans_700Bold',
+    extraBold: 'PlusJakartaSans_800ExtraBold',
   },
   fontSize: {
     xs: 11,

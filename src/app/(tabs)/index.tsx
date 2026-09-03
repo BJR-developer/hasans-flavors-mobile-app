@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Header } from '@/components/Header';
-import { CategoryPill } from '@/components/CategoryPill';
 import { DishCard } from '@/components/DishCard';
 import { CartFloatingBar } from '@/components/CartFloatingBar';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
@@ -25,8 +24,8 @@ import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(width * 0.76, 310);
-const CARD_GAP = 12;
+const CARD_WIDTH = Math.min(width * 0.86, 360);
+const CARD_GAP = 8;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
 const SIDE_SPACER = (width - CARD_WIDTH) / 2 - CARD_GAP / 2;
 const LOOP_MULTIPLIER = 80;
@@ -103,6 +102,9 @@ export default function HomeScreen() {
   );
 
   const handleCategorySelect = (id: string) => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
     setSelectedCategory(id);
     router.push('/(tabs)/menu' as any);
   };
@@ -158,9 +160,11 @@ export default function HomeScreen() {
 
         {/* Infinite Looping Peeking Theatre Carousel */}
         <View style={styles.carouselSection}>
-          <View style={styles.carouselHeaderRow}>
-            <Text style={styles.sectionTitle}>Featured Specials</Text>
-            <Text style={styles.sectionSub}>Handcrafted recommendations</Text>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.largeSectionTitle}>Featured Specials</Text>
+              <Text style={styles.sectionSub}>Handcrafted heirloom recommendations</Text>
+            </View>
           </View>
 
           <Animated.FlatList
@@ -195,7 +199,7 @@ export default function HomeScreen() {
               index,
             })}
             renderItem={({ item, index }: any) => {
-              // Theatre Effect Interpolation
+              // Theatre Effect Interpolation with tight gap
               const inputRange = [
                 (index - 1) * SNAP_INTERVAL,
                 index * SNAP_INTERVAL,
@@ -204,19 +208,19 @@ export default function HomeScreen() {
 
               const scale = scrollX.interpolate({
                 inputRange,
-                outputRange: [0.88, 1, 0.88],
+                outputRange: [0.91, 1, 0.91],
                 extrapolate: 'clamp',
               });
 
               const translateY = scrollX.interpolate({
                 inputRange,
-                outputRange: [10, 0, 10],
+                outputRange: [6, 0, 6],
                 extrapolate: 'clamp',
               });
 
               const opacity = scrollX.interpolate({
                 inputRange,
-                outputRange: [0.72, 1, 0.72],
+                outputRange: [0.8, 1, 0.8],
                 extrapolate: 'clamp',
               });
 
@@ -264,28 +268,59 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Category Filter Pills */}
+        {/* Categories Section with Image and Name */}
         <View style={styles.categorySection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.largeSectionTitle}>Categories</Text>
+              <Text style={styles.sectionSub}>Explore dishes by preparation</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/menu' as any)} hitSlop={8}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoryScroll}
           >
-            {categories.map((cat) => (
-              <CategoryPill
-                key={cat.id}
-                category={cat}
-                isSelected={selectedCategoryId === cat.id}
-                onSelect={handleCategorySelect}
-              />
-            ))}
+            {categories.map((cat) => {
+              const isSelected = selectedCategoryId === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={styles.categoryCardItem}
+                  onPress={() => handleCategorySelect(cat.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.categoryImageWrapper, isSelected && styles.categoryImageWrapperActive]}>
+                    <Image
+                      source={{
+                        uri:
+                          cat.imageUrl ||
+                          'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80',
+                      }}
+                      style={styles.categoryImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <Text
+                    style={[styles.categoryNameText, isSelected && styles.categoryNameTextActive]}
+                    numberOfLines={1}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
         {/* Chef Selection Section */}
-        <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderRow}>
           <View>
-            <Text style={styles.sectionTitle}>Chef's Selection</Text>
+            <Text style={styles.largeSectionTitle}>Chef's Selection</Text>
             <Text style={styles.sectionSub}>Slow-cooked heirloom specialties</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/menu' as any)} hitSlop={8}>
@@ -306,9 +341,9 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* Popular Dishes Grid */}
-        <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderRow}>
           <View>
-            <Text style={styles.sectionTitle}>Popular Dishes</Text>
+            <Text style={styles.largeSectionTitle}>Popular Food</Text>
             <Text style={styles.sectionSub}>Most ordered by diners</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/menu' as any)} hitSlop={8}>
@@ -364,15 +399,18 @@ const styles = StyleSheet.create({
   tableStatusText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
+    fontFamily: Typography.fontFamily.medium,
   },
   tableStatusBold: {
     fontWeight: '700',
     color: Colors.primary,
+    fontFamily: Typography.fontFamily.bold,
   },
   tableStatusAction: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '700',
     color: Colors.primary,
+    fontFamily: Typography.fontFamily.bold,
   },
   roundedSearchBar: {
     flexDirection: 'row',
@@ -400,7 +438,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.fontSize.sm,
     color: Colors.textMuted,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
   },
   filterIconCircle: {
     width: 34,
@@ -413,13 +451,6 @@ const styles = StyleSheet.create({
   },
   carouselSection: {
     marginTop: Spacing.lg,
-  },
-  carouselHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
   },
   carouselContentContainer: {
     paddingHorizontal: SIDE_SPACER,
@@ -458,13 +489,15 @@ const styles = StyleSheet.create({
   },
   carouselDishTitle: {
     color: Colors.textLight,
-    fontSize: Typography.fontSize.lg,
+    fontSize: 18,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     letterSpacing: -0.3,
   },
   carouselDishSub: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.92)',
     fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.regular,
     marginTop: 2,
     lineHeight: 16,
   },
@@ -479,14 +512,52 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: Typography.fontSize.md,
     fontWeight: '900',
+    fontFamily: Typography.fontFamily.extraBold,
   },
   categorySection: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   categoryScroll: {
     paddingHorizontal: Spacing.lg,
+    gap: 14,
+    paddingVertical: Spacing.xs,
   },
-  sectionHeader: {
+  categoryCardItem: {
+    alignItems: 'center',
+    gap: 6,
+    width: 72,
+  },
+  categoryImageWrapper: {
+    width: 62,
+    height: 62,
+    borderRadius: Radius.round,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    ...Shadows.subtle,
+  },
+  categoryImageWrapperActive: {
+    borderColor: Colors.primary,
+    borderWidth: 2.5,
+  },
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryNameText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  categoryNameTextActive: {
+    color: Colors.primary,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
@@ -494,20 +565,23 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginBottom: Spacing.md,
   },
-  sectionTitle: {
-    fontSize: Typography.fontSize.md,
+  largeSectionTitle: {
+    fontSize: 21,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   sectionSub: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
     marginTop: 2,
   },
   seeAllText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: 13,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
   horizontalScroll: {
