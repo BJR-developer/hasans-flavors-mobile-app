@@ -83,9 +83,9 @@ export default function SplashScreenComponent() {
             <View style={styles.centerSection}>
                 <Animated.View style={[styles.logoCard, animatedLogoStyle]}>
                     <Image
-                        source={require('../../assets/images/hasan_logo.jpg')}
+                        source={require('../../assets/images/logo.png')}
                         style={styles.logoImage}
-                        resizeMode="cover"
+                        resizeMode="contain"
                     />
                 </Animated.View>
 
@@ -129,14 +129,13 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     logoCard: {
-        width: 88,
-        height: 88,
-        borderRadius: 24,
-        backgroundColor: '#27272A',
+        width: 180,
+        height: 120,
+        backgroundColor: 'transparent',
         overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Spacing.xl,
+        marginBottom: Spacing.md,
     },
     logoImage: {
         width: '100%',

@@ -15,7 +15,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useCartStore } from '@/store/useCartStore';
-import { useFavoritesStore } from '@/store/useFavoritesStore';
 import { ADDON_OPTIONS, PORTION_OPTIONS, SPICE_LEVELS } from '@/data/options';
 import { AddonOption, PortionOption } from '@/types';
 import * as Haptics from 'expo-haptics';
@@ -27,7 +26,6 @@ export default function DishDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const dish = useMenuStore((state) => state.getDishById(id));
   const addItem = useCartStore((state) => state.addItem);
-  const { favoriteIds, toggleFavorite } = useFavoritesStore();
 
   const [quantity, setQuantity] = useState(1);
   const [selectedPortion, setSelectedPortion] = useState<PortionOption>(PORTION_OPTIONS[0]);
@@ -47,8 +45,6 @@ export default function DishDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const isFav = favoriteIds.includes(dish.id);
 
   // Price calculations
   const unitPrice = dish.price + selectedPortion.priceDelta + selectedAddons.reduce((sum, a) => sum + a.price, 0);
@@ -90,45 +86,12 @@ export default function DishDetailScreen() {
             <TouchableOpacity style={styles.iconCircle} onPress={() => router.back()} hitSlop={8}>
               <Ionicons name="arrow-back" size={20} color={Colors.text} />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.iconCircle}
-              onPress={() => {
-                try {
-                  Haptics.selectionAsync();
-                } catch {}
-                toggleFavorite(dish.id);
-              }}
-              hitSlop={8}
-            >
-              <Ionicons
-                name={isFav ? 'heart' : 'heart-outline'}
-                size={20}
-                color={isFav ? Colors.primary : Colors.text}
-              />
-            </TouchableOpacity>
           </SafeAreaView>
-
-          {/* Subtle Tag */}
-          {dish.isChefSpecial && (
-            <View style={styles.specialBadge}>
-              <Text style={styles.specialBadgeText}>CHEF'S SELECTION</Text>
-            </View>
-          )}
         </View>
 
         {/* Dish Info Header */}
         <View style={styles.infoCard}>
-          <View style={styles.categoryRatingRow}>
-            <Text style={styles.categoryText}>{dish.category}</Text>
-            {dish.rating && (
-              <View style={styles.ratingBox}>
-                <Ionicons name="star" size={13} color={Colors.saffron} />
-                <Text style={styles.ratingText}>{dish.rating}</Text>
-                <Text style={styles.reviewCount}>({dish.reviewCount})</Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.categoryText}>{dish.category}</Text>
 
           <Text style={styles.dishName}>{dish.name}</Text>
           <Text style={styles.dishPrice}>{dish.formattedPrice}</Text>
@@ -255,7 +218,7 @@ export default function DishDetailScreen() {
                   </View>
 
                   <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
-                    +₱{addon.price}
+                    +₱${addon.price}
                   </Text>
                 </TouchableOpacity>
               );
@@ -370,32 +333,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  specialBadge: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    left: Spacing.lg,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.xs,
-  },
-  specialBadgeText: {
-    color: Colors.textLight,
-    fontWeight: '700',
-    fontSize: 10,
-    letterSpacing: 0.6,
-  },
   infoCard: {
     backgroundColor: Colors.card,
     padding: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-  },
-  categoryRatingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   categoryText: {
     fontSize: Typography.fontSize.xs,
@@ -403,20 +345,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-  },
-  ratingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  reviewCount: {
-    fontSize: 11,
-    color: Colors.textMuted,
+    marginBottom: 4,
   },
   dishName: {
     fontSize: Typography.fontSize.xl,

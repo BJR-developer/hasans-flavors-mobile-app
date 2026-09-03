@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 import { useTableStore } from '@/store/useTableStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import * as Haptics from 'expo-haptics';
 
 interface HeaderProps {
   title?: string;
@@ -17,6 +19,14 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
   const router = useRouter();
   const itemCount = useCartStore((state) => state.getItemCount());
   const currentTable = useTableStore((state) => state.currentTable);
+  const user = useAuthStore((state) => state.user);
+
+  const handleProfilePress = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    router.push('/(tabs)/profile' as any);
+  };
 
   return (
     <View style={styles.container}>
@@ -31,18 +41,28 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.brandContainer}
-            onPress={() => router.push('/(tabs)' as any)}
+            activeOpacity={0.8}
+            style={styles.profileContainer}
+            onPress={handleProfilePress}
           >
-            <Image
-              source={require('../../assets/images/hasan_logo.jpg')}
-              style={styles.brandLogo}
-              resizeMode="cover"
-            />
-            <View style={styles.brandTextCol}>
-              <Text style={styles.brandTitle}>Hasan's Flavors</Text>
-              <Text style={styles.brandSubtitle}>Halal Cuisine</Text>
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={{
+                  uri:
+                    user?.avatarUrl ||
+                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+                }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.profileTextCol}>
+              <Text style={styles.greetingText} numberOfLines={1}>
+                Hello, {user?.name ? user.name.split(' ')[0] : 'Diner'} 👋
+              </Text>
+              <Text style={styles.statusText} numberOfLines={1}>
+                {currentTable ? `Table: ${currentTable}` : user?.tier || "Hasan's Flavors"}
+              </Text>
             </View>
           </TouchableOpacity>
         )}
@@ -62,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
             onPress={() => router.push('/qr-scan' as any)}
             activeOpacity={0.8}
           >
-            <Ionicons name="restaurant-outline" size={13} color={Colors.textSecondary} />
+            <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
             <Text style={styles.tableBadgeText}>{currentTable}</Text>
           </TouchableOpacity>
         ) : (
@@ -85,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
           activeOpacity={0.8}
           hitSlop={6}
         >
-          <Ionicons name="bag-outline" size={21} color={Colors.text} />
+          <Ionicons name="bag-outline" size={22} color={Colors.text} />
           {itemCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
@@ -99,51 +119,58 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
 
 const styles = StyleSheet.create({
   container: {
-    height: 56,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingLeft: Spacing.md,
+    paddingRight: Spacing.lg,
+    backgroundColor: 'transparent',
   },
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: '60%',
+    flex: 1,
   },
-  brandContainer: {
+  profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
-  brandLogo: {
-    width: 34,
-    height: 34,
+  avatarWrapper: {
+    width: 42,
+    height: 42,
     borderRadius: Radius.round,
-    borderWidth: 1,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
     borderColor: Colors.border,
   },
-  brandTextCol: {
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  profileTextCol: {
     justifyContent: 'center',
+    flexShrink: 1,
   },
-  brandTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '700',
+  greetingText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '800',
     color: Colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
-  brandSubtitle: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: Colors.textMuted,
-    letterSpacing: 0.2,
+    marginTop: 1,
   },
   headerTitle: {
     flex: 1,
     fontSize: Typography.fontSize.md,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     textAlign: 'center',
     marginHorizontal: Spacing.xs,
@@ -151,23 +178,23 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   tableBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    gap: 4,
+    borderColor: Colors.primaryMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 5,
   },
   tableBadgeText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   qrBtn: {
     flexDirection: 'row',
@@ -175,10 +202,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 5,
   },
   qrBtnText: {
     fontSize: Typography.fontSize.xs,
@@ -187,26 +214,42 @@ const styles = StyleSheet.create({
   },
   cartButton: {
     position: 'relative',
-    padding: 4,
+    padding: 6,
+    width: 40,
+    height: 40,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -2,
+    right: -2,
     backgroundColor: Colors.primary,
     borderRadius: Radius.round,
-    minWidth: 16,
-    height: 16,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.background,
   },
   badgeText: {
     color: Colors.textLight,
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   iconButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

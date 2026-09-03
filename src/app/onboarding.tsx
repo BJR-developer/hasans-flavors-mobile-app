@@ -131,11 +131,10 @@ export default function OnboardingScreen() {
             <View style={styles.headerRow}>
                 <View style={styles.brandRow}>
                     <Image
-                        source={require('../../assets/images/hasan_logo.jpg')}
+                        source={require('../../assets/images/logo.png')}
                         style={styles.headerLogo}
-                        resizeMode="cover"
+                        resizeMode="contain"
                     />
-                    <Text style={styles.brandName}>Hasan's Flavors</Text>
                 </View>
 
                 {!isLastSlide ? (
@@ -251,17 +250,10 @@ const styles = StyleSheet.create({
     brandRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
     },
     headerLogo: {
-        width: 28,
-        height: 28,
-        borderRadius: Radius.round,
-    },
-    brandName: {
-        fontSize: Typography.fontSize.sm,
-        fontWeight: '700',
-        color: Colors.text,
+        width: 100,
+        height: 34,
     },
     skipButton: {
         paddingHorizontal: Spacing.md,

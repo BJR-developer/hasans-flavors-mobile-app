@@ -4,9 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Image,
+  TouchableOpacity,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,56 +17,67 @@ import { SpiceMeter } from '@/components/SpiceMeter';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 import { useTableStore } from '@/store/useTableStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import * as Haptics from 'expo-haptics';
 
 export default function CartScreen() {
   const router = useRouter();
   const {
     items,
-    updateQuantity,
-    removeItem,
-    clearCart,
     deliveryType,
-    setDeliveryType,
     promoCode,
+    promoError,
+    discountAmount,
+    setDeliveryType,
+    updateQuantity,
+    clearCart,
     applyPromoCode,
     removePromoCode,
-    discountAmount,
+    setPromoError,
     getSubtotal,
-    getTax,
     getDeliveryFee,
-    getServiceFee,
+    getTax,
     getTotal,
+    getFreeDeliveryProgress,
   } = useCartStore();
 
   const currentTable = useTableStore((state) => state.currentTable);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   const [promoInput, setPromoInput] = useState('');
-  const [promoError, setPromoError] = useState('');
 
   const subtotal = getSubtotal();
-  const tax = getTax();
   const deliveryFee = getDeliveryFee();
-  const serviceFee = getServiceFee();
+  const tax = getTax();
   const total = getTotal();
+  const freeDeliveryProgress = getFreeDeliveryProgress();
 
   const handleApplyPromo = () => {
-    if (!promoInput.trim()) return;
-    const res = applyPromoCode(promoInput);
-    if (res.success) {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
-      setPromoError('');
-    } else {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } catch {}
-      setPromoError('Invalid coupon code. Try HASAN10 or BIRYANI20');
+    if (!promoInput.trim()) {
+      setPromoError('Please enter a coupon code');
+      return;
+    }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const success = applyPromoCode(promoInput.trim().toUpperCase());
+    if (success) {
+      setPromoInput('');
     }
   };
 
-  const handleProceedToCheckout = () => {
-    if (items.length === 0) return;
+  const handleSelectDelivery = () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch {}
+    Alert.alert(
+      'Coming soon to you..',
+      'Delivery service is currently being rolled out in your area. For now, please enjoy our Dine-In or Takeout ordering.',
+      [{ text: 'Got it' }]
+    );
+  };
+
+  const handleCheckout = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
@@ -126,7 +138,7 @@ export default function CartScreen() {
 
             <TouchableOpacity
               style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
-              onPress={() => setDeliveryType('delivery')}
+              onPress={handleSelectDelivery}
             >
               <Ionicons
                 name="bicycle-outline"
@@ -259,7 +271,11 @@ export default function CartScreen() {
           ))}
         </View>
 
-        {/* Promo Code Box */}
+        {/* 
+          PROMOTIONS & COUPONS SECTION:
+          Hidden temporarily per request. We will implement and activate coupon redemption in the next release.
+        */}
+        {/*
         <View style={styles.promoCard}>
           <Text style={styles.sectionTitle}>Promotions</Text>
           {promoCode ? (
@@ -311,6 +327,7 @@ export default function CartScreen() {
             </View>
           )}
         </View>
+        */}
 
         {/* Bill Summary Card */}
         <View style={styles.summaryCard}>
@@ -335,17 +352,12 @@ export default function CartScreen() {
             </View>
           )}
 
-          {deliveryType === 'dine_in' && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Service Charge (5%)</Text>
-              <Text style={styles.summaryVal}>₱{serviceFee.toLocaleString()}</Text>
-            </View>
-          )}
-
           {discountAmount > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={styles.discountLabel}>Coupon Discount</Text>
-              <Text style={styles.discountVal}>-₱{discountAmount.toLocaleString()}</Text>
+              <Text style={[styles.summaryLabel, styles.discountText]}>Discount</Text>
+              <Text style={[styles.summaryVal, styles.discountText]}>
+                -₱{discountAmount.toLocaleString()}
+              </Text>
             </View>
           )}
 
@@ -353,24 +365,20 @@ export default function CartScreen() {
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.grandTotalVal}>₱{total.toLocaleString()}</Text>
+            <Text style={styles.totalVal}>₱{total.toLocaleString()}</Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Docked Bottom Checkout Footer */}
-      <View style={styles.footerContainer}>
-        <View style={styles.footerTotalCol}>
+      {/* Docked Sticky Bottom Footer */}
+      <View style={styles.footer}>
+        <View style={styles.footerPriceCol}>
           <Text style={styles.footerTotalLabel}>Total Amount</Text>
-          <Text style={styles.footerTotalAmount}>₱{total.toLocaleString()}</Text>
+          <Text style={styles.footerTotalVal}>₱{total.toLocaleString()}</Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.88}
-          style={styles.checkoutBtn}
-          onPress={handleProceedToCheckout}
-        >
-          <Text style={styles.checkoutBtnText}>Checkout</Text>
+        <TouchableOpacity activeOpacity={0.88} style={styles.checkoutBtn} onPress={handleCheckout}>
+          <Text style={styles.checkoutBtnText}>Proceed to Checkout</Text>
           <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
         </TouchableOpacity>
       </View>
@@ -387,8 +395,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: 190,
     gap: Spacing.md,
   },
   emptyContainer: {
@@ -396,29 +405,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xxl,
+    gap: Spacing.md,
   },
   emptyTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '600',
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '700',
     color: Colors.text,
-    marginTop: Spacing.md,
-    marginBottom: 4,
   },
   emptySub: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: Spacing.lg,
   },
   browseButton: {
-    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: 12,
     borderRadius: Radius.md,
-    gap: 8,
+    marginTop: Spacing.sm,
   },
   browseButtonText: {
     color: Colors.textLight,
@@ -428,14 +436,14 @@ const styles = StyleSheet.create({
   diningTypeCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadows.subtle,
   },
   sectionTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -523,7 +531,7 @@ const styles = StyleSheet.create({
   itemsCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadows.subtle,
@@ -532,28 +540,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   clearCartText: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textMuted,
-    fontWeight: '500',
+    color: Colors.error,
+    fontWeight: '600',
   },
   itemRow: {
     flexDirection: 'row',
+    gap: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
-    gap: 12,
   },
   itemImage: {
-    width: 60,
-    height: 60,
+    width: 68,
+    height: 68,
     borderRadius: Radius.md,
     backgroundColor: Colors.surface,
   },
   itemInfo: {
     flex: 1,
+    gap: 3,
   },
   itemName: {
     fontSize: Typography.fontSize.sm,
@@ -564,34 +573,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginVertical: 2,
   },
   itemPortionText: {
     fontSize: 11,
-    color: Colors.saffron,
-    fontWeight: '600',
+    color: Colors.textMuted,
   },
   addonsText: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    marginTop: 2,
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   specialNoteText: {
     fontSize: 10,
-    color: Colors.textMuted,
+    color: Colors.saffron,
     fontStyle: 'italic',
-    marginTop: 2,
   },
   itemBottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 4,
   },
   itemPrice: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: Colors.text,
   },
   quantityStepper: {
     flexDirection: 'row',
@@ -615,7 +620,7 @@ const styles = StyleSheet.create({
   promoCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadows.subtle,
@@ -629,18 +634,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
+    height: 42,
     fontSize: Typography.fontSize.xs,
     color: Colors.text,
-    height: 38,
   },
   applyBtn: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    height: 42,
   },
   applyBtnText: {
     color: Colors.textLight,
@@ -654,11 +660,13 @@ const styles = StyleSheet.create({
   },
   activePromoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.primaryLight,
-    padding: Spacing.sm,
-    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.primaryMuted,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
   },
   activePromoLeft: {
     flexDirection: 'row',
@@ -671,39 +679,39 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   appliedSavings: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.textSecondary,
   },
   quickCouponsRow: {
-    flexDirection: 'row',
-    gap: 6,
     marginTop: Spacing.sm,
   },
   quickCouponPill: {
+    alignSelf: 'flex-start',
     backgroundColor: Colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.xs,
     borderWidth: 1,
     borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: Radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   quickCouponText: {
     fontSize: 10,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.textSecondary,
   },
   summaryCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
+    gap: Spacing.sm,
     ...Shadows.subtle,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   summaryLabel: {
     fontSize: Typography.fontSize.xs,
@@ -714,64 +722,63 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.text,
   },
-  discountLabel: {
-    fontSize: Typography.fontSize.xs,
+  discountText: {
     color: Colors.primary,
-  },
-  discountVal: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.primary,
+    fontWeight: '600',
   },
   divider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: Spacing.sm,
+    marginVertical: 2,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 2,
   },
   totalLabel: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
-  grandTotalVal: {
+  totalVal: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '800',
     color: Colors.primary,
   },
-  footerContainer: {
-    backgroundColor: Colors.card,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
     ...Shadows.elevated,
   },
-  footerTotalCol: {},
+  footerPriceCol: {
+    gap: 2,
+  },
   footerTotalLabel: {
     fontSize: 11,
     color: Colors.textMuted,
   },
-  footerTotalAmount: {
+  footerTotalVal: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '800',
-    color: Colors.primary,
+    color: Colors.text,
   },
   checkoutBtn: {
-    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: 12,
-    borderRadius: Radius.md,
     gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    height: 48,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
   },
   checkoutBtnText: {
     color: Colors.textLight,

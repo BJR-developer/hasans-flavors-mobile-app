@@ -184,7 +184,7 @@ export default function MenuScreen() {
             style={styles.dishesScrollView}
             contentContainerStyle={[
               styles.gridContent,
-              { paddingBottom: itemCount > 0 ? 160 : 110 },
+              { paddingBottom: itemCount > 0 ? 190 : 140 },
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -203,7 +203,7 @@ export default function MenuScreen() {
             renderItem={({ item }) => <DishCard dish={item} layout="horizontal" />}
             contentContainerStyle={[
               styles.listContent,
-              { paddingBottom: itemCount > 0 ? 160 : 110 },
+              { paddingBottom: itemCount > 0 ? 190 : 140 },
             ]}
             showsVerticalScrollIndicator={false}
           />
@@ -268,28 +268,26 @@ const styles = StyleSheet.create({
   },
   filterChipsRow: {
     paddingVertical: Spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   chipsScroll: {
     paddingHorizontal: Spacing.lg,
-    gap: 6,
+    gap: 8,
   },
   chip: {
-    backgroundColor: Colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radius.round,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   activeChip: {
     backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
+    borderColor: Colors.primaryMuted,
   },
   chipText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   activeChipText: {
@@ -301,11 +299,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   resultsCount: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
   },
   bold: {
     fontWeight: '700',
@@ -314,14 +312,14 @@ const styles = StyleSheet.create({
   resetFiltersText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   dishesScrollView: {
     flex: 1,
   },
   gridContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 120,
+    paddingTop: Spacing.xs,
   },
   gridWrapper: {
     flexDirection: 'row',
@@ -333,28 +331,29 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 120,
+    paddingTop: Spacing.xs,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xxl,
+    gap: Spacing.xs,
   },
   emptyTitle: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
-    marginTop: Spacing.md,
-    marginBottom: 4,
+    marginTop: Spacing.sm,
   },
   emptySub: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textMuted,
     textAlign: 'center',
-    marginBottom: Spacing.lg,
+    lineHeight: 18,
   },
   resetButton: {
+    marginTop: Spacing.md,
     backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
@@ -362,7 +361,7 @@ const styles = StyleSheet.create({
   },
   resetButtonText: {
     color: Colors.textLight,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '700',
-    fontSize: Typography.fontSize.sm,
   },
 });

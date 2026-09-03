@@ -2,56 +2,64 @@
   {
     "id": "all",
     "name": "All Dishes",
-    "icon": "utensils",
-    "count": 57
+    "icon": "restaurant-outline",
+    "count": 57,
+    "imageUrl": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80"
   },
   {
     "id": "biryani",
     "name": "Biryani & Rice",
     "match": "biryani|rice",
-    "icon": "bowl-rice",
-    "count": 19
+    "icon": "bowl-outline",
+    "count": 19,
+    "imageUrl": "https://halalfood.com.ph/wp-content/uploads/2026/08/WhatsApp-Image-2026-08-01-at-10.09.05-PM.jpeg"
   },
   {
     "id": "curries",
     "name": "Curries & Karahi",
     "match": "curry|karahi|haleem|nihari",
-    "icon": "flame",
-    "count": 9
+    "icon": "flame-outline",
+    "count": 9,
+    "imageUrl": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=400&q=80"
   },
   {
     "id": "bbq",
     "name": "BBQ & Kababs",
     "match": "kabab|bbq|tikka",
-    "icon": "beef",
-    "count": 5
+    "icon": "bonfire-outline",
+    "count": 5,
+    "imageUrl": "https://halalfood.com.ph/wp-content/uploads/2026/08/WhatsApp-Image-2026-07-31-at-9.39.37-PM.jpeg"
   },
   {
     "id": "rolls",
     "name": "Rolls & Fast Food",
     "match": "roll|burger|wrap|bite",
-    "icon": "sandwich",
-    "count": 12
+    "icon": "fast-food-outline",
+    "count": 12,
+    "imageUrl": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=400&q=80"
   },
   {
     "id": "breads",
     "name": "Fresh Breads & Roti",
     "match": "roti|naan|paratha|chapati",
-    "icon": "wheat",
-    "count": 3
+    "icon": "pizza-outline",
+    "count": 3,
+    "imageUrl": "https://halalfood.com.ph/wp-content/uploads/2026/08/adadad.jpeg"
   },
   {
     "id": "combos",
     "name": "Party Bilao & Combos",
     "match": "bilao|combo|platter",
-    "icon": "users",
-    "count": 3
+    "icon": "people-outline",
+    "count": 3,
+    "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=400&q=80"
   },
   {
     "id": "desserts",
     "name": "Desserts & Drinks",
     "match": "kheer|halwa|sweet|lassi|chai|drink",
-    "icon": "cup-soda",
-    "count": 0
+    "icon": "wine-outline",
+    "count": 0,
+    "imageUrl": "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?auto=format&fit=crop&w=400&q=80"
   }
 ]

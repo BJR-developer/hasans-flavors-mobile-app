@@ -1,12 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Dish } from '@/types';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
-import { useFavoritesStore } from '@/store/useFavoritesStore';
+import { Dish } from '@/types';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface DishCardProps {
   dish: Dish;
@@ -17,8 +16,6 @@ interface DishCardProps {
 export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPress }) => {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
-  const { favoriteIds, toggleFavorite } = useFavoritesStore();
-  const isFav = favoriteIds.includes(dish.id);
 
   const handlePress = () => {
     if (onPress) {
@@ -32,16 +29,8 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
     e.stopPropagation();
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
+    } catch { }
     addItem(dish, 1);
-  };
-
-  const handleFav = (e: any) => {
-    e.stopPropagation();
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {}
-    toggleFavorite(dish.id);
   };
 
   if (layout === 'horizontal') {
@@ -54,18 +43,9 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
         <Image source={{ uri: dish.imageUrl }} style={styles.horizontalImage} resizeMode="cover" />
 
         <View style={styles.horizontalContent}>
-          <View style={styles.topMetaRow}>
-            <Text style={styles.categoryText} numberOfLines={1}>
-              {dish.category}
-            </Text>
-            <TouchableOpacity onPress={handleFav} style={styles.favBtn} hitSlop={10}>
-              <Ionicons
-                name={isFav ? 'heart' : 'heart-outline'}
-                size={16}
-                color={isFav ? Colors.primary : Colors.textMuted}
-              />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.categoryText} numberOfLines={1}>
+            {dish.category}
+          </Text>
 
           <Text style={styles.dishTitle} numberOfLines={1}>
             {dish.name}
@@ -99,28 +79,12 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
     >
       <View style={styles.imageContainer}>
         <Image source={{ uri: dish.imageUrl }} style={styles.gridImage} resizeMode="cover" />
-
-        <TouchableOpacity onPress={handleFav} style={styles.gridFavBtn} hitSlop={8}>
-          <Ionicons
-            name={isFav ? 'heart' : 'heart-outline'}
-            size={16}
-            color={isFav ? Colors.primary : Colors.text}
-          />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.gridContent}>
-        <View style={styles.categoryRow}>
-          <Text style={styles.categoryText} numberOfLines={1}>
-            {dish.category}
-          </Text>
-          {dish.rating && (
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={11} color={Colors.saffron} />
-              <Text style={styles.ratingText}>{dish.rating}</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.categoryText} numberOfLines={1}>
+          {dish.category}
+        </Text>
 
         <Text style={styles.dishTitle} numberOfLines={1}>
           {dish.name}
@@ -182,22 +146,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.surface,
   },
-  gridFavBtn: {
-    position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-    backgroundColor: Colors.glassBg,
-    borderRadius: Radius.round,
-    width: 28,
-    height: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  favBtn: {
-    padding: 2,
-  },
   gridContent: {
     padding: Spacing.md,
     gap: 2,
@@ -207,33 +155,12 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     justifyContent: 'space-between',
   },
-  topMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
   categoryText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textMuted,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
   },
   dishTitle: {
     fontSize: Typography.fontSize.sm,

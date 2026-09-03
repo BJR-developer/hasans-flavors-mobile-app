@@ -134,11 +134,11 @@ export default function SignInScreen() {
                 >
                     {/* Brand Header */}
                     <View style={styles.brandHeader}>
-                        <View style={styles.logoBadgeWrapper}>
+                        <View style={styles.logoContainer}>
                             <Image
-                                source={require('../../../assets/images/hasan_logo.jpg')}
+                                source={require('../../../assets/images/logo.png')}
                                 style={styles.brandLogo}
-                                resizeMode="cover"
+                                resizeMode="contain"
                             />
                         </View>
                         <Text style={styles.welcomeTitle}>Sign In</Text>
@@ -355,17 +355,12 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
         marginBottom: Spacing.md,
     },
-    logoBadgeWrapper: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        backgroundColor: Colors.card,
-        borderWidth: 1,
-        borderColor: Colors.border,
+    logoContainer: {
+        width: 150,
+        height: 60,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: Spacing.sm,
-        overflow: 'hidden',
     },
     brandLogo: {
         width: '100%',
