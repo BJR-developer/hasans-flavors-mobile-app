@@ -9,7 +9,6 @@ SplashScreen.preventAutoHideAsync().catch(() => { });
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide native splash screen quickly so our animated splash or root component mounts smoothly
     const timer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => { });
     }, 300);
@@ -51,6 +50,9 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="staff/owner" options={{ headerShown: false }} />
+        <Stack.Screen name="staff/pos" options={{ headerShown: false }} />
+        <Stack.Screen name="staff/kds" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

@@ -21,16 +21,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SignInScreen() {
     const router = useRouter();
-    const { login, socialLogin, isLoading } = useAuthStore();
+    const { login, quickLogin, socialLogin, isLoading } = useAuthStore();
 
-    const [email, setEmail] = useState('hasan.raza@example.com');
+    const [email, setEmail] = useState('customer@hasan.com');
     const [password, setPassword] = useState('spice1234');
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(true);
 
+    const handleRouteByRole = (role: 'customer' | 'staff' | 'owner') => {
+        if (role === 'owner') {
+            router.replace('/staff/owner' as any);
+        } else if (role === 'staff') {
+            router.replace('/staff/pos' as any);
+        } else {
+            router.replace('/(tabs)' as any);
+        }
+    };
+
     const handleSignIn = async () => {
         if (!email.trim()) {
-            Alert.alert('Required Field', 'Please enter your email address or phone number.');
+            Alert.alert('Required Field', 'Please enter your email address.');
             return;
         }
 
@@ -43,7 +53,29 @@ export default function SignInScreen() {
             try {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch { }
-            router.replace('/(tabs)' as any);
+            handleRouteByRole(res.role);
+        }
+    };
+
+    const handleQuickAccount = async (accountType: 'customer' | 'staff' | 'owner') => {
+        try {
+            Haptics.selectionAsync();
+        } catch { }
+
+        if (accountType === 'customer') {
+            setEmail('customer@hasan.com');
+        } else if (accountType === 'staff') {
+            setEmail('staff@hasan.com');
+        } else {
+            setEmail('owner@hasan.com');
+        }
+
+        const res = await quickLogin(accountType);
+        if (res.success) {
+            try {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch { }
+            handleRouteByRole(res.role);
         }
     };
 
@@ -57,22 +89,14 @@ export default function SignInScreen() {
             try {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch { }
-            router.replace('/(tabs)' as any);
+            handleRouteByRole(res.role);
         }
-    };
-
-    const handleFillDemo = () => {
-        try {
-            Haptics.selectionAsync();
-        } catch { }
-        setEmail('hasan.raza@example.com');
-        setPassword('spice1234');
     };
 
     const handleForgotPassword = () => {
         Alert.alert(
             'Reset Password',
-            'Password reset instructions have been sent to your registered email.',
+            'Password reset instructions have been sent to your registered email address.',
             [{ text: 'OK' }]
         );
     };
@@ -119,31 +143,62 @@ export default function SignInScreen() {
                         </View>
                         <Text style={styles.welcomeTitle}>Sign In</Text>
                         <Text style={styles.welcomeSubtitle}>
-                            Sign in to track orders, save favorites, and earn Spice Club points.
+                            Select a demo profile or sign in with your credentials.
                         </Text>
                     </View>
 
-                    {/* Demo Autofill Button */}
-                    <TouchableOpacity
-                        style={styles.demoBanner}
-                        onPress={handleFillDemo}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.demoBannerText}>
-                            Autofill demo: <Text style={styles.demoBold}>hasan.raza@example.com</Text>
-                        </Text>
-                    </TouchableOpacity>
+                    {/* 3 Quick Role Switcher Buttons */}
+                    <View style={styles.demoProfileSection}>
+                        <Text style={styles.demoSectionLabel}>QUICK DEMO PROFILES (1-TAP LOGIN):</Text>
+                        <View style={styles.demoButtonsRow}>
+                            <TouchableOpacity
+                                style={styles.demoRoleBtn}
+                                onPress={() => handleQuickAccount('customer')}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="person-outline" size={16} color={Colors.text} />
+                                <View style={styles.demoRoleInfo}>
+                                    <Text style={styles.demoRoleTitle}>Customer</Text>
+                                    <Text style={styles.demoRoleSub}>customer@hasan.com</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.demoRoleBtn}
+                                onPress={() => handleQuickAccount('staff')}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="calculator-outline" size={16} color={Colors.primary} />
+                                <View style={styles.demoRoleInfo}>
+                                    <Text style={styles.demoRoleTitle}>Staff (POS/KDS)</Text>
+                                    <Text style={styles.demoRoleSub}>staff@hasan.com</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.demoRoleBtn}
+                                onPress={() => handleQuickAccount('owner')}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="stats-chart-outline" size={16} color={Colors.halalGreen} />
+                                <View style={styles.demoRoleInfo}>
+                                    <Text style={styles.demoRoleTitle}>Owner Admin</Text>
+                                    <Text style={styles.demoRoleSub}>owner@hasan.com</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
                     {/* Input Form */}
                     <View style={styles.formContainer}>
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Email or Phone</Text>
+                            <Text style={styles.fieldLabel}>Email Address</Text>
                             <View style={styles.inputWrapper}>
                                 <TextInput
                                     style={styles.input}
                                     value={email}
                                     onChangeText={setEmail}
-                                    placeholder="Enter your email or phone"
+                                    placeholder="Enter your email"
                                     placeholderTextColor={Colors.textMuted}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
@@ -298,7 +353,7 @@ const styles = StyleSheet.create({
     brandHeader: {
         alignItems: 'center',
         marginTop: Spacing.sm,
-        marginBottom: Spacing.lg,
+        marginBottom: Spacing.md,
     },
     logoBadgeWrapper: {
         width: 56,
@@ -309,7 +364,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
         overflow: 'hidden',
     },
     brandLogo: {
@@ -330,23 +385,42 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         paddingHorizontal: Spacing.md,
     },
-    demoBanner: {
-        backgroundColor: Colors.surface,
+    demoProfileSection: {
+        marginBottom: Spacing.lg,
+    },
+    demoSectionLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: Colors.textMuted,
+        letterSpacing: 0.6,
+        marginBottom: Spacing.xs,
+    },
+    demoButtonsRow: {
+        gap: 6,
+    },
+    demoRoleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.card,
         borderWidth: 1,
         borderColor: Colors.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 8,
         borderRadius: Radius.md,
-        marginBottom: Spacing.lg,
-        alignItems: 'center',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        gap: 10,
+        ...Shadows.subtle,
     },
-    demoBannerText: {
+    demoRoleInfo: {
+        flex: 1,
+    },
+    demoRoleTitle: {
         fontSize: Typography.fontSize.xs,
-        color: Colors.textSecondary,
-    },
-    demoBold: {
         fontWeight: '600',
         color: Colors.text,
+    },
+    demoRoleSub: {
+        fontSize: 10,
+        color: Colors.textMuted,
     },
     formContainer: {
         gap: Spacing.md,

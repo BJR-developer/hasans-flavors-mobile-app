@@ -2,6 +2,7 @@ import { Header } from '@/components/Header';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTableStore } from '@/store/useTableStore';
+import { useRoleStore } from '@/store/useRoleStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -21,11 +22,12 @@ export default function ProfileScreen() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const currentTable = useTableStore((state) => state.currentTable);
   const clearTable = useTableStore((state) => state.clearTable);
+  const { setRole } = useRoleStore();
 
   const handleLogout = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      'Sign Out / Switch Account',
+      'Sign out and return to demo account selection?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -36,6 +38,7 @@ export default function ProfileScreen() {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch { }
             logout();
+            router.replace('/auth/signin' as any);
           },
         },
       ]
@@ -89,7 +92,7 @@ export default function ProfileScreen() {
               <View style={styles.userNameRow}>
                 <Text style={styles.userName}>{user.name}</Text>
                 <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>{user.tier}</Text>
+                  <Text style={styles.verifiedText}>{user.tier || user.roleLabel}</Text>
                 </View>
               </View>
               <Text style={styles.userEmail}>{user.email}</Text>
@@ -106,7 +109,7 @@ export default function ProfileScreen() {
               <View style={styles.guestTextCol}>
                 <Text style={styles.guestTitle}>Welcome to Hasan's Flavors</Text>
                 <Text style={styles.guestSubtitle}>
-                  Sign in or create an account to earn Spice Club points and save addresses.
+                  Sign in or switch demo accounts (Customer, Staff, Owner).
                 </Text>
               </View>
             </View>
@@ -117,67 +120,117 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/auth/signin' as any)}
                 activeOpacity={0.88}
               >
-                <Text style={styles.guestSignInText}>Sign In</Text>
+                <Text style={styles.guestSignInText}>Sign In / Switch Account</Text>
                 <Ionicons name="arrow-forward" size={14} color={Colors.textLight} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.guestSignUpBtn}
-                onPress={() => router.push('/auth/signup' as any)}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.guestSignUpText}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Loyalty Rewards Card */}
-        <View style={styles.loyaltyCard}>
-          <View style={styles.loyaltyHeader}>
-            <Text style={styles.loyaltyBadgeText}>SPICE CLUB REWARDS</Text>
-            <Text style={styles.pointsText}>
-              <Text style={styles.boldPoints}>{isAuthenticated ? user?.loyaltyPoints : '0'}</Text> pts
-            </Text>
-          </View>
+        {/* Staff / Owner Quick Access Panel */}
+        {(user?.role === 'staff' || user?.role === 'owner') && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionCardTitle}>Staff Operations</Text>
 
-          <Text style={styles.loyaltyTitle}>Loyalty Points Balance</Text>
-          <Text style={styles.loyaltySub}>
-            {isAuthenticated
-              ? `You have ${user?.loyaltyPoints} points. 20 more points to unlock a complimentary specialty naan.`
-              : 'Earn 1 point for every ₱10 spent and receive 100 bonus welcome points on signup.'}
-          </Text>
-
-          {/* Clean Progress Bar */}
-          <View style={styles.loyaltyProgressTrack}>
-            <View
-              style={[
-                styles.loyaltyProgressFill,
-                { width: isAuthenticated ? '94%' : '10%' },
-              ]}
-            />
-          </View>
-
-          <View style={styles.loyaltyFooter}>
-            <Text style={styles.loyaltyLevel}>
-              {isAuthenticated ? `${user?.loyaltyPoints} / 500 Pts` : '0 / 500 Pts'}
-            </Text>
             <TouchableOpacity
-              style={styles.redeemBtn}
+              style={styles.menuRow}
               onPress={() => {
-                if (!isAuthenticated) {
-                  router.push('/auth/signin' as any);
-                } else {
-                  Alert.alert('Rewards', 'Redeem 500 pts for free Garlic Naan or Kabab at checkout.');
-                }
+                setRole('pos');
+                router.push('/staff/pos' as any);
               }}
+              activeOpacity={0.7}
             >
-              <Text style={styles.redeemBtnText}>
-                {isAuthenticated ? 'Redeem' : 'Join Club'}
-              </Text>
+              <Ionicons name="calculator-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+              <View style={styles.menuTextCol}>
+                <Text style={styles.menuItemTitle}>POS Cashier Terminal</Text>
+                <Text style={styles.menuItemSub}>Ring up orders & process registers</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                setRole('kds');
+                router.push('/staff/kds' as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="flame-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+              <View style={styles.menuTextCol}>
+                <Text style={styles.menuItemTitle}>Kitchen Display System (KDS)</Text>
+                <Text style={styles.menuItemSub}>Live kitchen ticket preparation & bump</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            {user?.role === 'owner' && (
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={() => {
+                  setRole('owner');
+                  router.push('/staff/owner' as any);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="stats-chart-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuItemTitle}>Owner Analytics & Inventory</Text>
+                  <Text style={styles.menuItemSub}>Revenue, sales stream & stock control</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
-        </View>
+        )}
+
+        {/* Loyalty Rewards Card (Customer View) */}
+        {(!user || user.role === 'customer') && (
+          <View style={styles.loyaltyCard}>
+            <View style={styles.loyaltyHeader}>
+              <Text style={styles.loyaltyBadgeText}>SPICE CLUB REWARDS</Text>
+              <Text style={styles.pointsText}>
+                <Text style={styles.boldPoints}>{isAuthenticated ? user?.loyaltyPoints : '0'}</Text> pts
+              </Text>
+            </View>
+
+            <Text style={styles.loyaltyTitle}>Loyalty Points Balance</Text>
+            <Text style={styles.loyaltySub}>
+              {isAuthenticated
+                ? `You have ${user?.loyaltyPoints} points. 20 more points to unlock a complimentary specialty naan.`
+                : 'Earn 1 point for every ₱10 spent and receive 100 bonus welcome points on signup.'}
+            </Text>
+
+            <View style={styles.loyaltyProgressTrack}>
+              <View
+                style={[
+                  styles.loyaltyProgressFill,
+                  { width: isAuthenticated ? '94%' : '10%' },
+                ]}
+              />
+            </View>
+
+            <View style={styles.loyaltyFooter}>
+              <Text style={styles.loyaltyLevel}>
+                {isAuthenticated ? `${user?.loyaltyPoints} / 500 Pts` : '0 / 500 Pts'}
+              </Text>
+              <TouchableOpacity
+                style={styles.redeemBtn}
+                onPress={() => {
+                  if (!isAuthenticated) {
+                    router.push('/auth/signin' as any);
+                  } else {
+                    Alert.alert('Rewards', 'Redeem 500 pts for free Garlic Naan or Kabab at checkout.');
+                  }
+                }}
+              >
+                <Text style={styles.redeemBtnText}>
+                  {isAuthenticated ? 'Redeem' : 'Join Club'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Dine-in Table Status if assigned */}
         {currentTable && (
@@ -255,15 +308,15 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Sign Out Button (if logged in) */}
+        {/* Switch Account / Sign Out Button */}
         {isAuthenticated && (
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
+            <Ionicons name="swap-horizontal-outline" size={18} color={Colors.text} />
+            <Text style={styles.logoutButtonText}>Switch Demo Account / Sign Out</Text>
           </TouchableOpacity>
         )}
 
@@ -400,21 +453,6 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontSize: Typography.fontSize.xs,
     fontWeight: '600',
-  },
-  guestSignUpBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    paddingVertical: 10,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  guestSignUpText: {
-    color: Colors.text,
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
   },
   loyaltyCard: {
     backgroundColor: Colors.card,
@@ -587,7 +625,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
   },
   logoutButtonText: {
-    color: Colors.error,
+    color: Colors.text,
     fontSize: Typography.fontSize.sm,
     fontWeight: '600',
   },
