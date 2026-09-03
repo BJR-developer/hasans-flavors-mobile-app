@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   selectedPill: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   name: {
     fontSize: Typography.fontSize.sm,
@@ -50,6 +50,6 @@ const styles = StyleSheet.create({
   },
   selectedName: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

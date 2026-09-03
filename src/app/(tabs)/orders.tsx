@@ -35,11 +35,11 @@ export default function OrdersScreen() {
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return { label: 'Received', color: Colors.textSecondary, icon: 'time-outline' };
+        return { label: 'Received', color: Colors.saffron, icon: 'time-outline' };
       case 'preparing':
         return { label: 'In Kitchen', color: Colors.primary, icon: 'flame-outline' };
       case 'ready':
-        return { label: 'Ready', color: Colors.halalGreen, icon: 'checkmark-circle-outline' };
+        return { label: 'Ready for Pickup', color: Colors.halalGreen, icon: 'checkmark-circle-outline' };
       case 'completed':
         return { label: 'Delivered', color: Colors.textMuted, icon: 'checkmark-outline' };
       case 'cancelled':
@@ -193,7 +193,7 @@ export default function OrdersScreen() {
                       style={styles.reorderBtn}
                       onPress={() => handleReorder(order)}
                     >
-                      <Ionicons name="refresh-outline" size={15} color={Colors.text} />
+                      <Ionicons name="refresh-outline" size={15} color={Colors.primary} />
                       <Text style={styles.reorderBtnText}>Reorder</Text>
                     </TouchableOpacity>
                   )}
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTabBtn: {
-    borderBottomColor: Colors.text,
+    borderBottomColor: Colors.primary,
   },
   tabText: {
     fontSize: Typography.fontSize.sm,
@@ -235,8 +235,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   activeTabText: {
-    color: Colors.text,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   container: {
     flex: 1,
@@ -267,14 +267,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   orderNowBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: 10,
     borderRadius: Radius.md,
   },
   orderNowBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   orderCard: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   orderNumber: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   typeBadge: {
@@ -359,8 +359,8 @@ const styles = StyleSheet.create({
   },
   orderTotal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
     marginTop: 4,
   },
   cardFooter: {
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   trackBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -379,13 +379,13 @@ const styles = StyleSheet.create({
   },
   trackBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   reorderBtn: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primaryMuted,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -394,8 +394,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   reorderBtnText: {
-    color: Colors.text,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
 });

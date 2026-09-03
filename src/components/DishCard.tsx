@@ -116,7 +116,7 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
           </Text>
           {dish.rating && (
             <View style={styles.ratingRow}>
-              <Ionicons name="star" size={11} color={Colors.textSecondary} />
+              <Ionicons name="star" size={11} color={Colors.saffron} />
               <Text style={styles.ratingText}>{dish.rating}</Text>
             </View>
           )}
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: Radius.round,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

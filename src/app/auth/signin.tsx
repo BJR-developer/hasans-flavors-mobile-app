@@ -156,9 +156,9 @@ export default function SignInScreen() {
                                 onPress={() => handleQuickAccount('customer')}
                                 activeOpacity={0.8}
                             >
-                                <Ionicons name="person-outline" size={16} color={Colors.text} />
+                                <Ionicons name="person-outline" size={16} color={Colors.primary} />
                                 <View style={styles.demoRoleInfo}>
-                                    <Text style={styles.demoRoleTitle}>Customer</Text>
+                                    <Text style={styles.demoRoleTitle}>Customer Account</Text>
                                     <Text style={styles.demoRoleSub}>customer@hasan.com</Text>
                                 </View>
                             </TouchableOpacity>
@@ -170,7 +170,7 @@ export default function SignInScreen() {
                             >
                                 <Ionicons name="calculator-outline" size={16} color={Colors.primary} />
                                 <View style={styles.demoRoleInfo}>
-                                    <Text style={styles.demoRoleTitle}>Staff (POS/KDS)</Text>
+                                    <Text style={styles.demoRoleTitle}>Staff (POS / KDS)</Text>
                                     <Text style={styles.demoRoleSub}>staff@hasan.com</Text>
                                 </View>
                             </TouchableOpacity>
@@ -241,7 +241,7 @@ export default function SignInScreen() {
                                 <Ionicons
                                     name={rememberMe ? 'checkbox' : 'square-outline'}
                                     size={18}
-                                    color={rememberMe ? Colors.text : Colors.textMuted}
+                                    color={rememberMe ? Colors.primary : Colors.textMuted}
                                 />
                                 <Text style={styles.rememberText}>Remember me</Text>
                             </TouchableOpacity>
@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
     },
     guestPillText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
-        color: Colors.textSecondary,
+        fontWeight: '600',
+        color: Colors.primary,
     },
     scrollView: {
         flex: 1,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     },
     demoSectionLabel: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '700',
         color: Colors.textMuted,
         letterSpacing: 0.6,
         marginBottom: Spacing.xs,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     },
     demoRoleTitle: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '600',
+        fontWeight: '700',
         color: Colors.text,
     },
     demoRoleSub: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     },
     fieldLabel: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.textSecondary,
     },
     inputWrapper: {
@@ -465,13 +465,13 @@ const styles = StyleSheet.create({
     },
     forgotText: {
         fontSize: Typography.fontSize.xs,
-        color: Colors.text,
-        fontWeight: '500',
+        color: Colors.primary,
+        fontWeight: '600',
     },
     submitButton: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
         borderRadius: Radius.md,
         height: 48,
         marginTop: Spacing.xs,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     submitButtonText: {
         color: Colors.textLight,
         fontSize: Typography.fontSize.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     dividerRow: {
         flexDirection: 'row',
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     },
     socialButtonText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.text,
     },
     footerRow: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     },
     signupLink: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '600',
-        color: Colors.text,
+        fontWeight: '700',
+        color: Colors.primary,
     },
 });

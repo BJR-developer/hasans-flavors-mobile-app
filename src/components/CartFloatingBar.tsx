@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     zIndex: 99,
   },
   bar: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 14,
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   badge: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
     width: 24,
     height: 24,
     borderRadius: Radius.round,
@@ -73,13 +73,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: {
-    color: Colors.textLight,
-    fontWeight: '700',
+    color: Colors.primary,
+    fontWeight: '800',
     fontSize: 11,
   },
   itemsLabel: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   right: {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   },
   totalText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: Typography.fontSize.sm,
   },
 });

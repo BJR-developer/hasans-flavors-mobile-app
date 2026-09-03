@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   activeChip: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
   },
   chipText: {
     fontSize: Typography.fontSize.xs,
@@ -285,8 +285,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   activeChipText: {
-    color: Colors.textLight,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   resultsInfoRow: {
     flexDirection: 'row',
@@ -300,13 +300,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   bold: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   resetFiltersText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   dishesScrollView: {
     flex: 1,
@@ -347,14 +347,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   resetButton: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radius.md,
   },
   resetButtonText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
 });

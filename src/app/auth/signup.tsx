@@ -260,10 +260,11 @@ export default function SignUpScreen() {
                             <Ionicons
                                 name={agreeTerms ? 'checkbox' : 'square-outline'}
                                 size={18}
-                                color={agreeTerms ? Colors.text : Colors.textMuted}
+                                color={agreeTerms ? Colors.primary : Colors.textMuted}
                             />
                             <Text style={styles.termsText}>
-                                I agree to the Terms of Service and Privacy Policy
+                                I agree to the <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+                                <Text style={styles.termsLink}>Privacy Policy</Text>
                             </Text>
                         </TouchableOpacity>
 
@@ -356,8 +357,8 @@ const styles = StyleSheet.create({
     },
     guestPillText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
-        color: Colors.textSecondary,
+        fontWeight: '600',
+        color: Colors.primary,
     },
     scrollView: {
         flex: 1,
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
     },
     fieldLabel: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.textSecondary,
     },
     inputWrapper: {
@@ -456,10 +457,14 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         flex: 1,
     },
+    termsLink: {
+        color: Colors.primary,
+        fontWeight: '700',
+    },
     submitButton: {
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
         borderRadius: Radius.md,
         height: 48,
         marginTop: Spacing.xs,
@@ -470,7 +475,7 @@ const styles = StyleSheet.create({
     submitButtonText: {
         color: Colors.textLight,
         fontSize: Typography.fontSize.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     dividerRow: {
         flexDirection: 'row',
@@ -506,7 +511,7 @@ const styles = StyleSheet.create({
     },
     socialButtonText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.text,
     },
     footerRow: {
@@ -521,7 +526,7 @@ const styles = StyleSheet.create({
     },
     signinLink: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '600',
-        color: Colors.text,
+        fontWeight: '700',
+        color: Colors.primary,
     },
 });

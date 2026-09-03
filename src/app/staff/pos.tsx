@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Dimensions,
+  useWindowDimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,10 +22,12 @@ import { useRoleStore } from '@/store/useRoleStore';
 import { Dish, Order, PaymentMethod } from '@/types';
 import * as Haptics from 'expo-haptics';
 
-const { width } = Dimensions.get('window');
-
 export default function POSTerminalScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  const isLargeDesktop = width >= 1100;
+
   const { orders, placeOrder, updatePaymentStatus, updateOrderStatus } = useOrderStore();
   const { dishes, categories } = useMenuStore();
   const { user, logout } = useAuthStore();
@@ -36,23 +39,27 @@ export default function POSTerminalScreen() {
   const [searchQ, setSearchQ] = useState<string>('');
   const [posCart, setPosCart] = useState<{ dish: Dish; qty: number }[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('Table 01');
-  const [customerName, setCustomerName] = useState<string>('Walk-in Customer');
+  const [customerName, setCustomerName] = useState<string>('Walk-in Guest');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('cash');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
-  // Receipt Modal
+  // Digital Receipt Modal
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
 
-  const filteredDishes = dishes.filter((d) => {
-    if (selectedCat !== 'all' && !d.category.toLowerCase().includes(selectedCat.toLowerCase())) {
-      return false;
-    }
-    if (searchQ && !d.name.toLowerCase().includes(searchQ.toLowerCase())) {
-      return false;
-    }
-    return true;
-  });
+  // Filter dishes
+  const filteredDishes = useMemo(() => {
+    return dishes.filter((d) => {
+      if (selectedCat !== 'all' && !d.category.toLowerCase().includes(selectedCat.toLowerCase())) {
+        return false;
+      }
+      if (searchQ && !d.name.toLowerCase().includes(searchQ.toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+  }, [dishes, selectedCat, searchQ]);
 
+  // Cart operations
   const handleAddToCart = (dish: Dish) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -86,7 +93,7 @@ export default function POSTerminalScreen() {
     setPosCart([]);
   };
 
-  // Math
+  // Calculations
   const subtotal = posCart.reduce((sum, item) => sum + item.dish.price * item.qty, 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
   const tax = Math.round((subtotal - discountAmount) * 0.05);
@@ -122,7 +129,7 @@ export default function POSTerminalScreen() {
       deliveryFee: 0,
       discount: discountAmount,
       total,
-      specialNotes: 'Counter Walk-in Order',
+      specialNotes: 'Counter POS Order',
     });
 
     updatePaymentStatus(newOrder.id, 'paid');
@@ -131,40 +138,65 @@ export default function POSTerminalScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Sign out of Staff account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch {}
-            logout();
-            router.replace('/auth/signin' as any);
-          },
+    Alert.alert('Sign Out', 'Sign out of Staff terminal?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+          router.replace('/auth/signin' as any);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Top Header */}
+      {/* Top Navbar */}
       <View style={styles.navBar}>
         <View style={styles.brandRow}>
           <View style={styles.posBadge}>
             <Ionicons name="calculator" size={16} color={Colors.textLight} />
           </View>
           <View>
-            <Text style={styles.navTitle}>POS Cashier Register</Text>
-            <Text style={styles.navSub}>{user?.name || 'Tariq Khan'} • Terminal #01</Text>
+            <Text style={styles.navTitle}>POS Cashier Terminal</Text>
+            <Text style={styles.navSub}>{user?.name || 'Staff User'} • Register #01</Text>
           </View>
         </View>
 
+        {/* Mode Switcher */}
+        <View style={styles.navCenterToggle}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, posMode === 'register' && styles.toggleBtnActive]}
+            onPress={() => setPosMode('register')}
+          >
+            <Ionicons
+              name="keypad-outline"
+              size={14}
+              color={posMode === 'register' ? Colors.textLight : Colors.textSecondary}
+            />
+            <Text style={[styles.toggleBtnText, posMode === 'register' && styles.toggleBtnTextActive]}>
+              Register
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toggleBtn, posMode === 'orders' && styles.toggleBtnActive]}
+            onPress={() => setPosMode('orders')}
+          >
+            <Ionicons
+              name="receipt-outline"
+              size={14}
+              color={posMode === 'orders' ? Colors.textLight : Colors.textSecondary}
+            />
+            <Text style={[styles.toggleBtnText, posMode === 'orders' && styles.toggleBtnTextActive]}>
+              Orders ({orders.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Nav Actions */}
         <View style={styles.navActionsRow}>
           <TouchableOpacity
             style={styles.actionPill}
@@ -172,10 +204,9 @@ export default function POSTerminalScreen() {
               setRole('kds');
               router.push('/staff/kds' as any);
             }}
-            hitSlop={6}
           >
-            <Ionicons name="flame-outline" size={15} color={Colors.textSecondary} />
-            <Text style={styles.actionPillText}>Kitchen KDS</Text>
+            <Ionicons name="flame-outline" size={14} color={Colors.primary} />
+            <Text style={styles.actionPillText}>KDS</Text>
           </TouchableOpacity>
 
           {user?.role === 'owner' && (
@@ -185,163 +216,166 @@ export default function POSTerminalScreen() {
                 setRole('owner');
                 router.push('/staff/owner' as any);
               }}
-              hitSlop={6}
             >
-              <Ionicons name="stats-chart-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="stats-chart-outline" size={14} color={Colors.halalGreen} />
               <Text style={styles.actionPillText}>Owner</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={handleSignOut}
-            hitSlop={6}
-          >
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
             <Ionicons name="log-out-outline" size={16} color={Colors.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Segmented Mode Selector */}
-      <View style={styles.modeTabBar}>
-        <TouchableOpacity
-          style={[styles.modeTabBtn, posMode === 'register' && styles.modeTabBtnActive]}
-          onPress={() => setPosMode('register')}
-        >
-          <Text style={[styles.modeTabText, posMode === 'register' && styles.modeTabTextActive]}>
-            Register
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.modeTabBtn, posMode === 'orders' && styles.modeTabBtnActive]}
-          onPress={() => setPosMode('orders')}
-        >
-          <Text style={[styles.modeTabText, posMode === 'orders' && styles.modeTabTextActive]}>
-            Active Orders ({orders.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
+      {/* POS Content Body */}
       {posMode === 'register' ? (
-        <View style={styles.registerContainer}>
-          {/* Top Search & Category Pills */}
-          <View style={styles.filterSection}>
-            <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search dishes to ring up..."
-                placeholderTextColor={Colors.textMuted}
-                value={searchQ}
-                onChangeText={setSearchQ}
-              />
-              {searchQ ? (
-                <TouchableOpacity onPress={() => setSearchQ('')}>
-                  <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+        <View style={[styles.mainLayout, isDesktop ? styles.desktopLayout : styles.mobileLayout]}>
+          {/* LEFT: Menu Catalog & Categories */}
+          <View style={[styles.catalogPane, isDesktop && styles.desktopCatalogPane]}>
+            {/* Search & Category Filter */}
+            <View style={styles.catalogFilterBar}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Quick search dishes..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={searchQ}
+                  onChangeText={setSearchQ}
+                />
+                {searchQ ? (
+                  <TouchableOpacity onPress={() => setSearchQ('')}>
+                    <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.catScroll}
-            >
-              <TouchableOpacity
-                style={[styles.catPill, selectedCat === 'all' && styles.catPillActive]}
-                onPress={() => setSelectedCat('all')}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryScroll}
               >
-                <Text style={[styles.catPillText, selectedCat === 'all' && styles.catPillTextActive]}>
-                  All ({dishes.length})
-                </Text>
-              </TouchableOpacity>
-
-              {categories.slice(1, 6).map((c) => (
                 <TouchableOpacity
-                  key={c.id}
-                  style={[styles.catPill, selectedCat === c.name && styles.catPillActive]}
-                  onPress={() => setSelectedCat(c.name)}
+                  style={[styles.catPill, selectedCat === 'all' && styles.catPillActive]}
+                  onPress={() => setSelectedCat('all')}
                 >
-                  <Text style={[styles.catPillText, selectedCat === c.name && styles.catPillTextActive]}>
-                    {c.name}
+                  <Text style={[styles.catPillText, selectedCat === 'all' && styles.catPillTextActive]}>
+                    All ({dishes.length})
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
 
-          {/* Dual Area: Dish Grid & Cart Panel */}
-          <ScrollView
-            style={styles.contentScroll}
-            contentContainerStyle={styles.contentScrollContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Quick Dish Selection Grid */}
-            <View style={styles.dishGridSection}>
-              <Text style={styles.sectionHeading}>Tap items to ring up:</Text>
-              <View style={styles.dishGrid}>
-                {filteredDishes.slice(0, 16).map((dish) => {
+                {categories.slice(1).map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.catPill, selectedCat === c.name && styles.catPillActive]}
+                    onPress={() => setSelectedCat(c.name)}
+                  >
+                    <Text style={[styles.catPillText, selectedCat === c.name && styles.catPillTextActive]}>
+                      {c.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Dish Grid */}
+            <ScrollView
+              style={styles.dishGridScroll}
+              contentContainerStyle={styles.dishGridContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.dishGridWrapper}>
+                {filteredDishes.map((dish) => {
                   const inCart = posCart.find((p) => p.dish.id === dish.id);
                   return (
                     <TouchableOpacity
                       key={dish.id}
-                      style={[styles.dishCard, inCart && styles.dishCardActive]}
-                      onPress={() => handleAddToCart(dish)}
+                      style={[
+                        styles.dishCard,
+                        isLargeDesktop
+                          ? styles.dishCard4Col
+                          : isDesktop
+                          ? styles.dishCard3Col
+                          : styles.dishCard2Col,
+                        inCart && styles.dishCardActive,
+                        !dish.inStock && styles.dishCardOutOfStock,
+                      ]}
+                      onPress={() => dish.inStock && handleAddToCart(dish)}
                       activeOpacity={0.8}
+                      disabled={!dish.inStock}
                     >
-                      <Text style={styles.dishCardName} numberOfLines={2}>
+                      <View style={styles.dishTopRow}>
+                        <Text style={styles.dishCategoryTag} numberOfLines={1}>
+                          {dish.category}
+                        </Text>
+                        {inCart && (
+                          <View style={styles.dishBadgeCount}>
+                            <Text style={styles.dishBadgeText}>{inCart.qty}</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={styles.dishName} numberOfLines={2}>
                         {dish.name}
                       </Text>
-                      <View style={styles.dishCardBottom}>
-                        <Text style={styles.dishCardPrice}>{dish.formattedPrice}</Text>
-                        {inCart ? (
-                          <View style={styles.dishCountBadge}>
-                            <Text style={styles.dishCountText}>{inCart.qty}</Text>
+
+                      <View style={styles.dishFooterRow}>
+                        <Text style={styles.dishPrice}>{dish.formattedPrice}</Text>
+                        {dish.inStock ? (
+                          <View style={styles.dishAddIcon}>
+                            <Ionicons name="add" size={14} color={Colors.textLight} />
                           </View>
                         ) : (
-                          <Ionicons name="add-circle-outline" size={18} color={Colors.textSecondary} />
+                          <Text style={styles.outOfStockText}>Out</Text>
                         )}
                       </View>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-            </View>
+            </ScrollView>
+          </View>
 
-            {/* Current Tab / Register Cart */}
-            <View style={styles.registerCartCard}>
-              <View style={styles.cartHeaderRow}>
-                <View style={styles.cartMetaLeft}>
-                  <Text style={styles.cartHeaderTitle}>Current Ticket</Text>
+          {/* RIGHT: Ticket Builder & Register Checkout */}
+          <View style={[styles.ticketPane, isDesktop && styles.desktopTicketPane]}>
+            {/* Ticket Header & Table Selector */}
+            <View style={styles.ticketHeader}>
+              <View style={styles.ticketMetaInputs}>
+                <View style={styles.tableInputWrapper}>
+                  <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
                   <TextInput
                     style={styles.tableInput}
                     value={selectedTable}
                     onChangeText={setSelectedTable}
                     placeholder="Table #"
                   />
-                  <TextInput
-                    style={styles.guestInput}
-                    value={customerName}
-                    onChangeText={setCustomerName}
-                    placeholder="Guest name"
-                  />
                 </View>
-
-                {posCart.length > 0 && (
-                  <TouchableOpacity onPress={handleClearPosCart} hitSlop={6}>
-                    <Text style={styles.clearText}>Clear</Text>
-                  </TouchableOpacity>
-                )}
+                <TextInput
+                  style={styles.guestInput}
+                  value={customerName}
+                  onChangeText={setCustomerName}
+                  placeholder="Guest name"
+                />
               </View>
 
+              {posCart.length > 0 && (
+                <TouchableOpacity onPress={handleClearPosCart} hitSlop={6}>
+                  <Text style={styles.clearTicketText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Cart Items List */}
+            <ScrollView style={styles.cartItemsScroll} showsVerticalScrollIndicator={false}>
               {posCart.length === 0 ? (
                 <View style={styles.emptyCartBox}>
-                  <Ionicons name="cart-outline" size={24} color={Colors.textMuted} />
-                  <Text style={styles.emptyCartText}>No items added yet</Text>
+                  <Ionicons name="bag-outline" size={28} color={Colors.textMuted} />
+                  <Text style={styles.emptyCartTitle}>No items on ticket</Text>
+                  <Text style={styles.emptyCartSub}>Tap dishes on the catalog to ring up</Text>
                 </View>
               ) : (
-                <View style={styles.cartItemList}>
+                <View style={styles.cartItemsList}>
                   {posCart.map((item) => (
                     <View key={item.dish.id} style={styles.cartItemRow}>
                       <View style={styles.cartItemInfo}>
@@ -351,41 +385,45 @@ export default function POSTerminalScreen() {
                         <Text style={styles.cartItemUnit}>₱{item.dish.price} each</Text>
                       </View>
 
+                      {/* Stepper */}
                       <View style={styles.stepperBox}>
                         <TouchableOpacity
-                          style={styles.stepBtn}
+                          style={styles.stepperBtn}
                           onPress={() => handleUpdateQty(item.dish.id, -1)}
                         >
-                          <Ionicons name="remove" size={14} color={Colors.text} />
+                          <Ionicons name="remove" size={13} color={Colors.text} />
                         </TouchableOpacity>
-                        <Text style={styles.qtyText}>{item.qty}</Text>
+                        <Text style={styles.stepperQty}>{item.qty}</Text>
                         <TouchableOpacity
-                          style={styles.stepBtn}
+                          style={styles.stepperBtn}
                           onPress={() => handleUpdateQty(item.dish.id, 1)}
                         >
-                          <Ionicons name="add" size={14} color={Colors.text} />
+                          <Ionicons name="add" size={13} color={Colors.text} />
                         </TouchableOpacity>
                       </View>
 
-                      <Text style={styles.cartItemPrice}>
+                      <Text style={styles.cartItemTotal}>
                         ₱{(item.dish.price * item.qty).toLocaleString()}
                       </Text>
                     </View>
                   ))}
                 </View>
               )}
+            </ScrollView>
 
-              {/* Discount Selector */}
+            {/* Discount & Payment Configuration */}
+            <View style={styles.ticketFooterSection}>
+              {/* Discount Row */}
               <View style={styles.discountRow}>
-                <Text style={styles.discountLabel}>Discount:</Text>
-                <View style={styles.discountBtns}>
+                <Text style={styles.sectionSmallLabel}>Discount:</Text>
+                <View style={styles.discountPillsRow}>
                   {[0, 10, 20].map((d) => (
                     <TouchableOpacity
                       key={d}
-                      style={[styles.discBtn, discountPercent === d && styles.discBtnActive]}
+                      style={[styles.discPill, discountPercent === d && styles.discPillActive]}
                       onPress={() => setDiscountPercent(d)}
                     >
-                      <Text style={[styles.discBtnText, discountPercent === d && styles.discBtnTextActive]}>
+                      <Text style={[styles.discPillText, discountPercent === d && styles.discPillTextActive]}>
                         {d === 0 ? 'None' : `${d}%`}
                       </Text>
                     </TouchableOpacity>
@@ -393,45 +431,48 @@ export default function POSTerminalScreen() {
                 </View>
               </View>
 
-              {/* Payment Method Selector */}
-              <View style={styles.payMethodRow}>
+              {/* Payment Methods */}
+              <View style={styles.payMethodsRow}>
                 {(['cash', 'gcash', 'card'] as PaymentMethod[]).map((m) => (
                   <TouchableOpacity
                     key={m}
-                    style={[styles.payMethodBtn, selectedPayment === m && styles.payMethodBtnActive]}
+                    style={[styles.payBtn, selectedPayment === m && styles.payBtnActive]}
                     onPress={() => setSelectedPayment(m)}
                   >
-                    <Text style={[styles.payMethodText, selectedPayment === m && styles.payMethodTextActive]}>
+                    <Ionicons
+                      name={
+                        m === 'cash' ? 'cash-outline' : m === 'gcash' ? 'qr-code-outline' : 'card-outline'
+                      }
+                      size={14}
+                      color={selectedPayment === m ? Colors.textLight : Colors.textSecondary}
+                    />
+                    <Text style={[styles.payBtnText, selectedPayment === m && styles.payBtnTextActive]}>
                       {m === 'cash' ? 'Cash' : m === 'gcash' ? 'GCash' : 'Card'}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Totals Breakdown */}
-              <View style={styles.mathBreakdown}>
-                <View style={styles.mathRow}>
-                  <Text style={styles.mathLabel}>Subtotal</Text>
-                  <Text style={styles.mathVal}>₱{subtotal.toLocaleString()}</Text>
+              {/* Math Totals */}
+              <View style={styles.totalsBox}>
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLabel}>Subtotal</Text>
+                  <Text style={styles.totalsVal}>₱{subtotal.toLocaleString()}</Text>
                 </View>
-
                 {discountAmount > 0 && (
-                  <View style={styles.mathRow}>
-                    <Text style={styles.mathLabel}>Discount ({discountPercent}%)</Text>
-                    <Text style={styles.discountVal}>-₱{discountAmount.toLocaleString()}</Text>
+                  <View style={styles.totalsRow}>
+                    <Text style={styles.totalsLabel}>Discount ({discountPercent}%)</Text>
+                    <Text style={styles.totalsDiscount}>-₱{discountAmount.toLocaleString()}</Text>
                   </View>
                 )}
-
-                <View style={styles.mathRow}>
-                  <Text style={styles.mathLabel}>Tax & VAT (5%)</Text>
-                  <Text style={styles.mathVal}>₱{tax.toLocaleString()}</Text>
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLabel}>Tax & VAT (5%)</Text>
+                  <Text style={styles.totalsVal}>₱{tax.toLocaleString()}</Text>
                 </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Grand Total</Text>
-                  <Text style={styles.totalVal}>₱{total.toLocaleString()}</Text>
+                <View style={styles.totalsDivider} />
+                <View style={styles.grandTotalRow}>
+                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                  <Text style={styles.grandTotalVal}>₱{total.toLocaleString()}</Text>
                 </View>
               </View>
 
@@ -443,74 +484,81 @@ export default function POSTerminalScreen() {
                 activeOpacity={0.88}
               >
                 <Text style={styles.chargeBtnText}>
-                  Charge ₱{total.toLocaleString()} & Send to Kitchen
+                  Charge ₱{total.toLocaleString()} & Send Order
                 </Text>
-                <Ionicons name="checkmark-circle-outline" size={18} color={Colors.textLight} />
+                <Ionicons name="checkmark-circle-outline" size={17} color={Colors.textLight} />
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       ) : (
         /* Orders History Tab */
         <ScrollView
-          style={styles.contentScroll}
-          contentContainerStyle={styles.ordersScrollContent}
+          style={styles.ordersScroll}
+          contentContainerStyle={styles.ordersScrollContainer}
           showsVerticalScrollIndicator={false}
         >
-          {orders.map((o) => (
-            <View key={o.id} style={styles.orderHistoryCard}>
-              <View style={styles.orderHistoryHeader}>
-                <View>
-                  <Text style={styles.orderNum}>{o.orderNumber}</Text>
-                  <Text style={styles.orderSub}>
-                    {o.customerName} • {o.tableNumber || (o.type === 'delivery' ? 'Delivery' : 'Takeout')}
-                  </Text>
-                </View>
-
-                <View style={styles.orderHeaderRight}>
-                  <Text style={styles.orderHistoryTotal}>₱{o.total.toLocaleString()}</Text>
-                  <View style={styles.paidBadge}>
-                    <Text style={styles.paidBadgeText}>{o.paymentStatus.toUpperCase()}</Text>
+          <View style={styles.ordersGrid}>
+            {orders.map((o) => (
+              <View
+                key={o.id}
+                style={[
+                  styles.orderHistoryCard,
+                  isDesktop && styles.orderHistoryCardDesktop,
+                ]}
+              >
+                <View style={styles.orderHistoryHeader}>
+                  <View>
+                    <Text style={styles.orderNum}>{o.orderNumber}</Text>
+                    <Text style={styles.orderSub}>
+                      {o.customerName} • {o.tableNumber || (o.type === 'delivery' ? 'Delivery' : 'Takeout')}
+                    </Text>
+                  </View>
+                  <View style={styles.orderRightMeta}>
+                    <Text style={styles.orderHistoryTotal}>₱{o.total.toLocaleString()}</Text>
+                    <View style={styles.paidTag}>
+                      <Text style={styles.paidTagText}>{o.paymentStatus.toUpperCase()}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <Text style={styles.orderItemsPreview}>
-                {o.items.map((it) => `${it.quantity}x ${it.dish.name}`).join(', ')}
-              </Text>
+                <Text style={styles.orderItemsSummary}>
+                  {o.items.map((it) => `${it.quantity}x ${it.dish.name}`).join(', ')}
+                </Text>
 
-              <View style={styles.orderActionsRow}>
-                <TouchableOpacity
-                  style={styles.receiptActionBtn}
-                  onPress={() => setReceiptOrder(o)}
-                >
-                  <Ionicons name="receipt-outline" size={14} color={Colors.text} />
-                  <Text style={styles.receiptActionText}>View Receipt</Text>
-                </TouchableOpacity>
-
-                {o.status !== 'completed' && (
+                <View style={styles.orderActionsRow}>
                   <TouchableOpacity
-                    style={styles.completeOrderBtn}
-                    onPress={() => updateOrderStatus(o.id, 'completed')}
+                    style={styles.orderReceiptBtn}
+                    onPress={() => setReceiptOrder(o)}
                   >
-                    <Text style={styles.completeOrderText}>Mark Completed</Text>
+                    <Ionicons name="receipt-outline" size={14} color={Colors.primary} />
+                    <Text style={styles.orderReceiptText}>Receipt</Text>
                   </TouchableOpacity>
-                )}
+
+                  {o.status !== 'completed' && (
+                    <TouchableOpacity
+                      style={styles.orderCompleteBtn}
+                      onPress={() => updateOrderStatus(o.id, 'completed')}
+                    >
+                      <Text style={styles.orderCompleteText}>Complete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </ScrollView>
       )}
 
       {/* Digital Receipt Modal */}
       <Modal visible={!!receiptOrder} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={styles.receiptModalCard}>
+          <View style={styles.receiptCard}>
             <View style={styles.receiptHeader}>
-              <Text style={styles.receiptRestaurantTitle}>Hasan's Flavors</Text>
-              <Text style={styles.receiptSub}>Authentic Halal Cuisine</Text>
-              <Text style={styles.receiptMeta}>
-                Order: {receiptOrder?.orderNumber} • {receiptOrder?.tableNumber || 'Takeout'}
+              <Text style={styles.receiptBrandTitle}>Hasan's Flavors</Text>
+              <Text style={styles.receiptBrandSub}>Authentic Halal Cuisine</Text>
+              <Text style={styles.receiptOrderMeta}>
+                Order #{receiptOrder?.orderNumber} • {receiptOrder?.tableNumber || 'Takeout'}
               </Text>
               <Text style={styles.receiptDate}>
                 {receiptOrder ? new Date(receiptOrder.createdAt).toLocaleString() : ''}
@@ -521,10 +569,10 @@ export default function POSTerminalScreen() {
 
             <ScrollView style={styles.receiptItemsScroll}>
               {receiptOrder?.items.map((it, idx) => (
-                <View key={idx} style={styles.receiptItemRow}>
-                  <Text style={styles.receiptItemQty}>{it.quantity}x</Text>
-                  <Text style={styles.receiptItemName}>{it.dish.name}</Text>
-                  <Text style={styles.receiptItemPrice}>₱{it.totalPrice.toLocaleString()}</Text>
+                <View key={idx} style={styles.receiptRow}>
+                  <Text style={styles.receiptQty}>{it.quantity}x</Text>
+                  <Text style={styles.receiptName}>{it.dish.name}</Text>
+                  <Text style={styles.receiptPrice}>₱{it.totalPrice.toLocaleString()}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -532,15 +580,17 @@ export default function POSTerminalScreen() {
             <View style={styles.receiptDivider} />
 
             <View style={styles.receiptTotalRow}>
-              <Text style={styles.receiptTotalLabel}>PAID ({receiptOrder?.paymentMethod.toUpperCase()})</Text>
-              <Text style={styles.receiptTotalValue}>₱{receiptOrder?.total.toLocaleString()}</Text>
+              <Text style={styles.receiptTotalLabel}>
+                PAID ({receiptOrder?.paymentMethod.toUpperCase()})
+              </Text>
+              <Text style={styles.receiptTotalVal}>₱{receiptOrder?.total.toLocaleString()}</Text>
             </View>
 
             <TouchableOpacity
               style={styles.closeReceiptBtn}
               onPress={() => setReceiptOrder(null)}
             >
-              <Text style={styles.closeReceiptBtnText}>Done / Close Receipt</Text>
+              <Text style={styles.closeReceiptText}>Close / Next Transaction</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -555,11 +605,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   navBar: {
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -567,24 +617,53 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   posBadge: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: Radius.sm,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   navTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   navSub: {
     fontSize: 10,
     color: Colors.textMuted,
+  },
+  navCenterToggle: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    padding: 3,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 4,
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: Radius.xs,
+    gap: 5,
+  },
+  toggleBtnActive: {
+    backgroundColor: Colors.primary,
+  },
+  toggleBtnText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  toggleBtnTextActive: {
+    color: Colors.textLight,
+    fontWeight: '700',
   },
   navActionsRow: {
     flexDirection: 'row',
@@ -595,53 +674,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.sm,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radius.xs,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 4,
   },
   actionPillText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   logoutBtn: {
     padding: 6,
   },
-  modeTabBar: {
+  mainLayout: {
+    flex: 1,
+  },
+  desktopLayout: {
     flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    paddingHorizontal: Spacing.lg,
   },
-  modeTabBtn: {
+  mobileLayout: {
+    flexDirection: 'column',
+  },
+  catalogPane: {
     flex: 1,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
   },
-  modeTabBtnActive: {
-    borderBottomColor: Colors.text,
+  desktopCatalogPane: {
+    flex: 0.65,
   },
-  modeTabText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
-    color: Colors.textMuted,
-  },
-  modeTabTextActive: {
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  registerContainer: {
-    flex: 1,
-  },
-  filterSection: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+  catalogFilterBar: {
+    padding: Spacing.md,
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -663,7 +729,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.text,
   },
-  catScroll: {
+  categoryScroll: {
     gap: 6,
   },
   catPill: {
@@ -675,126 +741,154 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   catPillActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   catPillText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: 11,
     fontWeight: '500',
     color: Colors.textSecondary,
   },
   catPillTextActive: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  contentScroll: {
+  dishGridScroll: {
     flex: 1,
   },
-  contentScrollContainer: {
-    padding: Spacing.lg,
-    paddingBottom: 90,
-    gap: Spacing.md,
+  dishGridContent: {
+    padding: Spacing.md,
   },
-  dishGridSection: {
-    gap: 6,
-  },
-  sectionHeading: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dishGrid: {
+  dishGridWrapper: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   dishCard: {
-    width: (width - 48) / 2,
     backgroundColor: Colors.card,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
     justifyContent: 'space-between',
-    minHeight: 72,
+    minHeight: 88,
     ...Shadows.subtle,
   },
+  dishCard2Col: {
+    width: '48.5%',
+  },
+  dishCard3Col: {
+    width: '31.8%',
+  },
+  dishCard4Col: {
+    width: '23.8%',
+  },
   dishCardActive: {
-    borderColor: Colors.text,
-    backgroundColor: Colors.surface,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
   },
-  dishCardName: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
+  dishCardOutOfStock: {
+    opacity: 0.5,
   },
-  dishCardBottom: {
+  dishTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginBottom: 4,
   },
-  dishCardPrice: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.text,
+  dishCategoryTag: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    flex: 1,
   },
-  dishCountBadge: {
-    backgroundColor: Colors.text,
+  dishBadgeCount: {
+    backgroundColor: Colors.primary,
     borderRadius: Radius.round,
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dishCountText: {
+  dishBadgeText: {
     color: Colors.textLight,
     fontSize: 10,
     fontWeight: '700',
   },
-  registerCartCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.sm,
-    ...Shadows.subtle,
+  dishName: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
+    color: Colors.text,
+    lineHeight: 16,
   },
-  cartHeaderRow: {
+  dishFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    paddingBottom: Spacing.sm,
+    marginTop: 8,
   },
-  cartMetaLeft: {
+  dishPrice: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  dishAddIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  outOfStockText: {
+    fontSize: 10,
+    color: Colors.error,
+    fontWeight: '600',
+  },
+  ticketPane: {
+    backgroundColor: Colors.card,
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  },
+  desktopTicketPane: {
+    flex: 0.35,
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  ticketMetaInputs: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
   },
-  cartHeaderTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  tableInput: {
-    backgroundColor: Colors.surface,
+  tableInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    gap: 4,
+  },
+  tableInput: {
     fontSize: 11,
     color: Colors.text,
-    width: 70,
+    width: 60,
+    paddingVertical: 3,
+    fontWeight: '600',
   },
   guestInput: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.xs,
@@ -804,37 +898,49 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
   },
-  clearText: {
-    fontSize: Typography.fontSize.xs,
+  clearTicketText: {
+    fontSize: 11,
     color: Colors.error,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  cartItemsScroll: {
+    flex: 1,
+    maxHeight: 280,
   },
   emptyCartBox: {
-    paddingVertical: Spacing.lg,
+    padding: Spacing.xl,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
-  emptyCartText: {
+  emptyCartTitle: {
     fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  emptyCartSub: {
+    fontSize: 10,
     color: Colors.textMuted,
   },
-  cartItemList: {
-    gap: 8,
+  cartItemsList: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   cartItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+    gap: 8,
   },
   cartItemInfo: {
     flex: 1,
   },
   cartItemName: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.text,
   },
   cartItemUnit: {
@@ -849,40 +955,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  stepBtn: {
+  stepperBtn: {
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  qtyText: {
+  stepperQty: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     minWidth: 16,
     textAlign: 'center',
   },
-  cartItemPrice: {
+  cartItemTotal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
-    minWidth: 50,
+    minWidth: 46,
     textAlign: 'right',
+  },
+  ticketFooterSection: {
+    padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.card,
+    gap: 8,
   },
   discountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
   },
-  discountLabel: {
-    fontSize: Typography.fontSize.xs,
+  sectionSmallLabel: {
+    fontSize: 11,
     color: Colors.textSecondary,
     fontWeight: '500',
   },
-  discountBtns: {
+  discountPillsRow: {
     flexDirection: 'row',
     gap: 4,
   },
-  discBtn: {
+  discPill: {
     backgroundColor: Colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -890,168 +1002,177 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  discBtnActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+  discPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-  discBtnText: {
+  discPillText: {
     fontSize: 10,
-    fontWeight: '500',
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
-  discBtnTextActive: {
+  discPillTextActive: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  payMethodRow: {
+  payMethodsRow: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 2,
   },
-  payMethodBtn: {
+  payBtn: {
     flex: 1,
-    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
     backgroundColor: Colors.surface,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    alignItems: 'center',
+    gap: 4,
   },
-  payMethodBtnActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+  payBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-  payMethodText: {
-    fontSize: Typography.fontSize.xs,
+  payBtnText: {
+    fontSize: 11,
     fontWeight: '500',
     color: Colors.textSecondary,
   },
-  payMethodTextActive: {
+  payBtnTextActive: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  mathBreakdown: {
-    gap: 4,
-    paddingTop: 4,
+  totalsBox: {
+    gap: 3,
+    paddingTop: 2,
   },
-  mathRow: {
+  totalsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  mathLabel: {
+  totalsLabel: {
     fontSize: 11,
     color: Colors.textSecondary,
   },
-  mathVal: {
+  totalsVal: {
     fontSize: 11,
     fontWeight: '500',
     color: Colors.text,
   },
-  discountVal: {
+  totalsDiscount: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primary,
   },
-  divider: {
+  totalsDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 4,
+    marginVertical: 3,
   },
-  totalRow: {
+  grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  totalLabel: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  totalVal: {
-    fontSize: Typography.fontSize.lg,
+  grandTotalLabel: {
+    fontSize: Typography.fontSize.xs,
     fontWeight: '700',
     color: Colors.text,
   },
+  grandTotalVal: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
   chargeBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: Radius.md,
     gap: 6,
-    marginTop: 4,
   },
   chargeBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   chargeBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
-    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    fontSize: Typography.fontSize.xs,
   },
-  ordersScrollContent: {
-    padding: Spacing.lg,
-    paddingBottom: 90,
-    gap: Spacing.md,
+  ordersScroll: {
+    flex: 1,
+  },
+  ordersScrollContainer: {
+    padding: Spacing.md,
+  },
+  ordersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   orderHistoryCard: {
+    width: '100%',
     backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: Spacing.xs,
+    gap: 6,
     ...Shadows.subtle,
+  },
+  orderHistoryCardDesktop: {
+    width: '49%',
   },
   orderHistoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
   orderNum: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
     color: Colors.text,
   },
   orderSub: {
-    fontSize: 11,
+    fontSize: 10,
     color: Colors.textMuted,
     marginTop: 1,
   },
-  orderHeaderRight: {
+  orderRightMeta: {
     alignItems: 'flex-end',
     gap: 2,
   },
   orderHistoryTotal: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '800',
+    color: Colors.primary,
   },
-  paidBadge: {
+  paidTag: {
     backgroundColor: Colors.surface,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     borderRadius: Radius.xs,
   },
-  paidBadgeText: {
+  paidTagText: {
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.halalGreen,
   },
-  orderItemsPreview: {
+  orderItemsSummary: {
     fontSize: 11,
     color: Colors.textSecondary,
-    marginVertical: 4,
   },
   orderActionsRow: {
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
-    paddingTop: Spacing.sm,
+    paddingTop: 6,
   },
-  receiptActionBtn: {
+  orderReceiptBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1059,26 +1180,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.xs,
     gap: 4,
   },
-  receiptActionText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+  orderReceiptText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: Colors.text,
   },
-  completeOrderBtn: {
+  orderCompleteBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.text,
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
+    backgroundColor: Colors.primary,
+    paddingVertical: 6,
+    borderRadius: Radius.xs,
   },
-  completeOrderText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+  orderCompleteText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: Colors.textLight,
   },
   modalBackdrop: {
@@ -1088,9 +1209,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.xl,
   },
-  receiptModalCard: {
-    width: '100%',
-    maxHeight: '80%',
+  receiptCard: {
+    width: Platform.OS === 'web' ? 380 : '100%',
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     padding: Spacing.xl,
@@ -1100,21 +1220,20 @@ const styles = StyleSheet.create({
   },
   receiptHeader: {
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
-  receiptRestaurantTitle: {
+  receiptBrandTitle: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.text,
   },
-  receiptSub: {
+  receiptBrandSub: {
     fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 1,
   },
-  receiptMeta: {
+  receiptOrderMeta: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginTop: 6,
   },
@@ -1126,58 +1245,58 @@ const styles = StyleSheet.create({
   receiptDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.sm,
   },
   receiptItemsScroll: {
-    maxHeight: 180,
+    maxHeight: 160,
   },
-  receiptItemRow: {
+  receiptRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    gap: 8,
+    paddingVertical: 3,
+    gap: 6,
   },
-  receiptItemQty: {
+  receiptQty: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textSecondary,
     width: 20,
   },
-  receiptItemName: {
+  receiptName: {
     flex: 1,
     fontSize: 11,
     color: Colors.text,
   },
-  receiptItemPrice: {
+  receiptPrice: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   receiptTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   receiptTotalLabel: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
-  receiptTotalValue: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+  receiptTotalVal: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   closeReceiptBtn: {
-    backgroundColor: Colors.text,
-    paddingVertical: 12,
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
-  closeReceiptBtnText: {
+  closeReceiptText: {
     color: Colors.textLight,
-    fontWeight: '600',
-    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    fontSize: Typography.fontSize.xs,
   },
 });

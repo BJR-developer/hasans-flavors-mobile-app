@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Linking,
   Alert,
 } from 'react-native';
@@ -146,7 +145,7 @@ export default function LiveChatScreen() {
         </View>
 
         <TouchableOpacity style={styles.phoneCallBtn} onPress={handleCallHotline} activeOpacity={0.8}>
-          <Ionicons name="call-outline" size={16} color={Colors.text} />
+          <Ionicons name="call-outline" size={16} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -271,21 +270,21 @@ const styles = StyleSheet.create({
   },
   agentName: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   onlineText: {
     fontSize: 11,
     color: Colors.halalGreen,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   phoneCallBtn: {
     width: 36,
     height: 36,
     borderRadius: Radius.round,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -302,7 +301,7 @@ const styles = StyleSheet.create({
   },
   quickPromptsLabel: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textMuted,
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -321,8 +320,8 @@ const styles = StyleSheet.create({
   },
   quickPromptText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
-    color: Colors.text,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   systemBubble: {
     alignSelf: 'center',
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   bubbleUser: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
   bubbleAgent: {
     backgroundColor: Colors.card,
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
   },
   messageTextUser: {
     color: Colors.textLight,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   messageTextAgent: {
     color: Colors.text,
@@ -380,7 +379,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   timeUser: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.75)',
   },
   timeAgent: {
     color: Colors.textMuted,
@@ -427,6 +426,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sendBtnActive: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
 });

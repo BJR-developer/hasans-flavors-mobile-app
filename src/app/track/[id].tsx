@@ -236,7 +236,7 @@ export default function OrderTrackingScreen() {
               onPress={() => router.push('/chat' as any)}
               activeOpacity={0.8}
             >
-              <Ionicons name="chatbubbles-outline" size={18} color={Colors.text} />
+              <Ionicons name="chatbubbles-outline" size={18} color={Colors.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -248,7 +248,7 @@ export default function OrderTrackingScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="call-outline" size={18} color={Colors.text} />
+              <Ionicons name="call-outline" size={18} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   },
   headerMainTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   headerOrderNumber: {
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   etaLabel: {
     color: Colors.textMuted,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.8,
     marginBottom: 4,
   },
@@ -357,15 +357,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   etaNumber: {
-    color: Colors.text,
-    fontSize: 40,
-    fontWeight: '700',
+    color: Colors.primary,
+    fontSize: 42,
+    fontWeight: '800',
     letterSpacing: -1,
   },
   etaUnit: {
     color: Colors.textSecondary,
     fontSize: Typography.fontSize.md,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   etaSubText: {
     color: Colors.textSecondary,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
     color: Colors.text,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   stepperCard: {
     backgroundColor: Colors.card,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     top: 17,
     left: '12%',
     height: 2,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     maxWidth: '76%',
   },
   nodesRow: {
@@ -424,10 +424,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nodeCirclePassed: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.halalGreen,
   },
   nodeCircleCurrent: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
   nodeCircleUpcoming: {
     backgroundColor: Colors.surface,
@@ -441,22 +441,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nodeLabelCurrent: {
-    color: Colors.text,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   nodeLabelUpcoming: {
     color: Colors.textMuted,
   },
   statusHighlightBox: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.primaryMuted,
   },
   statusTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   statusDesc: {
     fontSize: 11,
@@ -476,8 +478,8 @@ const styles = StyleSheet.create({
   },
   demoSimBtnText: {
     fontSize: 11,
-    fontWeight: '500',
-    color: Colors.textSecondary,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   staffCard: {
     flexDirection: 'row',
@@ -516,9 +518,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radius.round,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primaryMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -532,7 +534,7 @@ const styles = StyleSheet.create({
   },
   sectionHeaderTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -544,8 +546,8 @@ const styles = StyleSheet.create({
   },
   itemQtyText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.primary,
     width: 24,
   },
   itemInfoCol: {
@@ -562,7 +564,7 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   divider: {
@@ -582,8 +584,8 @@ const styles = StyleSheet.create({
   },
   totalValue: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   footer: {
     backgroundColor: Colors.card,
@@ -593,14 +595,14 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
   },
   homeReturnBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
   homeReturnBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   notFoundContainer: {
@@ -612,11 +614,11 @@ const styles = StyleSheet.create({
   },
   notFoundTitle: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   backBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radius.md,

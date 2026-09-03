@@ -66,7 +66,7 @@ export default function QRTableScreen() {
             <Ionicons
               name="qr-code-outline"
               size={90}
-              color={Colors.textSecondary}
+              color={Colors.primary}
             />
           </View>
 
@@ -226,7 +226,7 @@ export default function QRTableScreen() {
                     size={18}
                     color={
                       isSelected
-                        ? Colors.text
+                        ? Colors.primary
                         : isOccupied
                         ? Colors.textMuted
                         : Colors.textSecondary
@@ -254,7 +254,7 @@ export default function QRTableScreen() {
         {currentTable && (
           <View style={styles.currentActiveCard}>
             <View style={styles.currentActiveLeft}>
-              <Ionicons name="checkmark-circle-outline" size={20} color={Colors.textSecondary} />
+              <Ionicons name="checkmark-circle-outline" size={20} color={Colors.halalGreen} />
               <View>
                 <Text style={styles.currentActiveTitle}>Currently Seated at {currentTable}</Text>
                 <Text style={styles.currentActiveSub}>Party of {guestCount} guests</Text>
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderTopWidth: 2,
     borderLeftWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   cornerTR: {
     position: 'absolute',
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderTopWidth: 2,
     borderRightWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   cornerBL: {
     position: 'absolute',
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderBottomWidth: 2,
     borderLeftWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   cornerBR: {
     position: 'absolute',
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderBottomWidth: 2,
     borderRightWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   scannerInstruction: {
     color: Colors.textSecondary,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   scanActionBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   scanActionBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   card: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -408,8 +408,8 @@ const styles = StyleSheet.create({
   },
   activeGuestCountBadge: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   guestSelectorRow: {
     flexDirection: 'row',
@@ -426,8 +426,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   guestPillActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
   },
   guestPillText: {
     fontSize: Typography.fontSize.xs,
@@ -435,8 +435,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   guestPillTextActive: {
-    color: Colors.textLight,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   customGuestContainer: {
     marginTop: Spacing.md,
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.textSecondary,
+    backgroundColor: Colors.halalGreen,
   },
   legendDotOccupied: {
     width: 6,
@@ -515,8 +515,8 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   tableGridItemSelected: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
   },
   tableGridItemOccupied: {
     opacity: 0.45,
@@ -527,7 +527,8 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   tableNumberLabelSelected: {
-    fontWeight: '600',
+    fontWeight: '700',
+    color: Colors.primary,
   },
   tableNumberLabelOccupied: {
     color: Colors.textMuted,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
   },
   confirmBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -592,7 +593,7 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
 });

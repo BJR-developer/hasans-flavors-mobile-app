@@ -155,7 +155,7 @@ export default function CartScreen() {
 
           {deliveryType === 'dine_in' && (
             <View style={styles.dineInNotice}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.textSecondary} />
+              <Ionicons name="information-circle-outline" size={16} color={Colors.saffron} />
               <Text style={styles.dineInNoticeText}>
                 {currentTable
                   ? `Assigned to ${currentTable}. Service will be delivered to your table.`
@@ -265,7 +265,7 @@ export default function CartScreen() {
           {promoCode ? (
             <View style={styles.activePromoRow}>
               <View style={styles.activePromoLeft}>
-                <Ionicons name="pricetag-outline" size={16} color={Colors.text} />
+                <Ionicons name="pricetag-outline" size={16} color={Colors.primary} />
                 <View>
                   <Text style={styles.appliedCode}>{promoCode}</Text>
                   <Text style={styles.appliedSavings}>Saved ₱{discountAmount.toLocaleString()}</Text>
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   browseButton: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   browseButtonText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   diningTypeCard: {
@@ -456,8 +456,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeTypeButton: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   typeLabel: {
     fontSize: Typography.fontSize.xs,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   activeTypeLabel: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   dineInNotice: {
     flexDirection: 'row',
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   },
   pickTableLink: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primary,
     textDecorationLine: 'underline',
   },
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   deliveryProgressPct: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.text,
+    color: Colors.primary,
   },
   progressBarTrack: {
     height: 4,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     borderRadius: 2,
   },
   itemsCard: {
@@ -568,8 +568,8 @@ const styles = StyleSheet.create({
   },
   itemPortionText: {
     fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '500',
+    color: Colors.saffron,
+    fontWeight: '600',
   },
   addonsText: {
     fontSize: 10,
@@ -590,8 +590,8 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   quantityStepper: {
     flexDirection: 'row',
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     height: 38,
   },
   applyBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.sm,
     justifyContent: 'center',
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   applyBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.xs,
   },
   promoErrorText: {
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     padding: Spacing.sm,
     borderRadius: Radius.sm,
   },
@@ -667,8 +667,8 @@ const styles = StyleSheet.create({
   },
   appliedCode: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   appliedSavings: {
     fontSize: 10,
@@ -684,11 +684,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radius.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   quickCouponText: {
     fontSize: 10,
-    fontWeight: '500',
-    color: Colors.textSecondary,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   summaryCard: {
     backgroundColor: Colors.card,
@@ -718,7 +720,7 @@ const styles = StyleSheet.create({
   },
   discountVal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primary,
   },
   divider: {
@@ -738,8 +740,8 @@ const styles = StyleSheet.create({
   },
   grandTotalVal: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   footerContainer: {
     backgroundColor: Colors.card,
@@ -759,11 +761,11 @@ const styles = StyleSheet.create({
   },
   footerTotalAmount: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   checkoutBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
@@ -773,7 +775,7 @@ const styles = StyleSheet.create({
   },
   checkoutBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
 });

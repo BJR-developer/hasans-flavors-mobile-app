@@ -37,8 +37,8 @@ export default function CheckoutScreen() {
   const placeOrder = useOrderStore((state) => state.placeOrder);
 
   // Form State
-  const [customerName, setCustomerName] = useState('Jamilur Rahman');
-  const [customerPhone, setCustomerPhone] = useState('+63 917 888 2345');
+  const [customerName, setCustomerName] = useState('Hasan Raza');
+  const [customerPhone, setCustomerPhone] = useState('+63 917 888 1234');
   const [deliveryAddress, setDeliveryAddress] = useState('Tower 2, Unit 1804, Makati Central, Metro Manila');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('gcash');
   const [specialInstructions, setSpecialInstructions] = useState('');
@@ -98,7 +98,7 @@ export default function CheckoutScreen() {
                 : 'bag-handle-outline'
             }
             size={20}
-            color={Colors.text}
+            color={Colors.primary}
           />
           <View style={styles.orderTypeInfo}>
             <Text style={styles.orderTypeTitle}>
@@ -177,7 +177,9 @@ export default function CheckoutScreen() {
                   {paymentMethod === 'gcash' && <View style={styles.radioDot} />}
                 </View>
                 <View>
-                  <Text style={styles.paymentName}>GCash / QR Ph</Text>
+                  <Text style={[styles.paymentName, paymentMethod === 'gcash' && styles.paymentNameSelected]}>
+                    GCash / QR Ph
+                  </Text>
                   <Text style={styles.paymentDesc}>Digital wallet instant payment</Text>
                 </View>
               </View>
@@ -198,7 +200,7 @@ export default function CheckoutScreen() {
                   {paymentMethod === 'cash' && <View style={styles.radioDot} />}
                 </View>
                 <View>
-                  <Text style={styles.paymentName}>
+                  <Text style={[styles.paymentName, paymentMethod === 'cash' && styles.paymentNameSelected]}>
                     {deliveryType === 'dine_in' ? 'Cash at Table / Counter' : 'Cash on Delivery (COD)'}
                   </Text>
                   <Text style={styles.paymentDesc}>Pay upon receipt</Text>
@@ -221,7 +223,9 @@ export default function CheckoutScreen() {
                   {paymentMethod === 'card' && <View style={styles.radioDot} />}
                 </View>
                 <View>
-                  <Text style={styles.paymentName}>Credit / Debit Card</Text>
+                  <Text style={[styles.paymentName, paymentMethod === 'card' && styles.paymentNameSelected]}>
+                    Credit / Debit Card
+                  </Text>
                   <Text style={styles.paymentDesc}>Visa, Mastercard</Text>
                 </View>
               </View>
@@ -388,7 +392,7 @@ const styles = StyleSheet.create({
   },
   orderTypeTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   orderTypeSub: {
@@ -406,7 +410,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -447,8 +451,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   paymentOptionSelected: {
-    borderColor: Colors.text,
-    backgroundColor: Colors.card,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
   },
   paymentLeft: {
     flexDirection: 'row',
@@ -466,18 +470,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioActive: {
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
   paymentName: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '600',
     color: Colors.text,
+  },
+  paymentNameSelected: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
   paymentDesc: {
     fontSize: 10,
@@ -508,8 +516,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tipPillActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
   },
   tipPillText: {
     fontSize: Typography.fontSize.xs,
@@ -517,8 +525,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   tipPillTextActive: {
-    color: Colors.textLight,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   summaryItemRow: {
     flexDirection: 'row',
@@ -573,7 +581,7 @@ const styles = StyleSheet.create({
   },
   discountVal: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primary,
   },
   finalTotalRow: {
@@ -583,13 +591,13 @@ const styles = StyleSheet.create({
   },
   finalTotalLabel: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   finalTotalVal: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   footer: {
     backgroundColor: Colors.card,
@@ -608,11 +616,11 @@ const styles = StyleSheet.create({
   },
   footerTotalAmount: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   placeOrderBtn: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
@@ -622,7 +630,7 @@ const styles = StyleSheet.create({
   },
   placeOrderBtnText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
 });

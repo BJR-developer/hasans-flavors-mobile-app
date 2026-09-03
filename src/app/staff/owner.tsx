@@ -140,7 +140,7 @@ export default function OwnerDashboardScreen() {
                   router.push('/staff/pos' as any);
                 }}
               >
-                <Ionicons name="calculator-outline" size={18} color={Colors.text} />
+                <Ionicons name="calculator-outline" size={18} color={Colors.primary} />
                 <View style={styles.opsBtnTextCol}>
                   <Text style={styles.opsBtnTitle}>POS Register</Text>
                   <Text style={styles.opsBtnSub}>Cashier terminal</Text>
@@ -155,7 +155,7 @@ export default function OwnerDashboardScreen() {
                   router.push('/staff/kds' as any);
                 }}
               >
-                <Ionicons name="flame-outline" size={18} color={Colors.text} />
+                <Ionicons name="flame-outline" size={18} color={Colors.primary} />
                 <View style={styles.opsBtnTextCol}>
                   <Text style={styles.opsBtnTitle}>Kitchen KDS</Text>
                   <Text style={styles.opsBtnSub}>Order bump screen</Text>
@@ -239,7 +239,7 @@ export default function OwnerDashboardScreen() {
         {activeTab === 'inventory' && (
           <View style={styles.inventorySection}>
             <View style={styles.inventoryNotice}>
-              <Ionicons name="information-circle-outline" size={18} color={Colors.textSecondary} />
+              <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
               <Text style={styles.inventoryNoticeText}>
                 Items marked Out of Stock are immediately disabled in customer app and POS register.
               </Text>
@@ -341,13 +341,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: Radius.sm,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   navTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   navSub: {
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   actionPillText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   logoutBtn: {
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabBtnActive: {
-    borderBottomColor: Colors.text,
+    borderBottomColor: Colors.primary,
   },
   tabText: {
     fontSize: Typography.fontSize.xs,
@@ -401,8 +401,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   tabTextActive: {
-    color: Colors.text,
-    fontWeight: '600',
+    color: Colors.primary,
+    fontWeight: '700',
   },
   container: {
     flex: 1,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   },
   opsBtnTitle: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   opsBtnSub: {
@@ -464,19 +464,19 @@ const styles = StyleSheet.create({
   },
   kpiLabel: {
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textMuted,
     letterSpacing: 0.5,
   },
   kpiValue: {
     fontSize: Typography.fontSize.xl,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.text,
     marginVertical: 2,
   },
   kpiGrowthText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.halalGreen,
   },
   kpiSubText: {
@@ -499,17 +499,17 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   cardBadge: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radius.xs,
     fontSize: 10,
-    fontWeight: '500',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   leaderboardRow: {
     flexDirection: 'row',
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
   leaderboardInfo: {
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
   },
   leaderboardName: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.text,
   },
   leaderboardSold: {
@@ -547,8 +547,8 @@ const styles = StyleSheet.create({
   },
   leaderboardRev: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   inventorySection: {
     gap: Spacing.sm,
@@ -556,12 +556,12 @@ const styles = StyleSheet.create({
   inventoryNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     padding: Spacing.md,
     borderRadius: Radius.md,
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primaryMuted,
   },
   inventoryNoticeText: {
     flex: 1,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   stockStatusText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   stockInText: {
     color: Colors.halalGreen,
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: Spacing.xs,
   },
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   },
   streamOrderNum: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   streamTypeBadge: {
@@ -652,8 +652,8 @@ const styles = StyleSheet.create({
   },
   streamTotal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   streamCustomer: {
     fontSize: 11,
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
   },
   streamStatusText: {
     fontSize: 9,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.halalGreen,
   },
 });

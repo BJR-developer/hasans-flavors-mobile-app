@@ -218,7 +218,7 @@ export default function KDSScreen() {
             }}
             hitSlop={6}
           >
-            <Ionicons name="calculator-outline" size={15} color={Colors.textSecondary} />
+            <Ionicons name="calculator-outline" size={15} color={Colors.primary} />
             <Text style={styles.actionPillText}>POS</Text>
           </TouchableOpacity>
 
@@ -231,7 +231,7 @@ export default function KDSScreen() {
               }}
               hitSlop={6}
             >
-              <Ionicons name="stats-chart-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="stats-chart-outline" size={15} color={Colors.halalGreen} />
               <Text style={styles.actionPillText}>Owner</Text>
             </TouchableOpacity>
           )}
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   navTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   navSub: {
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   actionPillText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   logoutBtn: {
@@ -401,8 +401,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   filterBtnActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterBtnText: {
     fontSize: Typography.fontSize.xs,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
   filterBtnTextActive: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   container: {
     flex: 1,
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   sectionSub: {
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   bumpPending: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
   bumpPreparing: {
     backgroundColor: Colors.saffron,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   bumpButtonText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.xs,
   },
 });

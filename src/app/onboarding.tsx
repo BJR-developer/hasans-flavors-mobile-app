@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     },
     brandName: {
         fontSize: Typography.fontSize.sm,
-        fontWeight: '600',
+        fontWeight: '700',
         color: Colors.text,
     },
     skipButton: {
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     },
     skipButtonText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.textMuted,
     },
     slideContainer: {
@@ -295,14 +295,14 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: Spacing.md,
         left: Spacing.md,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: Colors.primary,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: Radius.xs,
     },
     tagBadgeText: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '700',
         color: Colors.textLight,
         letterSpacing: 0.6,
     },
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     },
     dotActive: {
         width: 20,
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
     },
     dotInactive: {
         width: 6,
@@ -362,14 +362,14 @@ const styles = StyleSheet.create({
     },
     guestLinkText: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
         color: Colors.textMuted,
     },
     nextButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
         paddingHorizontal: Spacing.xl,
         paddingVertical: 10,
         borderRadius: Radius.md,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     nextButtonText: {
         color: Colors.textLight,
         fontSize: Typography.fontSize.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     finalButtonStack: {
         gap: Spacing.xs,
@@ -387,14 +387,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: Colors.text,
+        backgroundColor: Colors.primary,
         paddingVertical: 13,
         borderRadius: Radius.md,
     },
     primaryButtonText: {
         color: Colors.textLight,
         fontSize: Typography.fontSize.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     secondaryButton: {
         alignItems: 'center',
@@ -404,6 +404,6 @@ const styles = StyleSheet.create({
     secondaryButtonText: {
         color: Colors.textSecondary,
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
+        fontWeight: '600',
     },
 });

@@ -123,7 +123,7 @@ export default function DishDetailScreen() {
             <Text style={styles.categoryText}>{dish.category}</Text>
             {dish.rating && (
               <View style={styles.ratingBox}>
-                <Ionicons name="star" size={13} color={Colors.textSecondary} />
+                <Ionicons name="star" size={13} color={Colors.saffron} />
                 <Text style={styles.ratingText}>{dish.rating}</Text>
                 <Text style={styles.reviewCount}>({dish.reviewCount})</Text>
               </View>
@@ -142,12 +142,12 @@ export default function DishDetailScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="flame-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="flame-outline" size={15} color={Colors.primary} />
               <Text style={styles.statLabel}>{dish.calories}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Ionicons name="shield-checkmark-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="shield-checkmark-outline" size={15} color={Colors.halalGreen} />
               <Text style={styles.statLabel}>Halal Certified</Text>
             </View>
           </View>
@@ -255,7 +255,7 @@ export default function DishDetailScreen() {
                   </View>
 
                   <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
-                    +₱${addon.price}
+                    +₱{addon.price}
                   </Text>
                 </TouchableOpacity>
               );
@@ -374,14 +374,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: Spacing.md,
     left: Spacing.lg,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radius.xs,
   },
   specialBadgeText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 10,
     letterSpacing: 0.6,
   },
@@ -427,8 +427,8 @@ const styles = StyleSheet.create({
   },
   dishPrice: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    color: Colors.primary,
     marginBottom: Spacing.sm,
   },
   description: {
@@ -495,8 +495,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   selectedOptionRow: {
-    borderColor: Colors.text,
-    backgroundColor: Colors.card,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
   },
   optionLeft: {
     flexDirection: 'row',
@@ -513,13 +513,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
   },
   checkboxSquare: {
     width: 18,
@@ -531,8 +531,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxSquareActive: {
-    backgroundColor: Colors.text,
-    borderColor: Colors.text,
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   optionTitle: {
     fontSize: Typography.fontSize.sm,
@@ -540,7 +540,8 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   selectedOptionTitle: {
-    fontWeight: '600',
+    fontWeight: '700',
+    color: Colors.primary,
   },
   optionServes: {
     fontSize: 11,
@@ -553,8 +554,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   selectedOptionDelta: {
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   spiceGrid: {
     flexDirection: 'row',
@@ -570,8 +571,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   spiceCardSelected: {
-    borderColor: Colors.text,
-    backgroundColor: Colors.card,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
   },
   spiceCardHeader: {
     flexDirection: 'row',
@@ -585,7 +586,8 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   spiceLevelNameSelected: {
-    color: Colors.text,
+    color: Colors.primary,
+    fontWeight: '700',
   },
   spiceDesc: {
     fontSize: 10,
@@ -640,7 +642,7 @@ const styles = StyleSheet.create({
   },
   addToCartBtn: {
     flex: 1,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     height: 48,
     justifyContent: 'center',
@@ -649,7 +651,7 @@ const styles = StyleSheet.create({
   },
   addToCartText: {
     color: Colors.textLight,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   errorContainer: {
@@ -665,7 +667,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   backButton: {
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radius.md,
