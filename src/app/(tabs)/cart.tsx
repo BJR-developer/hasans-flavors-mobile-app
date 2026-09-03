@@ -358,7 +358,7 @@ export default function CartScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Checkout Footer */}
+      {/* Docked Bottom Checkout Footer */}
       <View style={styles.footerContainer}>
         <View style={styles.footerTotalCol}>
           <Text style={styles.footerTotalLabel}>Total Amount</Text>
@@ -366,7 +366,7 @@ export default function CartScreen() {
         </View>
 
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.88}
           style={styles.checkoutBtn}
           onPress={handleProceedToCheckout}
         >
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 110,
+    paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
   emptyContainer: {
@@ -742,14 +742,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   footerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.card,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     flexDirection: 'row',

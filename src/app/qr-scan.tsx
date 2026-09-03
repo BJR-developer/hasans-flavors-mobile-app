@@ -47,7 +47,7 @@ export default function QRTableScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Header title="Table Ordering" showBack />
 
       <ScrollView
@@ -75,7 +75,7 @@ export default function QRTableScreen() {
           </Text>
 
           <TouchableOpacity
-            activeOpacity={0.9}
+            activeOpacity={0.88}
             style={styles.scanActionBtn}
             onPress={handleSimulateScan}
             disabled={isCameraScanning}
@@ -275,10 +275,10 @@ export default function QRTableScreen() {
         )}
       </ScrollView>
 
-      {/* Confirm Selection Footer */}
+      {/* Docked Confirm Selection Footer */}
       <View style={styles.footer}>
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.88}
           style={styles.confirmBtn}
           onPress={() => handleConfirmTable(selectedTableNum)}
         >
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
   scannerCard: {
@@ -576,7 +576,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     backgroundColor: Colors.card,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },

@@ -79,7 +79,7 @@ export default function CheckoutScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <Header title="Checkout" showBack />
 
       <ScrollView
@@ -339,7 +339,7 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* Place Order CTA Footer */}
+      {/* Docked Place Order Footer */}
       <View style={styles.footer}>
         <View>
           <Text style={styles.footerTotalLabel}>Total Amount</Text>
@@ -347,7 +347,7 @@ export default function CheckoutScreen() {
         </View>
 
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.88}
           style={styles.placeOrderBtn}
           onPress={handlePlaceOrder}
         >
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 110,
+    paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
   orderTypeCard: {
@@ -592,14 +592,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.card,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     flexDirection: 'row',

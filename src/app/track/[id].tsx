@@ -106,7 +106,7 @@ export default function OrderTrackingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconCircle} onPress={() => router.back()} hitSlop={8}>
@@ -277,18 +277,16 @@ export default function OrderTrackingScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Footer */}
-      <SafeAreaView edges={['bottom']} style={styles.footerSafeArea}>
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.homeReturnBtn}
-            onPress={() => router.replace('/(tabs)' as any)}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.homeReturnBtnText}>Back to Menu</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      {/* Docked Sticky Bottom Footer */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.homeReturnBtn}
+          onPress={() => router.replace('/(tabs)' as any)}
+          activeOpacity={0.88}
+        >
+          <Text style={styles.homeReturnBtnText}>Back to Menu</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -334,7 +332,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
   etaCard: {
@@ -587,14 +585,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text,
   },
-  footerSafeArea: {
+  footer: {
     backgroundColor: Colors.card,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-  },
-  footer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
   },
   homeReturnBtn: {
     backgroundColor: Colors.text,

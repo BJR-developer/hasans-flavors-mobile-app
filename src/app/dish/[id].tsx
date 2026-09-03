@@ -76,7 +76,11 @@ export default function DishDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Hero Image */}
         <View style={styles.heroImageWrapper}>
           <Image source={{ uri: dish.imageUrl }} style={styles.heroImage} resizeMode="cover" />
@@ -251,7 +255,7 @@ export default function DishDetailScreen() {
                   </View>
 
                   <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
-                    +₱{addon.price}
+                    +₱${addon.price}
                   </Text>
                 </TouchableOpacity>
               );
@@ -274,7 +278,7 @@ export default function DishDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Add to Cart Bar */}
+      {/* Docked Sticky Bottom Add to Cart Bar */}
       <SafeAreaView style={styles.footerSafeArea} edges={['bottom']}>
         <View style={styles.footer}>
           {/* Quantity Stepper */}
@@ -311,14 +315,10 @@ export default function DishDetailScreen() {
           </View>
 
           {/* Add to Cart CTA */}
-          <TouchableOpacity activeOpacity={0.9} style={styles.addToCartBtn} onPress={handleAddToCart}>
-            <View>
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-              <Text style={styles.addToCartSub}>
-                {selectedPortion.name}
-              </Text>
-            </View>
-            <Text style={styles.totalPriceText}>₱{totalPrice.toLocaleString()}</Text>
+          <TouchableOpacity activeOpacity={0.88} style={styles.addToCartBtn} onPress={handleAddToCart}>
+            <Text style={styles.addToCartText}>
+              Add to Cart • ₱{totalPrice.toLocaleString()}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -334,8 +334,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingBottom: 110,
+    paddingBottom: Spacing.xxl,
   },
   heroImageWrapper: {
     position: 'relative',
@@ -601,21 +604,17 @@ const styles = StyleSheet.create({
     height: 70,
   },
   footerSafeArea: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: Colors.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    ...Shadows.elevated,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
     gap: 12,
-    ...Shadows.elevated,
   },
   quantityStepper: {
     flexDirection: 'row',
@@ -624,10 +623,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
+    height: 48,
   },
   stepBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    width: 36,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   qtyNumber: {
     fontSize: Typography.fontSize.sm,
@@ -640,24 +642,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.text,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 11,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
   },
   addToCartText: {
     color: Colors.textLight,
     fontWeight: '600',
-    fontSize: Typography.fontSize.sm,
-  },
-  addToCartSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 10,
-  },
-  totalPriceText: {
-    color: Colors.textLight,
-    fontWeight: '700',
     fontSize: Typography.fontSize.sm,
   },
   errorContainer: {
