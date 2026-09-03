@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dimensions,
   Image,
@@ -7,6 +7,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +25,10 @@ import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = Math.min(width * 0.84, 380);
+const CARD_GAP = 12;
+const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
+const SIDE_PEEK = (width - CARD_WIDTH) / 2;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,8 +36,37 @@ export default function HomeScreen() {
   const currentTable = useTableStore((state) => state.currentTable);
   const itemCount = useCartStore((state) => state.getItemCount());
 
+  // Featured Carousel Dishes
+  const featuredDishes = dishes.filter((d) => d.isChefSpecial || d.isPopular).slice(0, 5);
   const chefSpecials = dishes.filter((d) => d.isChefSpecial).slice(0, 6);
   const popularDishes = dishes.filter((d) => d.isPopular).slice(0, 8);
+
+  // Carousel Auto-scroll State
+  const [activeSlide, setActiveSlide] = useState(0);
+  const carouselRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (featuredDishes.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveSlide((prevSlide) => {
+        const nextSlide = (prevSlide + 1) % featuredDishes.length;
+        carouselRef.current?.scrollToOffset({
+          offset: nextSlide * SNAP_INTERVAL,
+          animated: true,
+        });
+        return nextSlide;
+      });
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [featuredDishes.length]);
+
+  const handleCarouselScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / SNAP_INTERVAL);
+    if (slideIndex !== activeSlide && slideIndex >= 0 && slideIndex < featuredDishes.length) {
+      setActiveSlide(slideIndex);
+    }
+  };
 
   const handleCategorySelect = (id: string) => {
     setSelectedCategory(id);
@@ -60,55 +96,116 @@ export default function HomeScreen() {
         {currentTable && (
           <View style={styles.tableStatusBar}>
             <View style={styles.tableStatusLeft}>
-              <Ionicons name="restaurant-outline" size={15} color={Colors.textSecondary} />
+              <Ionicons name="restaurant-outline" size={15} color={Colors.primary} />
               <Text style={styles.tableStatusText}>
                 Dine-in Order • <Text style={styles.tableStatusBold}>{currentTable}</Text>
               </Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/qr-scan' as any)} hitSlop={8}>
-              <Text style={styles.tableStatusAction}>Change</Text>
+              <Text style={styles.tableStatusAction}>Change Table</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Minimal Search Input */}
+        {/* Hero Greeting & Headline Section */}
+        <View style={styles.greetingHeader}>
+          <View style={styles.greetingTagRow}>
+            <Text style={styles.greetingTag}>Khana time! 👋</Text>
+          </View>
+          <Text style={styles.greetingTitle}>What are you craving?</Text>
+        </View>
+
+        {/* Fully Rounded Pill Search Bar */}
         <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.searchBar}
+          activeOpacity={0.88}
+          style={styles.roundedSearchBar}
           onPress={handleSearchFocus}
         >
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+          <View style={styles.searchIconCircle}>
+            <Ionicons name="search" size={16} color={Colors.primary} />
+          </View>
           <Text style={styles.searchPlaceholder}>Search dishes, biryanis, curries...</Text>
-        </TouchableOpacity>
-
-        {/* Hero Feature Banner — Single Hero Focal Point */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.heroCard}
-          onPress={() => router.push('/dish/4066' as any)}
-        >
-          <Image
-            source={{
-              uri: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=1000&auto=format&fit=crop',
-            }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
-          <View style={styles.heroOverlay}>
-            <View style={styles.heroMetaTop}>
-              <Text style={styles.heroTag}>FEATURED SPECIAL</Text>
-            </View>
-            <View style={styles.heroBottomRow}>
-              <View style={styles.heroInfo}>
-                <Text style={styles.heroTitle}>Chicken 65 Biryani Bilao</Text>
-                <Text style={styles.heroSub}>Dum-cooked basmati with spiced boneless chicken</Text>
-              </View>
-              <View style={styles.heroPriceBadge}>
-                <Text style={styles.heroPrice}>₱1,100</Text>
-              </View>
-            </View>
+          <View style={styles.filterIconCircle}>
+            <Ionicons name="options-outline" size={16} color={Colors.textSecondary} />
           </View>
         </TouchableOpacity>
+
+        {/* Featured Specials Carousel with Peeking Adjacent Cards */}
+        <View style={styles.carouselSection}>
+          <View style={styles.carouselHeaderRow}>
+            <View style={styles.featuredHeadingGroup}>
+              <Text style={styles.sectionTitle}>Featured Specials</Text>
+              <Text style={styles.sectionSub}>Hand-crafted royal culinary highlights</Text>
+            </View>
+          </View>
+
+          <FlatList
+            ref={carouselRef}
+            data={featuredDishes}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleCarouselScroll}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={SNAP_INTERVAL}
+            snapToAlignment="start"
+            contentContainerStyle={styles.carouselContentContainer}
+            getItemLayout={(data, index) => ({
+              length: SNAP_INTERVAL,
+              offset: SNAP_INTERVAL * index,
+              index,
+            })}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.92}
+                style={[styles.carouselCard, { width: CARD_WIDTH }]}
+                onPress={() => router.push(`/dish/${item.id}` as any)}
+              >
+                <Image source={{ uri: item.imageUrl }} style={styles.carouselImage} resizeMode="cover" />
+                <View style={styles.carouselOverlay}>
+                  <View style={styles.carouselMetaTop}>
+                    {item.rating ? (
+                      <View style={styles.ratingPill}>
+                        <Ionicons name="star" size={12} color="#FFA000" />
+                        <Text style={styles.ratingPillText}>{item.rating}</Text>
+                      </View>
+                    ) : (
+                      <View />
+                    )}
+                  </View>
+
+                  <View style={styles.carouselBottomRow}>
+                    <View style={styles.carouselInfo}>
+                      <Text style={styles.carouselDishTitle} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.carouselDishSub} numberOfLines={2}>
+                        {item.description}
+                      </Text>
+                    </View>
+                    <View style={styles.carouselPriceBadge}>
+                      <Text style={styles.carouselPriceText}>{item.formattedPrice}</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+
+          {/* Carousel Pagination Dots Indicator */}
+          <View style={styles.paginationRow}>
+            {featuredDishes.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.paginationDot,
+                  activeSlide === index && styles.paginationDotActive,
+                ]}
+              />
+            ))}
+          </View>
+        </View>
 
         {/* Category Filter Pills */}
         <View style={styles.categorySection}>
@@ -196,10 +293,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: 9,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primaryLight,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.primaryMuted,
   },
   tableStatusLeft: {
     flexDirection: 'row',
@@ -211,100 +308,180 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   tableStatusBold: {
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   tableStatusAction: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.primary,
   },
-  searchBar: {
+  greetingHeader: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+  },
+  greetingTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  greetingTag: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.saffron,
+    letterSpacing: 0.2,
+  },
+  greetingTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: Colors.text,
+    letterSpacing: -0.6,
+  },
+  roundedSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.card,
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    height: 46,
-    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.sm,
+    height: 52,
+    borderRadius: Radius.round,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 10,
     ...Shadows.subtle,
   },
+  searchIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchPlaceholder: {
     flex: 1,
     fontSize: Typography.fontSize.sm,
     color: Colors.textMuted,
+    fontWeight: '500',
   },
-  heroCard: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.lg,
-    borderRadius: Radius.lg,
+  filterIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  carouselSection: {
+    marginTop: Spacing.xl,
+  },
+  carouselHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  featuredHeadingGroup: {
+    flex: 1,
+  },
+  carouselContentContainer: {
+    paddingHorizontal: SIDE_PEEK - CARD_GAP / 2,
+    paddingVertical: Spacing.xs,
+  },
+  carouselCard: {
+    marginHorizontal: CARD_GAP / 2,
+    borderRadius: Radius.xl,
     overflow: 'hidden',
-    height: 200,
+    height: 218,
     backgroundColor: Colors.surface,
     position: 'relative',
-    ...Shadows.card,
+    ...Shadows.elevated,
   },
-  heroImage: {
+  carouselImage: {
     width: '100%',
     height: '100%',
   },
-  heroOverlay: {
+  carouselOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.38)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
     padding: Spacing.lg,
     justifyContent: 'space-between',
   },
-  heroMetaTop: {
-    alignSelf: 'flex-start',
+  carouselMetaTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
-  heroTag: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textLight,
-    letterSpacing: 0.8,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  ratingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.xs,
+    borderRadius: Radius.round,
   },
-  heroBottomRow: {
+  ratingPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textLight,
+  },
+  carouselBottomRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
-  heroInfo: {
+  carouselInfo: {
     flex: 1,
     paddingRight: Spacing.md,
   },
-  heroTitle: {
+  carouselDishTitle: {
     color: Colors.textLight,
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
-  heroSub: {
-    color: 'rgba(255,255,255,0.85)',
+  carouselDishSub: {
+    color: 'rgba(255,255,255,0.88)',
     fontSize: Typography.fontSize.xs,
     marginTop: 2,
-    lineHeight: 15,
+    lineHeight: 16,
   },
-  heroPriceBadge: {
+  carouselPriceBadge: {
     backgroundColor: Colors.card,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.md,
+    ...Shadows.subtle,
   },
-  heroPrice: {
-    color: Colors.text,
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+  carouselPriceText: {
+    color: Colors.primary,
+    fontSize: Typography.fontSize.md,
+    fontWeight: '900',
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border,
+  },
+  paginationDotActive: {
+    width: 20,
+    backgroundColor: Colors.primary,
   },
   categorySection: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
   },
   categoryScroll: {
     paddingHorizontal: Spacing.lg,
@@ -319,7 +496,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: Typography.fontSize.lg,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.text,
     letterSpacing: -0.3,
   },
@@ -330,8 +507,8 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   horizontalScroll: {
     paddingHorizontal: Spacing.lg,
