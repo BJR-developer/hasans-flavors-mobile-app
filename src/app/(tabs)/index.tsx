@@ -18,6 +18,7 @@ import { CartFloatingBar } from '@/components/CartFloatingBar';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useTableStore } from '@/store/useTableStore';
+import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { dishes, categories, selectedCategoryId, setSelectedCategory } = useMenuStore();
   const currentTable = useTableStore((state) => state.currentTable);
+  const itemCount = useCartStore((state) => state.getItemCount());
 
   const chefSpecials = dishes.filter((d) => d.isChefSpecial).slice(0, 6);
   const popularDishes = dishes.filter((d) => d.isPopular).slice(0, 8);
@@ -48,7 +50,10 @@ export default function HomeScreen() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: itemCount > 0 ? 160 : 100 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Table Status (when seated) */}
@@ -181,7 +186,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 96,
+    paddingBottom: 120,
   },
   tableStatusBar: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ import { DishCard } from '@/components/DishCard';
 import { CartFloatingBar } from '@/components/CartFloatingBar';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useMenuStore } from '@/store/useMenuStore';
+import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 export default function MenuScreen() {
@@ -33,6 +34,7 @@ export default function MenuScreen() {
     getFilteredDishes,
   } = useMenuStore();
 
+  const itemCount = useCartStore((state) => state.getItemCount());
   const [layoutMode, setLayoutMode] = useState<'grid' | 'horizontal'>('grid');
   const filteredDishes = getFilteredDishes();
 
@@ -180,7 +182,10 @@ export default function MenuScreen() {
         ) : layoutMode === 'grid' ? (
           <ScrollView
             style={styles.dishesScrollView}
-            contentContainerStyle={styles.gridContent}
+            contentContainerStyle={[
+              styles.gridContent,
+              { paddingBottom: itemCount > 0 ? 160 : 110 },
+            ]}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.gridWrapper}>
@@ -196,7 +201,10 @@ export default function MenuScreen() {
             data={filteredDishes}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <DishCard dish={item} layout="horizontal" />}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: itemCount > 0 ? 160 : 110 },
+            ]}
             showsVerticalScrollIndicator={false}
           />
         )}
@@ -313,7 +321,7 @@ const styles = StyleSheet.create({
   },
   gridContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 120,
   },
   gridWrapper: {
     flexDirection: 'row',
@@ -325,7 +333,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 120,
   },
   emptyContainer: {
     flex: 1,

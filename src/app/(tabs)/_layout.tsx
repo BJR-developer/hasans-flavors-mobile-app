@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Colors, Radius, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 
@@ -13,18 +13,28 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarInactiveTintColor: Colors.textSecondary,
         tabBarStyle: {
           backgroundColor: Colors.card,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
+          height: Platform.select({ ios: 88, default: 68 }),
+          paddingBottom: Platform.select({ ios: 28, default: 10 }),
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: Colors.text,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 6,
         },
         tabBarLabelStyle: {
-          fontSize: Typography.fontSize.xs,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 2,
+          paddingBottom: 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
       }}
     >
@@ -55,7 +65,7 @@ export default function TabLayout() {
               <Ionicons name={focused ? 'bag' : 'bag-outline'} size={22} color={color} />
               {itemCount > 0 && (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{itemCount}</Text>
+                  <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
                 </View>
               )}
             </View>
