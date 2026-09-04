@@ -66,17 +66,6 @@ export default function CartScreen() {
     }
   };
 
-  const handleSelectDelivery = () => {
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch {}
-    Alert.alert(
-      'Coming soon to you..',
-      'Delivery service is currently being rolled out in your area. For now, please enjoy our Dine-In or Takeout ordering.',
-      [{ text: 'Got it' }]
-    );
-  };
-
   const handleCheckout = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -87,7 +76,7 @@ export default function CartScreen() {
   if (items.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <Header title="Your Cart" />
+        <Header title="Your Cart" showBack showCart={false} showScanTable={true} />
         <View style={styles.emptyContainer}>
           <Ionicons name="bag-outline" size={48} color={Colors.textMuted} />
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
@@ -108,14 +97,14 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Header title="Your Cart" />
+      <Header title="Your Cart" showBack showCart={false} showScanTable={true} />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Dining Mode Segmented Selector */}
+        {/* Dining Mode Segmented Selector (Dine-In & Takeout) */}
         <View style={styles.diningTypeCard}>
           <Text style={styles.sectionTitle}>Dining Method</Text>
           <View style={styles.typeSelectorRow}>
@@ -136,9 +125,14 @@ export default function CartScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* 
+              DELIVERY OPTION:
+              Hidden temporarily. Online doorstep delivery is in development and will be activated in a future release.
+            */}
+            {/*
             <TouchableOpacity
               style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
-              onPress={handleSelectDelivery}
+              onPress={() => setDeliveryType('delivery')}
             >
               <Ionicons
                 name="bicycle-outline"
@@ -149,23 +143,24 @@ export default function CartScreen() {
                 Delivery
               </Text>
             </TouchableOpacity>
+            */}
 
             <TouchableOpacity
-              style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
+              style={[styles.typeButton, (deliveryType === 'takeout' || deliveryType === 'delivery') && styles.activeTypeButton]}
               onPress={() => setDeliveryType('takeout')}
             >
               <Ionicons
                 name="bag-handle-outline"
                 size={16}
-                color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
+                color={deliveryType === 'takeout' || deliveryType === 'delivery' ? Colors.textLight : Colors.textSecondary}
               />
-              <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
-                Takeout
+              <Text style={[styles.typeLabel, (deliveryType === 'takeout' || deliveryType === 'delivery') && styles.activeTypeLabel]}>
+                Takeout / Pickup
               </Text>
             </TouchableOpacity>
           </View>
 
-          {deliveryType === 'dine_in' && (
+          {deliveryType === 'dine_in' ? (
             <View style={styles.dineInNotice}>
               <Ionicons name="information-circle-outline" size={16} color={Colors.saffron} />
               <Text style={styles.dineInNoticeText}>
@@ -179,26 +174,12 @@ export default function CartScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          )}
-
-          {deliveryType === 'delivery' && (
-            <View style={styles.freeDeliveryProgressBar}>
-              <View style={styles.deliveryProgressHeader}>
-                <Text style={styles.deliveryProgressTitle}>
-                  {subtotal >= 1000 ? 'Free delivery unlocked' : `Add ₱${1000 - subtotal} more for free delivery`}
-                </Text>
-                <Text style={styles.deliveryProgressPct}>
-                  {Math.min(100, Math.round((subtotal / 1000) * 100))}%
-                </Text>
-              </View>
-              <View style={styles.progressBarTrack}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${Math.min(100, (subtotal / 1000) * 100)}%` },
-                  ]}
-                />
-              </View>
+          ) : (
+            <View style={styles.dineInNotice}>
+              <Ionicons name="bag-check-outline" size={16} color={Colors.halalGreen} />
+              <Text style={styles.dineInNoticeText}>
+                Your order will be packed hot and fresh for pickup at the counter.
+              </Text>
             </View>
           )}
         </View>
@@ -290,15 +271,6 @@ export default function CartScreen() {
             <Text style={styles.summaryVal}>₱{tax.toLocaleString()}</Text>
           </View>
 
-          {deliveryType === 'delivery' && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Delivery Fee</Text>
-              <Text style={styles.summaryVal}>
-                {deliveryFee === 0 ? 'FREE' : `₱${deliveryFee}`}
-              </Text>
-            </View>
-          )}
-
           {discountAmount > 0 && (
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, styles.discountText]}>Discount</Text>
@@ -357,10 +329,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
   emptySub: {
     fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
@@ -378,6 +352,7 @@ const styles = StyleSheet.create({
   browseButtonText: {
     color: Colors.textLight,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.sm,
   },
   diningTypeCard: {
@@ -391,6 +366,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     marginBottom: Spacing.sm,
   },
@@ -407,7 +383,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: Radius.md,
-    paddingVertical: 9,
+    paddingVertical: 11,
     gap: 6,
   },
   activeTypeButton: {
@@ -416,12 +392,13 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textSecondary,
   },
   activeTypeLabel: {
     color: Colors.textLight,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
   },
   dineInNotice: {
     flexDirection: 'row',
@@ -435,45 +412,15 @@ const styles = StyleSheet.create({
   dineInNoticeText: {
     flex: 1,
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textSecondary,
   },
   pickTableLink: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
     textDecorationLine: 'underline',
-  },
-  freeDeliveryProgressBar: {
-    marginTop: Spacing.sm,
-    backgroundColor: Colors.surface,
-    padding: Spacing.sm,
-    borderRadius: Radius.sm,
-  },
-  deliveryProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  deliveryProgressTitle: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-  },
-  deliveryProgressPct: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: Colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
   },
   itemsCard: {
     backgroundColor: Colors.card,
@@ -493,6 +440,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.error,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
   },
   itemRow: {
     flexDirection: 'row',
@@ -514,6 +462,7 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.text,
   },
   itemCustomizationRow: {
@@ -523,15 +472,18 @@ const styles = StyleSheet.create({
   },
   itemPortionText: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
   },
   addonsText: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textSecondary,
   },
   specialNoteText: {
     fontSize: 10,
     color: Colors.saffron,
+    fontFamily: Typography.fontFamily.regular,
     fontStyle: 'italic',
   },
   itemBottomRow: {
@@ -543,6 +495,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
   quantityStepper: {
@@ -560,6 +513,7 @@ const styles = StyleSheet.create({
   qtyText: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     minWidth: 18,
     textAlign: 'center',
@@ -579,16 +533,19 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textSecondary,
   },
   summaryVal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.text,
   },
   discountText: {
     color: Colors.primary,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
   },
   divider: {
     height: 1,
@@ -604,11 +561,13 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
   totalVal: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.primary,
   },
   footer: {
@@ -627,11 +586,13 @@ const styles = StyleSheet.create({
   },
   footerTotalLabel: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
   },
   footerTotalVal: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
   checkoutBtn: {
@@ -647,6 +608,7 @@ const styles = StyleSheet.create({
   checkoutBtnText: {
     color: Colors.textLight,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.sm,
   },
 });

@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts,
@@ -14,6 +15,35 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
+
+// Global Web CSS injection to completely disable browser focus outlines on desktop inputs
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const styleId = 'hasan-global-web-inputs-reset';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      input, textarea, select, [contenteditable="true"] {
+        outline: none !important;
+        outline-width: 0 !important;
+        outline-style: none !important;
+        box-shadow: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+      }
+      input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus {
+        outline: none !important;
+        outline-width: 0 !important;
+        outline-style: none !important;
+        box-shadow: none !important;
+      }
+      input:focus-visible, textarea:focus-visible, select:focus-visible {
+        outline: none !important;
+        outline-width: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -49,6 +79,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="auth/signin" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="auth/signup" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="auth/forgot-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen
           name="dish/[id]"

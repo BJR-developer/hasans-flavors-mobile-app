@@ -11,15 +11,39 @@ import * as Haptics from 'expo-haptics';
 interface HeaderProps {
   title?: string;
   showBack?: boolean;
+  showCart?: boolean;
+  showScanTable?: boolean;
+  onBackPress?: () => void;
   showSearch?: boolean;
   onSearchPress?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
+export const Header: React.FC<HeaderProps> = ({
+  title,
+  showBack = false,
+  showCart = false,
+  showScanTable = true,
+  onBackPress,
+}) => {
   const router = useRouter();
   const itemCount = useCartStore((state) => state.getItemCount());
   const currentTable = useTableStore((state) => state.currentTable);
   const user = useAuthStore((state) => state.user);
+
+  const handleBack = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    if (onBackPress) {
+      onBackPress();
+    } else {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.push('/(tabs)' as any);
+      }
+    }
+  };
 
   const handleProfilePress = () => {
     try {
@@ -30,11 +54,12 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
 
   return (
     <View style={styles.container}>
+      {/* Left Section */}
       <View style={styles.leftSection}>
         {showBack ? (
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
             hitSlop={12}
           >
             <Ionicons name="arrow-back" size={22} color={Colors.text} />
@@ -68,25 +93,29 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
         )}
       </View>
 
-      {title && showBack && (
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
-      )}
+      {/* Centered Page Title */}
+      {title ? (
+        <View style={styles.centerTitleContainer} pointerEvents="none">
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+      ) : null}
 
+      {/* Right Section */}
       <View style={styles.rightSection}>
-        {/* Table Badge if seated */}
-        {currentTable ? (
-          <TouchableOpacity
-            style={styles.tableBadge}
-            onPress={() => router.push('/qr-scan' as any)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
-            <Text style={styles.tableBadgeText}>{currentTable}</Text>
-          </TouchableOpacity>
-        ) : (
-          !showBack && (
+        {/* Table Badge / Scan Table Button */}
+        {showScanTable && (
+          currentTable ? (
+            <TouchableOpacity
+              style={styles.tableBadge}
+              onPress={() => router.push('/qr-scan' as any)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
+              <Text style={styles.tableBadgeText}>{currentTable}</Text>
+            </TouchableOpacity>
+          ) : (
             <TouchableOpacity
               style={styles.qrBtn}
               onPress={() => router.push('/qr-scan' as any)}
@@ -98,20 +127,27 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
           )
         )}
 
-        {/* Cart Icon */}
-        <TouchableOpacity
-          style={styles.cartButton}
-          onPress={() => router.push('/(tabs)/cart' as any)}
-          activeOpacity={0.8}
-          hitSlop={6}
-        >
-          <Ionicons name="bag-outline" size={22} color={Colors.text} />
-          {itemCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {/* Optional Cart Icon */}
+        {showCart && (
+          <TouchableOpacity
+            style={styles.cartButton}
+            onPress={() => router.push('/(tabs)/cart' as any)}
+            activeOpacity={0.8}
+            hitSlop={6}
+          >
+            <Ionicons name="bag-outline" size={21} color={Colors.text} />
+            {itemCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Spacer to maintain balance if neither is shown */}
+        {!showScanTable && !showCart && (
+          <View style={styles.placeholderBox} />
+        )}
       </View>
     </View>
   );
@@ -119,28 +155,28 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack = false }) => {
 
 const styles = StyleSheet.create({
   container: {
-    height: 60,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: Spacing.md,
-    paddingRight: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     backgroundColor: 'transparent',
+    position: 'relative',
   },
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    zIndex: 2,
+    minWidth: 40,
   },
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
   },
   avatarWrapper: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: Radius.round,
     overflow: 'hidden',
     backgroundColor: Colors.surface,
@@ -153,32 +189,46 @@ const styles = StyleSheet.create({
   },
   profileTextCol: {
     justifyContent: 'center',
-    flexShrink: 1,
   },
   greetingText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     letterSpacing: -0.2,
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
-    marginTop: 1,
+    marginTop: 2,
+  },
+  centerTitleContainer: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+    paddingHorizontal: 80,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: Typography.fontSize.md,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     textAlign: 'center',
-    marginHorizontal: Spacing.xs,
+    letterSpacing: -0.3,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    zIndex: 2,
+    minWidth: 40,
+    justifyContent: 'flex-end',
+  },
+  placeholderBox: {
+    width: 40,
+    height: 40,
   },
   tableBadge: {
     flexDirection: 'row',
@@ -194,6 +244,7 @@ const styles = StyleSheet.create({
   tableBadgeText: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
   qrBtn: {
@@ -210,6 +261,7 @@ const styles = StyleSheet.create({
   qrBtnText: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.textSecondary,
   },
   cartButton: {
@@ -242,9 +294,11 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontSize: 9,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
   },
   iconButton: {
-    padding: 6,
+    width: 40,
+    height: 40,
     borderRadius: Radius.round,
     backgroundColor: Colors.surface,
     borderWidth: 1,

@@ -1,9 +1,7 @@
-import { Radius, Spacing, Typography } from '@/constants/theme';
-import { useAuthStore } from '@/store/useAuthStore';
+import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
-    Dimensions,
     Image,
     StatusBar,
     StyleSheet,
@@ -13,38 +11,29 @@ import {
 } from 'react-native';
 import Animated, {
     Easing,
-    runOnJS,
     useAnimatedStyle,
     useSharedValue,
     withDelay,
     withTiming,
 } from 'react-native-reanimated';
 
-const { width } = Dimensions.get('window');
-
-export default function SplashScreenComponent() {
+export default function SplashScreen() {
     const router = useRouter();
-    const { isOnboarded, isAuthenticated, setHasSeenSplash } = useAuthStore();
 
-    // Shared values
+    // Shared values for staggered animations
+    const logoScale = useSharedValue(0.92);
     const logoOpacity = useSharedValue(0);
     const contentOpacity = useSharedValue(0);
     const loaderWidth = useSharedValue(0);
 
     const navigateNext = () => {
-        setHasSeenSplash(true);
-        if (!isOnboarded) {
-            router.replace('/onboarding' as any);
-        } else if (!isAuthenticated) {
-            router.replace('/auth/signin' as any);
-        } else {
-            router.replace('/(tabs)' as any);
-        }
+        router.replace('/(tabs)' as any);
     };
 
     useEffect(() => {
-        // Logo fade in
+        // Logo fade in & gentle zoom
         logoOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+        logoScale.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.back(1.1)) });
 
         // Content fade in
         contentOpacity.value = withDelay(
@@ -52,19 +41,28 @@ export default function SplashScreenComponent() {
             withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
         );
 
-        // Progress bar loading fill
-        loaderWidth.value = withDelay(
-            300,
-            withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }, (finished) => {
+        // Progress bar fills over 2 seconds
+        loaderWidth.value = withTiming(
+            1,
+            { duration: 2000, easing: Easing.bezier(0.25, 0.1, 0.25, 1) },
+            (finished) => {
                 if (finished) {
-                    runOnJS(navigateNext)();
+                    // Navigate to onboarding or tabs
                 }
-            })
+            }
         );
+
+        // Auto navigate after ~2.3 seconds
+        const timer = setTimeout(() => {
+            navigateNext();
+        }, 2300);
+
+        return () => clearTimeout(timer);
     }, []);
 
     const animatedLogoStyle = useAnimatedStyle(() => ({
         opacity: logoOpacity.value,
+        transform: [{ scale: logoScale.value }],
     }));
 
     const animatedContentStyle = useAnimatedStyle(() => ({
@@ -77,7 +75,7 @@ export default function SplashScreenComponent() {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#18181B" translucent />
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} translucent />
 
             {/* Center Content */}
             <View style={styles.centerSection}>
@@ -116,7 +114,7 @@ export default function SplashScreenComponent() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#18181B',
+        backgroundColor: Colors.background,
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: Spacing.xxxl,
@@ -129,13 +127,12 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     logoCard: {
-        width: 180,
-        height: 120,
+        width: 220,
+        height: 140,
         backgroundColor: 'transparent',
-        overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     logoImage: {
         width: '100%',
@@ -146,14 +143,16 @@ const styles = StyleSheet.create({
     },
     brandTitle: {
         fontSize: Typography.fontSize.xxl,
-        fontWeight: '700',
-        color: '#FAFAFA',
+        fontWeight: '800',
+        fontFamily: Typography.fontFamily.extraBold,
+        color: Colors.text,
         letterSpacing: -0.4,
     },
     brandSubtitle: {
         fontSize: Typography.fontSize.xs,
-        fontWeight: '500',
-        color: '#A1A1AA',
+        fontWeight: '600',
+        fontFamily: Typography.fontFamily.medium,
+        color: Colors.textSecondary,
         marginTop: 4,
         letterSpacing: 0.2,
     },
@@ -163,22 +162,23 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
     },
     progressTrack: {
-        width: 100,
-        height: 2,
-        backgroundColor: '#27272A',
-        borderRadius: 1,
+        width: 120,
+        height: 3,
+        backgroundColor: Colors.border,
+        borderRadius: 2,
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        backgroundColor: '#FAFAFA',
-        borderRadius: 1,
+        backgroundColor: Colors.primary,
+        borderRadius: 2,
     },
     skipButton: {
         paddingVertical: Spacing.xs,
     },
     skipText: {
         fontSize: 11,
-        color: '#71717A',
+        fontFamily: Typography.fontFamily.medium,
+        color: Colors.textMuted,
     },
 });

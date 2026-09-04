@@ -3,7 +3,7 @@
     "id": "all",
     "name": "All Dishes",
     "icon": "restaurant-outline",
-    "count": 57,
+    "count": 67,
     "imageUrl": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80"
   },
   {
@@ -39,6 +39,14 @@
     "imageUrl": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=400&q=80"
   },
   {
+    "id": "drinks",
+    "name": "Soft Drinks & Beverages",
+    "match": "drink|beverage|cola|coke|sprite|royal|water|lassi|chai|tea|soda|lemonade",
+    "icon": "water-outline",
+    "count": 10,
+    "imageUrl": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80"
+  },
+  {
     "id": "breads",
     "name": "Fresh Breads & Roti",
     "match": "roti|naan|paratha|chapati",
@@ -53,13 +61,5 @@
     "icon": "people-outline",
     "count": 3,
     "imageUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    "id": "desserts",
-    "name": "Desserts & Drinks",
-    "match": "kheer|halwa|sweet|lassi|chai|drink",
-    "icon": "wine-outline",
-    "count": 0,
-    "imageUrl": "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?auto=format&fit=crop&w=400&q=80"
   }
 ]

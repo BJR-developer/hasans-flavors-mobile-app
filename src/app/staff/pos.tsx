@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,8 +20,10 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRoleStore } from '@/store/useRoleStore';
-import { Dish, Order, PaymentMethod } from '@/types';
+import { Dish, Order, OrderType } from '@/types';
 import * as Haptics from 'expo-haptics';
+
+const CASH_PRESETS = [100, 200, 500, 1000, 2000];
 
 export default function POSTerminalScreen() {
   const router = useRouter();
@@ -28,36 +31,49 @@ export default function POSTerminalScreen() {
   const isDesktop = width >= 768;
   const isLargeDesktop = width >= 1100;
 
-  const { orders, placeOrder, updatePaymentStatus, updateOrderStatus } = useOrderStore();
+  const { orders, placeOrder, updateOrderStatus } = useOrderStore();
   const { dishes, categories } = useMenuStore();
   const { user, logout } = useAuthStore();
   const { setRole } = useRoleStore();
 
-  // POS State
+  // Mode & Filters
   const [posMode, setPosMode] = useState<'register' | 'orders'>('register');
-  const [selectedCat, setSelectedCat] = useState<string>('all');
+  const [selectedCatId, setSelectedCatId] = useState<string>('all');
   const [searchQ, setSearchQ] = useState<string>('');
+
+  // Cart & Order details
   const [posCart, setPosCart] = useState<{ dish: Dish; qty: number }[]>([]);
+  const [orderType, setOrderType] = useState<OrderType>('dine_in');
   const [selectedTable, setSelectedTable] = useState<string>('Table 01');
   const [customerName, setCustomerName] = useState<string>('Walk-in Guest');
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('cash');
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [cashTendered, setCashTendered] = useState<string>('');
 
   // Digital Receipt Modal
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
 
-  // Filter dishes
+  // Filtered dishes with image support
   const filteredDishes = useMemo(() => {
     return dishes.filter((d) => {
-      if (selectedCat !== 'all' && !d.category.toLowerCase().includes(selectedCat.toLowerCase())) {
-        return false;
+      // Category filter matching
+      if (selectedCatId !== 'all') {
+        const cat = categories.find((c) => c.id === selectedCatId);
+        if (cat && cat.match) {
+          const reg = new RegExp(cat.match, 'i');
+          const matches = reg.test(d.name) || reg.test(d.category);
+          if (!matches) return false;
+        }
       }
-      if (searchQ && !d.name.toLowerCase().includes(searchQ.toLowerCase())) {
-        return false;
+      if (searchQ.trim()) {
+        const q = searchQ.trim().toLowerCase();
+        const matches =
+          d.name.toLowerCase().includes(q) ||
+          d.category.toLowerCase().includes(q) ||
+          d.description.toLowerCase().includes(q);
+        if (!matches) return false;
       }
       return true;
     });
-  }, [dishes, selectedCat, searchQ]);
+  }, [dishes, selectedCatId, searchQ, categories]);
 
   // Cart operations
   const handleAddToCart = (dish: Dish) => {
@@ -91,14 +107,22 @@ export default function POSTerminalScreen() {
 
   const handleClearPosCart = () => {
     setPosCart([]);
+    setCashTendered('');
   };
 
-  // Calculations
-  const subtotal = posCart.reduce((sum, item) => sum + item.dish.price * item.qty, 0);
-  const discountAmount = Math.round(subtotal * (discountPercent / 100));
-  const tax = Math.round((subtotal - discountAmount) * 0.05);
-  const total = Math.max(0, subtotal - discountAmount + tax);
+  // Pure Math (Subtotal + 5% VAT, No discounts per user requirement)
+  const subtotal = useMemo(
+    () => posCart.reduce((sum, item) => sum + item.dish.price * item.qty, 0),
+    [posCart]
+  );
+  const tax = useMemo(() => Math.round(subtotal * 0.05), [subtotal]);
+  const total = useMemo(() => subtotal + tax, [subtotal, tax]);
 
+  // Cash Calculation
+  const tenderedNumber = parseFloat(cashTendered) || 0;
+  const changeDue = Math.max(0, tenderedNumber - total);
+
+  // Complete Payment & Show Receipt (Cash Only)
   const handleChargeAndPrint = () => {
     if (posCart.length === 0) return;
 
@@ -118,23 +142,35 @@ export default function POSTerminalScreen() {
     }));
 
     const newOrder = placeOrder({
-      type: 'dine_in',
-      tableNumber: selectedTable || 'Table 01',
+      type: orderType,
+      tableNumber: orderType === 'dine_in' ? selectedTable || 'Table 01' : undefined,
       customerName: customerName.trim() || 'Walk-in Guest',
       items: cartItems,
-      paymentMethod: selectedPayment,
+      paymentMethod: 'cash',
       subtotal,
       tax,
       serviceFee: 0,
       deliveryFee: 0,
-      discount: discountAmount,
+      discount: 0, // No discounts
       total,
-      specialNotes: 'Counter POS Order',
+      specialNotes: `Counter POS (Cash Only) • Cashier: ${user?.name || 'Staff'}`,
     });
 
-    updatePaymentStatus(newOrder.id, 'paid');
     setReceiptOrder(newOrder);
     setPosCart([]);
+    setCashTendered('');
+  };
+
+  // Browser / System Print
+  const handlePrintReceipt = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.print();
+    } else {
+      Alert.alert('Print Order', 'Sending receipt to thermal receipt printer...');
+    }
   };
 
   const handleSignOut = () => {
@@ -156,12 +192,16 @@ export default function POSTerminalScreen() {
       {/* Top Navbar */}
       <View style={styles.navBar}>
         <View style={styles.brandRow}>
-          <View style={styles.posBadge}>
-            <Ionicons name="calculator" size={16} color={Colors.textLight} />
-          </View>
+          <Image
+            source={require('../../../assets/images/logo.png')}
+            style={styles.navLogo}
+            resizeMode="contain"
+          />
           <View>
-            <Text style={styles.navTitle}>POS Cashier Terminal</Text>
-            <Text style={styles.navSub}>{user?.name || 'Staff User'} • Register #01</Text>
+            <Text style={styles.navTitle}>Hasan's POS Terminal</Text>
+            <Text style={styles.navSub}>
+              {user?.name || 'Staff Cashier'} • Register #01 • Cash Only • {dishes.length} Items
+            </Text>
           </View>
         </View>
 
@@ -172,7 +212,7 @@ export default function POSTerminalScreen() {
             onPress={() => setPosMode('register')}
           >
             <Ionicons
-              name="keypad-outline"
+              name="keypad"
               size={14}
               color={posMode === 'register' ? Colors.textLight : Colors.textSecondary}
             />
@@ -186,7 +226,7 @@ export default function POSTerminalScreen() {
             onPress={() => setPosMode('orders')}
           >
             <Ionicons
-              name="receipt-outline"
+              name="receipt"
               size={14}
               color={posMode === 'orders' ? Colors.textLight : Colors.textSecondary}
             />
@@ -205,8 +245,8 @@ export default function POSTerminalScreen() {
               router.push('/staff/kds' as any);
             }}
           >
-            <Ionicons name="flame-outline" size={14} color={Colors.primary} />
-            <Text style={styles.actionPillText}>KDS</Text>
+            <Ionicons name="flame" size={14} color={Colors.primary} />
+            <Text style={styles.actionPillText}>Kitchen KDS</Text>
           </TouchableOpacity>
 
           {user?.role === 'owner' && (
@@ -217,18 +257,18 @@ export default function POSTerminalScreen() {
                 router.push('/staff/owner' as any);
               }}
             >
-              <Ionicons name="stats-chart-outline" size={14} color={Colors.halalGreen} />
+              <Ionicons name="stats-chart" size={14} color={Colors.halalGreen} />
               <Text style={styles.actionPillText}>Owner</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-            <Ionicons name="log-out-outline" size={16} color={Colors.error} />
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} hitSlop={8}>
+            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* POS Content Body */}
+      {/* Main POS Content */}
       {posMode === 'register' ? (
         <View style={[styles.mainLayout, isDesktop ? styles.desktopLayout : styles.mobileLayout]}>
           {/* LEFT: Menu Catalog & Categories */}
@@ -236,17 +276,18 @@ export default function POSTerminalScreen() {
             {/* Search & Category Filter */}
             <View style={styles.catalogFilterBar}>
               <View style={styles.searchBox}>
-                <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+                <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Quick search dishes..."
+                  placeholder="Quick search dishes or soft drinks..."
                   placeholderTextColor={Colors.textMuted}
                   value={searchQ}
                   onChangeText={setSearchQ}
+                  autoCorrect={false}
                 />
                 {searchQ ? (
-                  <TouchableOpacity onPress={() => setSearchQ('')}>
-                    <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+                  <TouchableOpacity onPress={() => setSearchQ('')} hitSlop={6}>
+                    <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -256,30 +297,52 @@ export default function POSTerminalScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryScroll}
               >
-                <TouchableOpacity
-                  style={[styles.catPill, selectedCat === 'all' && styles.catPillActive]}
-                  onPress={() => setSelectedCat('all')}
-                >
-                  <Text style={[styles.catPillText, selectedCat === 'all' && styles.catPillTextActive]}>
-                    All ({dishes.length})
-                  </Text>
-                </TouchableOpacity>
-
-                {categories.slice(1).map((c) => (
-                  <TouchableOpacity
-                    key={c.id}
-                    style={[styles.catPill, selectedCat === c.name && styles.catPillActive]}
-                    onPress={() => setSelectedCat(c.name)}
-                  >
-                    <Text style={[styles.catPillText, selectedCat === c.name && styles.catPillTextActive]}>
-                      {c.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {categories.map((c) => {
+                  const isActive = selectedCatId === c.id;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={styles.categoryCardItem}
+                      onPress={() => {
+                        try {
+                          Haptics.selectionAsync();
+                        } catch {}
+                        setSelectedCatId(c.id);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View
+                        style={[
+                          styles.categoryImageWrapper,
+                          isActive && styles.categoryImageWrapperActive,
+                        ]}
+                      >
+                        <Image
+                          source={{
+                            uri:
+                              c.imageUrl ||
+                              'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80',
+                          }}
+                          style={styles.categoryImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.categoryNameText,
+                          isActive && styles.categoryNameTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
 
-            {/* Dish Grid */}
+            {/* Dish Catalog Grid with Item Images */}
             <ScrollView
               style={styles.dishGridScroll}
               contentContainerStyle={styles.dishGridContent}
@@ -305,10 +368,13 @@ export default function POSTerminalScreen() {
                       activeOpacity={0.8}
                       disabled={!dish.inStock}
                     >
-                      <View style={styles.dishTopRow}>
-                        <Text style={styles.dishCategoryTag} numberOfLines={1}>
-                          {dish.category}
-                        </Text>
+                      {/* Dish Thumbnail Image */}
+                      <View style={styles.dishImageWrapper}>
+                        <Image
+                          source={{ uri: dish.imageUrl }}
+                          style={styles.dishImage}
+                          resizeMode="cover"
+                        />
                         {inCart && (
                           <View style={styles.dishBadgeCount}>
                             <Text style={styles.dishBadgeText}>{inCart.qty}</Text>
@@ -316,19 +382,24 @@ export default function POSTerminalScreen() {
                         )}
                       </View>
 
-                      <Text style={styles.dishName} numberOfLines={2}>
-                        {dish.name}
-                      </Text>
-
-                      <View style={styles.dishFooterRow}>
-                        <Text style={styles.dishPrice}>{dish.formattedPrice}</Text>
-                        {dish.inStock ? (
-                          <View style={styles.dishAddIcon}>
-                            <Ionicons name="add" size={14} color={Colors.textLight} />
-                          </View>
-                        ) : (
-                          <Text style={styles.outOfStockText}>Out</Text>
-                        )}
+                      {/* Info & Price */}
+                      <View style={styles.dishDetails}>
+                        <Text style={styles.dishCategoryTag} numberOfLines={1}>
+                          {dish.category}
+                        </Text>
+                        <Text style={styles.dishName} numberOfLines={2}>
+                          {dish.name}
+                        </Text>
+                        <View style={styles.dishFooterRow}>
+                          <Text style={styles.dishPrice}>{dish.formattedPrice}</Text>
+                          {dish.inStock ? (
+                            <View style={styles.dishAddIcon}>
+                              <Ionicons name="add" size={14} color={Colors.textLight} />
+                            </View>
+                          ) : (
+                            <Text style={styles.outOfStockText}>Out</Text>
+                          )}
+                        </View>
                       </View>
                     </TouchableOpacity>
                   );
@@ -339,45 +410,86 @@ export default function POSTerminalScreen() {
 
           {/* RIGHT: Ticket Builder & Register Checkout */}
           <View style={[styles.ticketPane, isDesktop && styles.desktopTicketPane]}>
-            {/* Ticket Header & Table Selector */}
+            {/* Order Type & Table Selector */}
             <View style={styles.ticketHeader}>
+              <View style={styles.orderTypeTabs}>
+                {(['dine_in', 'takeout', 'delivery'] as OrderType[]).map((type) => {
+                  const isSelected = orderType === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.orderTypeBtn, isSelected && styles.orderTypeBtnActive]}
+                      onPress={() => setOrderType(type)}
+                    >
+                      <Ionicons
+                        name={
+                          type === 'dine_in'
+                            ? 'restaurant-outline'
+                            : type === 'takeout'
+                            ? 'bag-handle-outline'
+                            : 'bicycle-outline'
+                        }
+                        size={12}
+                        color={isSelected ? Colors.textLight : Colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.orderTypeBtnText,
+                          isSelected && styles.orderTypeBtnTextActive,
+                        ]}
+                      >
+                        {type === 'dine_in' ? 'Dine In' : type === 'takeout' ? 'Takeout' : 'Delivery'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <View style={styles.ticketMetaInputs}>
-                <View style={styles.tableInputWrapper}>
-                  <Ionicons name="restaurant-outline" size={13} color={Colors.primary} />
-                  <TextInput
-                    style={styles.tableInput}
-                    value={selectedTable}
-                    onChangeText={setSelectedTable}
-                    placeholder="Table #"
-                  />
-                </View>
+                {orderType === 'dine_in' && (
+                  <View style={styles.tableInputWrapper}>
+                    <Ionicons name="restaurant" size={12} color={Colors.primary} />
+                    <TextInput
+                      style={styles.tableInput}
+                      value={selectedTable}
+                      onChangeText={setSelectedTable}
+                      placeholder="Table #"
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                )}
                 <TextInput
                   style={styles.guestInput}
                   value={customerName}
                   onChangeText={setCustomerName}
                   placeholder="Guest name"
+                  placeholderTextColor={Colors.textMuted}
                 />
+                {posCart.length > 0 && (
+                  <TouchableOpacity onPress={handleClearPosCart} hitSlop={6}>
+                    <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                  </TouchableOpacity>
+                )}
               </View>
-
-              {posCart.length > 0 && (
-                <TouchableOpacity onPress={handleClearPosCart} hitSlop={6}>
-                  <Text style={styles.clearTicketText}>Clear</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
-            {/* Cart Items List */}
+            {/* Cart Items List with Images */}
             <ScrollView style={styles.cartItemsScroll} showsVerticalScrollIndicator={false}>
               {posCart.length === 0 ? (
                 <View style={styles.emptyCartBox}>
-                  <Ionicons name="bag-outline" size={28} color={Colors.textMuted} />
-                  <Text style={styles.emptyCartTitle}>No items on ticket</Text>
+                  <Ionicons name="receipt-outline" size={32} color={Colors.textMuted} />
+                  <Text style={styles.emptyCartTitle}>Ticket is empty</Text>
                   <Text style={styles.emptyCartSub}>Tap dishes on the catalog to ring up</Text>
                 </View>
               ) : (
                 <View style={styles.cartItemsList}>
                   {posCart.map((item) => (
                     <View key={item.dish.id} style={styles.cartItemRow}>
+                      <Image
+                        source={{ uri: item.dish.imageUrl }}
+                        style={styles.cartItemThumb}
+                        resizeMode="cover"
+                      />
                       <View style={styles.cartItemInfo}>
                         <Text style={styles.cartItemName} numberOfLines={1}>
                           {item.dish.name}
@@ -411,67 +523,70 @@ export default function POSTerminalScreen() {
               )}
             </ScrollView>
 
-            {/* Discount & Payment Configuration */}
+            {/* Bottom Checkout & Payment Section (Cash Only) */}
             <View style={styles.ticketFooterSection}>
-              {/* Discount Row */}
-              <View style={styles.discountRow}>
-                <Text style={styles.sectionSmallLabel}>Discount:</Text>
-                <View style={styles.discountPillsRow}>
-                  {[0, 10, 20].map((d) => (
+              {/* Payment Method Badge (Cash Only) */}
+              <View style={styles.cashOnlyBadgeRow}>
+                <View style={styles.cashOnlyPill}>
+                  <Ionicons name="cash" size={15} color={Colors.halalGreen} />
+                  <Text style={styles.cashOnlyPillText}>CASH PAYMENT ONLY</Text>
+                </View>
+                <Text style={styles.cashOnlySubText}>Exact or Cash Change Supported</Text>
+              </View>
+
+              {/* Quick Cash Presets & Tendered Input */}
+              <View style={styles.cashTenderBox}>
+                <View style={styles.presetButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.presetBtn}
+                    onPress={() => setCashTendered(total.toString())}
+                  >
+                    <Text style={styles.presetBtnText}>Exact</Text>
+                  </TouchableOpacity>
+                  {CASH_PRESETS.map((amt) => (
                     <TouchableOpacity
-                      key={d}
-                      style={[styles.discPill, discountPercent === d && styles.discPillActive]}
-                      onPress={() => setDiscountPercent(d)}
+                      key={amt}
+                      style={styles.presetBtn}
+                      onPress={() => setCashTendered(amt.toString())}
                     >
-                      <Text style={[styles.discPillText, discountPercent === d && styles.discPillTextActive]}>
-                        {d === 0 ? 'None' : `${d}%`}
-                      </Text>
+                      <Text style={styles.presetBtnText}>₱{amt}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
 
-              {/* Payment Methods */}
-              <View style={styles.payMethodsRow}>
-                {(['cash', 'gcash', 'card'] as PaymentMethod[]).map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.payBtn, selectedPayment === m && styles.payBtnActive]}
-                    onPress={() => setSelectedPayment(m)}
-                  >
-                    <Ionicons
-                      name={
-                        m === 'cash' ? 'cash-outline' : m === 'gcash' ? 'qr-code-outline' : 'card-outline'
-                      }
-                      size={14}
-                      color={selectedPayment === m ? Colors.textLight : Colors.textSecondary}
+                <View style={styles.tenderInputRow}>
+                  <Text style={styles.tenderLabel}>Tendered:</Text>
+                  <View style={styles.tenderInputWrapper}>
+                    <Text style={styles.pesoSymbol}>₱</Text>
+                    <TextInput
+                      style={styles.tenderInput}
+                      keyboardType="numeric"
+                      placeholder="0.00"
+                      placeholderTextColor={Colors.textMuted}
+                      value={cashTendered}
+                      onChangeText={setCashTendered}
                     />
-                    <Text style={[styles.payBtnText, selectedPayment === m && styles.payBtnTextActive]}>
-                      {m === 'cash' ? 'Cash' : m === 'gcash' ? 'GCash' : 'Card'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                  </View>
+                  <View style={styles.changeDueBox}>
+                    <Text style={styles.changeDueLabel}>Change:</Text>
+                    <Text style={styles.changeDueVal}>₱{changeDue.toLocaleString()}</Text>
+                  </View>
+                </View>
               </View>
 
-              {/* Math Totals */}
+              {/* Math Totals (No discounts) */}
               <View style={styles.totalsBox}>
                 <View style={styles.totalsRow}>
                   <Text style={styles.totalsLabel}>Subtotal</Text>
                   <Text style={styles.totalsVal}>₱{subtotal.toLocaleString()}</Text>
                 </View>
-                {discountAmount > 0 && (
-                  <View style={styles.totalsRow}>
-                    <Text style={styles.totalsLabel}>Discount ({discountPercent}%)</Text>
-                    <Text style={styles.totalsDiscount}>-₱{discountAmount.toLocaleString()}</Text>
-                  </View>
-                )}
                 <View style={styles.totalsRow}>
-                  <Text style={styles.totalsLabel}>Tax & VAT (5%)</Text>
+                  <Text style={styles.totalsLabel}>Tax &amp; VAT (5%)</Text>
                   <Text style={styles.totalsVal}>₱{tax.toLocaleString()}</Text>
                 </View>
                 <View style={styles.totalsDivider} />
                 <View style={styles.grandTotalRow}>
-                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                  <Text style={styles.grandTotalLabel}>Total Due</Text>
                   <Text style={styles.grandTotalVal}>₱{total.toLocaleString()}</Text>
                 </View>
               </View>
@@ -484,9 +599,9 @@ export default function POSTerminalScreen() {
                 activeOpacity={0.88}
               >
                 <Text style={styles.chargeBtnText}>
-                  Charge ₱{total.toLocaleString()} & Send Order
+                  Cash ₱{total.toLocaleString()} &amp; Print Thermal Bill
                 </Text>
-                <Ionicons name="checkmark-circle-outline" size={17} color={Colors.textLight} />
+                <Ionicons name="print-outline" size={17} color={Colors.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -522,6 +637,7 @@ export default function POSTerminalScreen() {
                   </View>
                 </View>
 
+                {/* Items breakdown with quantity */}
                 <Text style={styles.orderItemsSummary}>
                   {o.items.map((it) => `${it.quantity}x ${it.dish.name}`).join(', ')}
                 </Text>
@@ -532,7 +648,7 @@ export default function POSTerminalScreen() {
                     onPress={() => setReceiptOrder(o)}
                   >
                     <Ionicons name="receipt-outline" size={14} color={Colors.primary} />
-                    <Text style={styles.orderReceiptText}>Receipt</Text>
+                    <Text style={styles.orderReceiptText}>View / Print Receipt</Text>
                   </TouchableOpacity>
 
                   {o.status !== 'completed' && (
@@ -550,48 +666,139 @@ export default function POSTerminalScreen() {
         </ScrollView>
       )}
 
-      {/* Digital Receipt Modal */}
+      {/* Dedicated Authentic Thermal Receipt Slip Modal */}
       <Modal visible={!!receiptOrder} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={styles.receiptCard}>
-            <View style={styles.receiptHeader}>
-              <Text style={styles.receiptBrandTitle}>Hasan's Flavors</Text>
-              <Text style={styles.receiptBrandSub}>Authentic Halal Cuisine</Text>
-              <Text style={styles.receiptOrderMeta}>
-                Order #{receiptOrder?.orderNumber} • {receiptOrder?.tableNumber || 'Takeout'}
-              </Text>
-              <Text style={styles.receiptDate}>
-                {receiptOrder ? new Date(receiptOrder.createdAt).toLocaleString() : ''}
-              </Text>
-            </View>
+          <View style={styles.modalContentWrapper}>
+            {/* Pure Printable Slip Container - ISOLATED from buttons */}
+            <View nativeID="pos-printable-receipt" style={styles.thermalReceiptSlip}>
+              {/* Store Header */}
+              <View style={styles.thermalHeader}>
+                <Text style={styles.thermalStars}>================================</Text>
+                <Text style={styles.thermalBrandTitle}>HASAN'S FLAVORS</Text>
+                <Text style={styles.thermalBrandSub}>AUTHENTIC HALAL CUISINE</Text>
+                <Text style={styles.thermalTagline}>100% Zabihah Halal • Manila</Text>
+                <Text style={styles.thermalStars}>================================</Text>
+              </View>
 
-            <View style={styles.receiptDivider} />
-
-            <ScrollView style={styles.receiptItemsScroll}>
-              {receiptOrder?.items.map((it, idx) => (
-                <View key={idx} style={styles.receiptRow}>
-                  <Text style={styles.receiptQty}>{it.quantity}x</Text>
-                  <Text style={styles.receiptName}>{it.dish.name}</Text>
-                  <Text style={styles.receiptPrice}>₱{it.totalPrice.toLocaleString()}</Text>
+              {/* Order & Metadata */}
+              <View style={styles.thermalMetaSection}>
+                <View style={styles.thermalMetaRow}>
+                  <Text style={styles.thermalMetaText}>ORDER: {receiptOrder?.orderNumber}</Text>
+                  <Text style={styles.thermalMetaText}>
+                    TYPE: {(receiptOrder?.type || 'dine_in').toUpperCase()}
+                  </Text>
                 </View>
-              ))}
-            </ScrollView>
+                <View style={styles.thermalMetaRow}>
+                  <Text style={styles.thermalMetaText}>
+                    TABLE: {receiptOrder?.tableNumber || 'COUNTER'}
+                  </Text>
+                  <Text style={styles.thermalMetaText}>
+                    GUEST: {receiptOrder?.customerName || 'GUEST'}
+                  </Text>
+                </View>
+                <View style={styles.thermalMetaRow}>
+                  <Text style={styles.thermalMetaText}>
+                    DATE: {receiptOrder ? new Date(receiptOrder.createdAt).toLocaleDateString() : ''}
+                  </Text>
+                  <Text style={styles.thermalMetaText}>
+                    TIME: {receiptOrder ? new Date(receiptOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </Text>
+                </View>
+                <Text style={styles.thermalMetaText}>
+                  CASHIER: REGISTER #01 ({user?.name || 'Staff'})
+                </Text>
+              </View>
 
-            <View style={styles.receiptDivider} />
+              <Text style={styles.thermalDashes}>--------------------------------</Text>
+              <View style={styles.thermalColumnHeader}>
+                <Text style={styles.thermalColQty}>QTY</Text>
+                <Text style={styles.thermalColItem}>ITEM DESCRIPTION</Text>
+                <Text style={styles.thermalColAmount}>AMOUNT</Text>
+              </View>
+              <Text style={styles.thermalDashes}>--------------------------------</Text>
 
-            <View style={styles.receiptTotalRow}>
-              <Text style={styles.receiptTotalLabel}>
-                PAID ({receiptOrder?.paymentMethod.toUpperCase()})
-              </Text>
-              <Text style={styles.receiptTotalVal}>₱{receiptOrder?.total.toLocaleString()}</Text>
+              {/* Itemized Lines */}
+              <View style={styles.thermalItemsList}>
+                {receiptOrder?.items.map((it, idx) => (
+                  <View key={idx} style={styles.thermalItemLine}>
+                    <Text style={styles.thermalItemQty}>{it.quantity}x</Text>
+                    <Text style={styles.thermalItemName} numberOfLines={1}>
+                      {it.dish.name}
+                    </Text>
+                    <Text style={styles.thermalItemAmount}>
+                      {it.totalPrice.toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.thermalDashes}>--------------------------------</Text>
+
+              {/* Math Totals */}
+              <View style={styles.thermalMathBox}>
+                <View style={styles.thermalMathRow}>
+                  <Text style={styles.thermalMathLabel}>SUBTOTAL:</Text>
+                  <Text style={styles.thermalMathVal}>
+                    ₱{(receiptOrder?.subtotal || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.thermalMathRow}>
+                  <Text style={styles.thermalMathLabel}>TAX &amp; VAT (5%):</Text>
+                  <Text style={styles.thermalMathVal}>
+                    ₱{(receiptOrder?.tax || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <Text style={styles.thermalDashes}>--------------------------------</Text>
+                <View style={styles.thermalTotalRow}>
+                  <Text style={styles.thermalTotalLabel}>TOTAL DUE:</Text>
+                  <Text style={styles.thermalTotalVal}>
+                    ₱{(receiptOrder?.total || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.thermalMathRow}>
+                  <Text style={styles.thermalMathLabel}>PAYMENT METHOD:</Text>
+                  <Text style={styles.thermalMathVal}>CASH ONLY</Text>
+                </View>
+                <View style={styles.thermalMathRow}>
+                  <Text style={styles.thermalMathLabel}>TOTAL ITEMS:</Text>
+                  <Text style={styles.thermalMathVal}>
+                    {receiptOrder?.items.reduce((acc, it) => acc + it.quantity, 0)} PCS
+                  </Text>
+                </View>
+              </View>
+
+              {/* Footer Notice */}
+              <Text style={styles.thermalStars}>================================</Text>
+              <View style={styles.thermalFooterNote}>
+                <Text style={styles.thermalNoticeText}>*** THANK YOU FOR DINING! ***</Text>
+                <Text style={styles.thermalNoticeSub}>Please visit Hasan's Flavors again</Text>
+                <Text style={styles.thermalNoticeSub}>WiFi: HasansGuest • Pass: spice1234</Text>
+                <Text style={styles.thermalNoticeSub}>VAT Reg. TIN: 402-891-233-000</Text>
+                <Text style={styles.thermalCustomerCopy}>--- CUSTOMER OFFICIAL SLIP ---</Text>
+              </View>
+              <Text style={styles.thermalStars}>================================</Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.closeReceiptBtn}
-              onPress={() => setReceiptOrder(null)}
-            >
-              <Text style={styles.closeReceiptText}>Close / Next Transaction</Text>
-            </TouchableOpacity>
+            {/* Screen Controls (Completely OUTSIDE the printable receipt container) */}
+            <View nativeID="no-print" style={styles.screenReceiptActions}>
+              <TouchableOpacity
+                style={styles.printThermalBtn}
+                onPress={handlePrintReceipt}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="print" size={17} color={Colors.textLight} />
+                <Text style={styles.printThermalBtnText}>Print Thermal Slip (80mm)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.closeThermalBtn}
+                onPress={() => setReceiptOrder(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.closeThermalBtnText}>Close / Next Order</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -605,7 +812,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   navBar: {
-    height: 54,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -617,30 +824,28 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  posBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  navLogo: {
+    width: 38,
+    height: 38,
   },
   navTitle: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
   navSub: {
     fontSize: 10,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textMuted,
   },
   navCenterToggle: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
     padding: 3,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.round,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 4,
@@ -650,7 +855,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: Radius.xs,
+    borderRadius: Radius.round,
     gap: 5,
   },
   toggleBtnActive: {
@@ -658,12 +863,13 @@ const styles = StyleSheet.create({
   },
   toggleBtnText: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textSecondary,
   },
   toggleBtnTextActive: {
     color: Colors.textLight,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
   },
   navActionsRow: {
     flexDirection: 'row',
@@ -674,16 +880,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: Radius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.round,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 4,
+    gap: 5,
   },
   actionPillText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.textSecondary,
   },
   logoutBtn: {
@@ -704,10 +911,10 @@ const styles = StyleSheet.create({
     borderRightColor: Colors.border,
   },
   desktopCatalogPane: {
-    flex: 0.65,
+    flex: 0.63,
   },
   catalogFilterBar: {
-    padding: Spacing.md,
+    padding: Spacing.sm,
     backgroundColor: Colors.card,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -719,39 +926,56 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.md,
+    borderRadius: Radius.round,
     paddingHorizontal: Spacing.md,
-    height: 38,
+    height: 40,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.text,
   },
   categoryScroll: {
-    gap: 6,
+    gap: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
-  catPill: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  categoryCardItem: {
+    alignItems: 'center',
+    gap: 5,
+    width: 68,
+  },
+  categoryImageWrapper: {
+    width: 54,
+    height: 54,
     borderRadius: Radius.round,
-    borderWidth: 1,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
     borderColor: Colors.border,
+    ...Shadows.subtle,
   },
-  catPillActive: {
-    backgroundColor: Colors.primary,
+  categoryImageWrapperActive: {
     borderColor: Colors.primary,
+    borderWidth: 2.5,
   },
-  catPillText: {
-    fontSize: 11,
-    fontWeight: '500',
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryNameText: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.textSecondary,
+    textAlign: 'center',
   },
-  catPillTextActive: {
-    color: Colors.textLight,
-    fontWeight: '700',
+  categoryNameTextActive: {
+    color: Colors.primary,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
   },
   dishGridScroll: {
     flex: 1,
@@ -766,12 +990,10 @@ const styles = StyleSheet.create({
   },
   dishCard: {
     backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
-    justifyContent: 'space-between',
-    minHeight: 88,
     ...Shadows.subtle,
   },
   dishCard2Col: {
@@ -785,58 +1007,74 @@ const styles = StyleSheet.create({
   },
   dishCardActive: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
+    borderWidth: 1.5,
   },
   dishCardOutOfStock: {
     opacity: 0.5,
   },
-  dishTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+  dishImageWrapper: {
+    width: '100%',
+    height: 80,
+    position: 'relative',
+    backgroundColor: Colors.surface,
   },
-  dishCategoryTag: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-    flex: 1,
+  dishImage: {
+    width: '100%',
+    height: '100%',
   },
   dishBadgeCount: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
     backgroundColor: Colors.primary,
     borderRadius: Radius.round,
-    width: 18,
-    height: 18,
+    width: 22,
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Shadows.subtle,
   },
   dishBadgeText: {
     color: Colors.textLight,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+  },
+  dishDetails: {
+    padding: Spacing.sm,
+  },
+  dishCategoryTag: {
+    fontSize: 9,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   dishName: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     lineHeight: 16,
+    marginTop: 2,
+    minHeight: 32,
   },
   dishFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
   dishPrice: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    color: Colors.text,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.primary,
   },
   dishAddIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -852,23 +1090,49 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   desktopTicketPane: {
-    flex: 0.35,
+    flex: 0.37,
   },
   ticketHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    padding: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     backgroundColor: Colors.surface,
+    gap: 8,
+  },
+  orderTypeTabs: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  orderTypeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+  },
+  orderTypeBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  orderTypeBtnText: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.textSecondary,
+  },
+  orderTypeBtnTextActive: {
+    color: Colors.textLight,
+    fontWeight: '700',
   },
   ticketMetaInputs: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
   },
   tableInputWrapper: {
     flexDirection: 'row',
@@ -876,32 +1140,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.xs,
-    paddingHorizontal: 6,
+    borderRadius: Radius.round,
+    paddingHorizontal: 8,
     gap: 4,
   },
   tableInput: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.text,
-    width: 60,
-    paddingVertical: 3,
-    fontWeight: '600',
+    width: 54,
+    paddingVertical: 4,
   },
   guestInput: {
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Radius.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: Radius.round,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.text,
     flex: 1,
-  },
-  clearTicketText: {
-    fontSize: 11,
-    color: Colors.error,
-    fontWeight: '600',
   },
   cartItemsScroll: {
     flex: 1,
@@ -911,16 +1171,17 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
   },
   emptyCartTitle: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.textSecondary,
-    marginTop: 4,
   },
   emptyCartSub: {
-    fontSize: 10,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textMuted,
   },
   cartItemsList: {
@@ -935,114 +1196,165 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.borderLight,
     gap: 8,
   },
+  cartItemThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.surface,
+  },
   cartItemInfo: {
     flex: 1,
   },
   cartItemName: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
   cartItemUnit: {
     fontSize: 10,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textMuted,
   },
   stepperBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xs,
+    borderRadius: Radius.round,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   stepperBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
   stepperQty: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
     minWidth: 16,
     textAlign: 'center',
   },
   cartItemTotal: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
-    minWidth: 46,
+    minWidth: 48,
     textAlign: 'right',
   },
   ticketFooterSection: {
-    padding: Spacing.md,
+    padding: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     backgroundColor: Colors.card,
     gap: 8,
   },
-  discountRow: {
+  cashOnlyBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 2,
   },
-  sectionSmallLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '500',
+  cashOnlyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.halalGreenLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.round,
+    borderWidth: 1,
+    borderColor: Colors.halalGreen,
   },
-  discountPillsRow: {
+  cashOnlyPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.halalGreen,
+    letterSpacing: 0.5,
+  },
+  cashOnlySubText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+  },
+  cashTenderBox: {
+    backgroundColor: Colors.surface,
+    padding: Spacing.xs,
+    borderRadius: Radius.md,
+    gap: 6,
+  },
+  presetButtonsRow: {
     flexDirection: 'row',
     gap: 4,
   },
-  discPill: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  presetBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.card,
+    paddingVertical: 5,
     borderRadius: Radius.xs,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  discPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  discPillText: {
+  presetBtnText: {
     fontSize: 10,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  discPillTextActive: {
-    color: Colors.textLight,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textSecondary,
   },
-  payMethodsRow: {
+  tenderInputRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  payBtn: {
+  tenderLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  tenderInputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.sm,
+    backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
+    borderRadius: Radius.xs,
+    paddingHorizontal: 6,
+    height: 30,
+  },
+  pesoSymbol: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    marginRight: 2,
+  },
+  tenderInput: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.text,
+    paddingVertical: 0,
+  },
+  changeDueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  payBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  payBtnText: {
+  changeDueLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
-  payBtnTextActive: {
-    color: Colors.textLight,
-    fontWeight: '700',
+  changeDueVal: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.halalGreen,
   },
   totalsBox: {
     gap: 3,
@@ -1054,22 +1366,19 @@ const styles = StyleSheet.create({
   },
   totalsLabel: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textSecondary,
   },
   totalsVal: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
     color: Colors.text,
-  },
-  totalsDiscount: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primary,
   },
   totalsDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 3,
+    marginVertical: 2,
   },
   grandTotalRow: {
     flexDirection: 'row',
@@ -1078,12 +1387,14 @@ const styles = StyleSheet.create({
   },
   grandTotalLabel: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
   grandTotalVal: {
     fontSize: Typography.fontSize.md,
-    fontWeight: '800',
+    fontWeight: '900',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.primary,
   },
   chargeBtn: {
@@ -1091,16 +1402,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    borderRadius: Radius.md,
-    gap: 6,
+    paddingVertical: 12,
+    borderRadius: Radius.round,
+    gap: 8,
+    ...Shadows.card,
   },
   chargeBtnDisabled: {
     opacity: 0.45,
   },
   chargeBtnText: {
     color: Colors.textLight,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.xs,
   },
   ordersScroll: {
@@ -1117,7 +1430,7 @@ const styles = StyleSheet.create({
   orderHistoryCard: {
     width: '100%',
     backgroundColor: Colors.card,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1133,11 +1446,13 @@ const styles = StyleSheet.create({
   },
   orderNum: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
   orderSub: {
     fontSize: 10,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textMuted,
     marginTop: 1,
   },
@@ -1151,18 +1466,19 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   paidTag: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: Radius.xs,
+    backgroundColor: Colors.halalGreenLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.round,
   },
   paidTagText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.halalGreen,
   },
   orderItemsSummary: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.textSecondary,
   },
   orderActionsRow: {
@@ -1170,7 +1486,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
-    paddingTop: 6,
+    paddingTop: 8,
   },
   orderReceiptBtn: {
     flex: 1,
@@ -1180,13 +1496,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 6,
-    borderRadius: Radius.xs,
+    paddingVertical: 7,
+    borderRadius: Radius.round,
     gap: 4,
   },
   orderReceiptText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
   orderCompleteBtn: {
@@ -1194,109 +1511,251 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.primary,
-    paddingVertical: 6,
-    borderRadius: Radius.xs,
+    paddingVertical: 7,
+    borderRadius: Radius.round,
   },
   orderCompleteText: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.textLight,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: Colors.overlay,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: Spacing.md,
   },
-  receiptCard: {
-    width: Platform.OS === 'web' ? 380 : '100%',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
+  modalContentWrapper: {
+    width: Platform.OS === 'web' ? 340 : '100%',
+    alignItems: 'center',
+  },
+  /* Authentic 80mm ESC/POS Thermal Receipt Layout */
+  thermalReceiptSlip: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#CCCCCC',
     ...Shadows.elevated,
   },
-  receiptHeader: {
+  thermalHeader: {
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
-  receiptBrandTitle: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '800',
-    color: Colors.text,
+  thermalStars: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 12,
+    color: '#000000',
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
-  receiptBrandSub: {
-    fontSize: 11,
-    color: Colors.textMuted,
+  thermalDashes: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 12,
+    color: '#000000',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    marginVertical: 1,
   },
-  receiptOrderMeta: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.text,
-    marginTop: 6,
-  },
-  receiptDate: {
-    fontSize: 10,
-    color: Colors.textMuted,
+  thermalBrandTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#000000',
+    textAlign: 'center',
+    letterSpacing: 1,
     marginTop: 2,
   },
-  receiptDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: Spacing.sm,
-  },
-  receiptItemsScroll: {
-    maxHeight: 160,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-    gap: 6,
-  },
-  receiptQty: {
+  thermalBrandSub: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
-    width: 20,
+    color: '#000000',
+    textAlign: 'center',
+    marginTop: 1,
   },
-  receiptName: {
-    flex: 1,
-    fontSize: 11,
-    color: Colors.text,
+  thermalTagline: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    color: '#000000',
+    textAlign: 'center',
+    marginBottom: 2,
   },
-  receiptPrice: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.text,
+  thermalMetaSection: {
+    marginVertical: 2,
+    gap: 2,
   },
-  receiptTotalRow: {
+  thermalMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
   },
-  receiptTotalLabel: {
-    fontSize: 11,
+  thermalMetaText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    color: '#000000',
+    fontWeight: '600',
+  },
+  thermalColumnHeader: {
+    flexDirection: 'row',
+    paddingVertical: 1,
+  },
+  thermalColQty: {
+    width: 32,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: '#000000',
   },
-  receiptTotalVal: {
-    fontSize: Typography.fontSize.md,
+  thermalColItem: {
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  thermalColAmount: {
+    width: 60,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'right',
+  },
+  thermalItemsList: {
+    maxHeight: 200,
+    marginVertical: 1,
+  },
+  thermalItemLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 2,
+  },
+  thermalItemQty: {
+    width: 32,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  thermalItemName: {
+    flex: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    color: '#000000',
+  },
+  thermalItemAmount: {
+    width: 60,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'right',
+  },
+  thermalMathBox: {
+    gap: 2,
+    marginVertical: 1,
+  },
+  thermalMathRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  thermalMathLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    color: '#000000',
+    fontWeight: '600',
+  },
+  thermalMathVal: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  thermalTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 1,
+  },
+  thermalTotalLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#000000',
+  },
+  thermalTotalVal: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#000000',
+  },
+  thermalFooterNote: {
+    alignItems: 'center',
+    marginVertical: 3,
+    gap: 2,
+  },
+  thermalNoticeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 11,
     fontWeight: '800',
-    color: Colors.primary,
+    color: '#000000',
+    textAlign: 'center',
   },
-  closeReceiptBtn: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
+  thermalNoticeSub: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 9,
+    color: '#333333',
+    textAlign: 'center',
+  },
+  thermalCustomerCopy: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  screenReceiptActions: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  printThermalBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    paddingVertical: 11,
+    borderRadius: Radius.md,
+    gap: 6,
+    ...Shadows.subtle,
+  },
+  printThermalBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+  },
+  closeThermalBtn: {
+    flex: 0.8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 11,
     borderRadius: Radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.subtle,
   },
-  closeReceiptText: {
-    color: Colors.textLight,
+  closeThermalBtnText: {
+    color: Colors.text,
     fontWeight: '700',
-    fontSize: Typography.fontSize.xs,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.semiBold,
   },
 });
