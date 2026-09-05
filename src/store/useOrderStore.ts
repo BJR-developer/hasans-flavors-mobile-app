@@ -291,12 +291,31 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         .filter(Boolean)
     ).size;
 
+    // Calculate dynamic top selling dishes from real orders
+    const dishSales: Record<string, { name: string; sold: number; revenue: number }> = {};
+    orders.forEach((o) => {
+      if (o.status === 'cancelled') return;
+      (o.items || []).forEach((item) => {
+        const name = item.dish?.name;
+        if (!name) return;
+        if (!dishSales[name]) {
+          dishSales[name] = { name, sold: 0, revenue: 0 };
+        }
+        dishSales[name].sold += item.quantity;
+        dishSales[name].revenue += item.totalPrice;
+      });
+    });
+
+    const topSellingItems = Object.values(dishSales)
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5);
+
     return {
       todayRevenue,
       orderCount: orders.length,
-      activeTables,
+      activeTables: activeTables || 0,
       avgPrepTimeMinutes: 18,
-      topSellingItems: [],
+      topSellingItems,
     };
   },
 

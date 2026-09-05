@@ -10,7 +10,6 @@ const STORAGE_KEYS = {
   USER_PROFILE: '@hasan_user_profile_v2',
 };
 
-// Safe storage wrapper for Web SSR and Native
 const safeGetItem = async (key: string): Promise<string | null> => {
   if (Platform.OS === 'web' && typeof window === 'undefined') return null;
   try {
@@ -52,56 +51,31 @@ export interface UserProfile {
   }>;
 }
 
-export const DUMMY_ACCOUNTS: Record<'customer' | 'staff' | 'owner', UserProfile> = {
-  customer: {
-    id: 'e90a408f-a26c-44f5-9f3d-f79351b66e65',
-    name: 'Tariq Customer',
-    email: 'customer@hasan.com',
-    phone: '+63 917 123 4569',
-    role: 'customer',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
-    loyaltyPoints: 480,
-    tier: 'Gold VIP',
-    roleLabel: 'Customer Diner',
-    savedAddresses: [
-      {
-        id: 'addr_1',
-        label: 'Home',
-        address: 'Tower 2, Unit 1804, Makati Central, Metro Manila',
-        isDefault: true,
-      },
-      {
-        id: 'addr_2',
-        label: 'Office',
-        address: 'Floor 12, Enterprise Center, Ayala Ave, Makati',
-        isDefault: false,
-      },
-    ],
-  },
-  staff: {
-    id: '89479ead-04c9-4845-81e4-08aa9bfea71b',
-    name: 'Main POS Cashier',
-    email: 'cashier@hasan.com',
-    phone: '+63 917 123 4568',
-    role: 'staff',
-    avatarUrl: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=300&q=80',
-    loyaltyPoints: 0,
-    tier: 'Kitchen & Floor Lead',
-    roleLabel: 'Staff (POS & KDS)',
+const mapProfileRow = (profile: any): UserProfile => {
+  const role: 'customer' | 'staff' | 'owner' =
+    profile.role === 'owner' ? 'owner' : profile.role === 'cashier' ? 'staff' : 'customer';
+
+  const roleLabel =
+    role === 'owner'
+      ? 'Owner & Admin'
+      : role === 'staff'
+      ? 'Staff (POS & KDS)'
+      : 'Customer Diner';
+
+  const tier = role === 'owner' ? 'Executive Owner' : role === 'staff' ? 'Floor Manager' : 'Gold VIP';
+
+  return {
+    id: String(profile.id),
+    name: profile.full_name || profile.email?.split('@')[0] || 'Diner',
+    email: profile.email || '',
+    phone: profile.phone || '',
+    role,
+    avatarUrl: profile.avatar_url || undefined,
+    loyaltyPoints: role === 'owner' ? 1250 : role === 'staff' ? 0 : 350,
+    tier,
+    roleLabel,
     savedAddresses: [],
-  },
-  owner: {
-    id: 'bc4be3cf-66fb-4c0c-ba5d-a8b3609f9a72',
-    name: 'Hasan Restaurant Owner',
-    email: 'owner@hasan.com',
-    phone: '+63 917 123 4567',
-    role: 'owner',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-    loyaltyPoints: 1250,
-    tier: 'General Manager & Owner',
-    roleLabel: 'Restaurant Owner & Admin',
-    savedAddresses: [],
-  },
+  };
 };
 
 interface AuthState {
@@ -125,7 +99,7 @@ interface AuthState {
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
   setHasSeenSplash: (seen: boolean) => Promise<void>;
-  updateProfile: (data: Partial<UserProfile>) => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -154,7 +128,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch {}
       }
 
-      // Check live Supabase Session if on client
+      // Check live Supabase Session
       if (Platform.OS !== 'web' || typeof window !== 'undefined') {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -166,27 +140,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .single();
 
             if (profile) {
-              const role: 'customer' | 'staff' | 'owner' =
-                profile.role === 'owner' ? 'owner' : profile.role === 'cashier' ? 'staff' : 'customer';
-
-              user = {
-                id: profile.id,
-                name: profile.full_name || session.user.email?.split('@')[0] || 'Diner',
-                email: profile.email || session.user.email || '',
-                phone: profile.phone || '',
-                role,
-                avatarUrl: profile.avatar_url,
-                loyaltyPoints: role === 'owner' ? 1250 : 250,
-                tier: role === 'owner' ? 'Owner' : 'Gold VIP',
-                roleLabel: role === 'owner' ? 'Owner & Admin' : role === 'staff' ? 'Staff (POS & KDS)' : 'Customer Diner',
-                savedAddresses: user?.savedAddresses || [],
-              };
-
+              user = mapProfileRow(profile);
               await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(user));
             }
           }
         } catch (e) {
-          console.warn('Supabase session check warning:', e);
+          console.warn('Supabase session check error:', e);
         }
       }
 
@@ -213,119 +172,139 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Try Supabase Auth first
-    if (password) {
-      try {
+    try {
+      // 1. Supabase Auth with password
+      if (password) {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
 
-        if (error) {
-          console.warn('Supabase sign-in error:', error.message);
-        } else if (data?.user) {
+        if (!error && data?.user) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
-          const role: 'customer' | 'staff' | 'owner' =
-            profile?.role === 'owner' ? 'owner' : profile?.role === 'cashier' ? 'staff' : 'customer';
+          if (profile) {
+            const userProfile = mapProfileRow(profile);
+            if (userProfile.role === 'owner') useRoleStore.getState().setRole('owner');
+            else if (userProfile.role === 'staff') useRoleStore.getState().setRole('pos');
+            else useRoleStore.getState().setRole('customer');
 
-          const userProfile: UserProfile = {
-            id: data.user.id,
-            name: profile?.full_name || cleanEmail.split('@')[0],
-            email: cleanEmail,
-            phone: profile?.phone || '',
-            role,
-            avatarUrl: profile?.avatar_url,
-            loyaltyPoints: role === 'owner' ? 1250 : 250,
-            tier: role === 'owner' ? 'Owner' : 'Gold VIP',
-            roleLabel: role === 'owner' ? 'Owner & Admin' : role === 'staff' ? 'Staff (POS & KDS)' : 'Customer Diner',
-            savedAddresses: [],
-          };
+            await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
+            await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
 
-          if (role === 'owner') useRoleStore.getState().setRole('owner');
-          else if (role === 'staff') useRoleStore.getState().setRole('pos');
-          else useRoleStore.getState().setRole('customer');
+            set({
+              user: userProfile,
+              isAuthenticated: true,
+              isOnboarded: true,
+              isLoading: false,
+            });
 
-          await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
-          await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
-
-          set({
-            user: userProfile,
-            isAuthenticated: true,
-            isOnboarded: true,
-            isLoading: false,
-          });
-
-          return { success: true, role };
+            return { success: true, role: userProfile.role };
+          }
         }
-      } catch (err: any) {
-        console.warn('Supabase sign in failed, falling back to local role check:', err?.message);
       }
+
+      // 2. Fetch profile directly from live database table
+      const { data: dbProfile, error: dbError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', cleanEmail)
+        .single();
+
+      if (!dbError && dbProfile) {
+        const userProfile = mapProfileRow(dbProfile);
+        if (userProfile.role === 'owner') useRoleStore.getState().setRole('owner');
+        else if (userProfile.role === 'staff') useRoleStore.getState().setRole('pos');
+        else useRoleStore.getState().setRole('customer');
+
+        await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
+        await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
+
+        set({
+          user: userProfile,
+          isAuthenticated: true,
+          isOnboarded: true,
+          isLoading: false,
+        });
+
+        return { success: true, role: userProfile.role };
+      }
+
+      set({ isLoading: false });
+      return { success: false, role: 'customer', message: 'User profile not found in database.' };
+    } catch (err: any) {
+      console.error('Login error:', err);
+      set({ isLoading: false });
+      return { success: false, role: 'customer', message: err?.message || 'Authentication failed' };
     }
-
-    // 2. Local role match fallback for quick testing
-    let profile: UserProfile;
-    if (cleanEmail.includes('owner')) {
-      profile = { ...DUMMY_ACCOUNTS.owner, email: cleanEmail };
-      useRoleStore.getState().setRole('owner');
-    } else if (cleanEmail.includes('staff') || cleanEmail.includes('cashier') || cleanEmail.includes('pos')) {
-      profile = { ...DUMMY_ACCOUNTS.staff, email: cleanEmail };
-      useRoleStore.getState().setRole('pos');
-    } else {
-      const userName = cleanEmail.split('@')[0].replace(/[._]/g, ' ') || 'Hasan Diner';
-      const capitalizedName = userName
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-
-      profile = {
-        ...DUMMY_ACCOUNTS.customer,
-        name: capitalizedName,
-        email: cleanEmail,
-      };
-      useRoleStore.getState().setRole('customer');
-    }
-
-    await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
-    await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
-
-    set({
-      user: profile,
-      isAuthenticated: true,
-      isOnboarded: true,
-      isLoading: false,
-    });
-
-    return { success: true, role: profile.role };
   },
 
   quickLogin: async (accountType) => {
     set({ isLoading: true });
-    const profile = DUMMY_ACCOUNTS[accountType];
+    const targetEmail =
+      accountType === 'owner'
+        ? 'owner@hasan.com'
+        : accountType === 'staff'
+        ? 'cashier@hasan.com'
+        : 'customer@hasan.com';
 
-    if (accountType === 'owner') {
-      useRoleStore.getState().setRole('owner');
-    } else if (accountType === 'staff') {
-      useRoleStore.getState().setRole('pos');
-    } else {
-      useRoleStore.getState().setRole('customer');
+    try {
+      // 1. Try Supabase Auth first
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password: 'Password123!',
+      });
+
+      let profileData = null;
+      if (!error && data?.user) {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        profileData = p;
+      }
+
+      // 2. Fallback to direct profiles table lookup
+      if (!profileData) {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', targetEmail)
+          .single();
+        profileData = p;
+      }
+
+      if (profileData) {
+        const userProfile = mapProfileRow(profileData);
+        if (userProfile.role === 'owner') useRoleStore.getState().setRole('owner');
+        else if (userProfile.role === 'staff') useRoleStore.getState().setRole('pos');
+        else useRoleStore.getState().setRole('customer');
+
+        await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
+        await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
+
+        set({
+          user: userProfile,
+          isAuthenticated: true,
+          isOnboarded: true,
+          isLoading: false,
+        });
+
+        return { success: true, role: userProfile.role };
+      }
+
+      set({ isLoading: false });
+      return { success: false, role: accountType };
+    } catch (e) {
+      console.error('Quick login error:', e);
+      set({ isLoading: false });
+      return { success: false, role: accountType };
     }
-
-    await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
-    await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
-
-    set({
-      user: profile,
-      isAuthenticated: true,
-      isOnboarded: true,
-      isLoading: false,
-    });
-
-    return { success: true, role: profile.role };
   },
 
   signup: async (data) => {
@@ -334,10 +313,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const cleanPhone = data.phone.trim();
     const cleanName = data.name.trim() || 'New Foodie';
 
-    // 1. Supabase Signup
-    let supabaseUserId = `usr_${Date.now()}`;
-    if (data.password) {
-      try {
+    try {
+      let supabaseUserId = `usr_${Date.now()}`;
+      if (data.password) {
         const { data: authData, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password: data.password,
@@ -350,63 +328,92 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           },
         });
 
-        if (error) {
-          console.warn('Supabase signup error:', error.message);
-        } else if (authData?.user) {
+        if (authData?.user) {
           supabaseUserId = authData.user.id;
-          await supabase.from('profiles').upsert({
+        }
+      }
+
+      // Insert into public.profiles
+      const { data: newProfile, error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: supabaseUserId,
+          email: cleanEmail,
+          full_name: cleanName,
+          phone: cleanPhone,
+          role: 'customer',
+        })
+        .select()
+        .single();
+
+      const userProfile: UserProfile = newProfile
+        ? mapProfileRow(newProfile)
+        : {
             id: supabaseUserId,
+            name: cleanName,
             email: cleanEmail,
-            full_name: cleanName,
             phone: cleanPhone,
             role: 'customer',
-          });
-        }
-      } catch (e: any) {
-        console.warn('Supabase signup exception:', e?.message);
-      }
+            loyaltyPoints: 100,
+            tier: 'Gold VIP',
+            roleLabel: 'Customer Diner',
+            savedAddresses: [],
+          };
+
+      useRoleStore.getState().setRole('customer');
+      await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
+      await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
+
+      set({
+        user: userProfile,
+        isAuthenticated: true,
+        isOnboarded: true,
+        isLoading: false,
+      });
+
+      return { success: true, role: 'customer' };
+    } catch (e: any) {
+      console.error('Signup error:', e);
+      set({ isLoading: false });
+      return { success: false, role: 'customer', message: e?.message || 'Failed to create account' };
     }
-
-    const newUser: UserProfile = {
-      ...DUMMY_ACCOUNTS.customer,
-      id: supabaseUserId,
-      name: cleanName,
-      email: cleanEmail,
-      phone: cleanPhone,
-      loyaltyPoints: 100,
-      role: 'customer',
-    };
-
-    useRoleStore.getState().setRole('customer');
-
-    await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(newUser));
-    await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
-
-    set({
-      user: newUser,
-      isAuthenticated: true,
-      isOnboarded: true,
-      isLoading: false,
-    });
-
-    return { success: true, role: 'customer' };
   },
 
   socialLogin: async (provider: 'google' | 'apple') => {
-    set({ isLoading: true });
-    const socialUser: UserProfile = {
-      ...DUMMY_ACCOUNTS.customer,
-      name: provider === 'apple' ? 'Apple Foodie' : 'Google Gourmet',
-      email: provider === 'apple' ? 'apple.user@icloud.com' : 'google.user@gmail.com',
-      role: 'customer',
+    // For social login, query or create customer profile
+    const email = provider === 'apple' ? 'apple.user@icloud.com' : 'google.user@gmail.com';
+    const name = provider === 'apple' ? 'Apple Foodie' : 'Google Gourmet';
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .upsert({
+        id: `usr_${Date.now()}`,
+        email,
+        full_name: name,
+        phone: '+63 917 000 0000',
+        role: 'customer',
+      })
+      .select()
+      .single();
+
+    const userProfile = profile ? mapProfileRow(profile) : {
+      id: `usr_${Date.now()}`,
+      name,
+      email,
+      phone: '+63 917 000 0000',
+      role: 'customer' as const,
+      loyaltyPoints: 100,
+      tier: 'Gold VIP',
+      roleLabel: 'Customer Diner',
+      savedAddresses: [],
     };
 
     useRoleStore.getState().setRole('customer');
-    await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(socialUser));
+    await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
     await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
 
     set({
-      user: socialUser,
+      user: userProfile,
       isAuthenticated: true,
       isOnboarded: true,
       isLoading: false,
@@ -447,12 +454,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ hasSeenSplash: seen });
   },
 
-  updateProfile: (data) => {
+  updateProfile: async (data) => {
     const current = get().user;
     if (current) {
       const updated = { ...current, ...data };
       safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
       set({ user: updated });
+
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: updated.name,
+            phone: updated.phone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', current.id);
+      } catch (e) {
+        console.error('Failed to update profile in Supabase:', e);
+      }
     }
   },
 }));

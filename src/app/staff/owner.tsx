@@ -131,39 +131,6 @@ export default function OwnerDashboardScreen() {
       >
         {activeTab === 'overview' && (
           <View style={styles.overviewSection}>
-            {/* Quick Operations Jump Bar */}
-            <View style={styles.opsBar}>
-              <TouchableOpacity
-                style={styles.opsBtn}
-                onPress={() => {
-                  setRole('pos');
-                  router.push('/staff/pos' as any);
-                }}
-              >
-                <Ionicons name="calculator-outline" size={18} color={Colors.primary} />
-                <View style={styles.opsBtnTextCol}>
-                  <Text style={styles.opsBtnTitle}>POS Register</Text>
-                  <Text style={styles.opsBtnSub}>Cashier terminal</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.opsBtn}
-                onPress={() => {
-                  setRole('kds');
-                  router.push('/staff/kds' as any);
-                }}
-              >
-                <Ionicons name="flame-outline" size={18} color={Colors.primary} />
-                <View style={styles.opsBtnTextCol}>
-                  <Text style={styles.opsBtnTitle}>Kitchen KDS</Text>
-                  <Text style={styles.opsBtnSub}>Order bump screen</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
             {/* KPI Metric Cards Grid */}
             <View style={styles.kpiGrid}>
               {/* Revenue */}
@@ -173,7 +140,7 @@ export default function OwnerDashboardScreen() {
                   <Ionicons name="cash-outline" size={15} color={Colors.halalGreen} />
                 </View>
                 <Text style={styles.kpiValue}>₱{stats.todayRevenue.toLocaleString()}</Text>
-                <Text style={styles.kpiGrowthText}>▲ +18.4% vs yesterday</Text>
+                <Text style={styles.kpiGrowthText}>▲ Live verified receipts</Text>
               </View>
 
               {/* Completed Orders */}
@@ -204,34 +171,40 @@ export default function OwnerDashboardScreen() {
                   <Text style={styles.kpiLabel}>ACTIVE TABLES</Text>
                   <Ionicons name="restaurant-outline" size={15} color={Colors.primary} />
                 </View>
-                <Text style={styles.kpiValue}>{stats.activeTables} / 15</Text>
-                <Text style={styles.kpiSubText}>Occupancy: {Math.round((stats.activeTables / 15) * 100)}%</Text>
+                <Text style={styles.kpiValue}>{stats.activeTables} / 12</Text>
+                <Text style={styles.kpiSubText}>Floor Tables Active</Text>
               </View>
             </View>
 
             {/* Best-Selling Dishes Leaderboard */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Top Selling Dishes Today</Text>
-                <Text style={styles.cardBadge}>Top 5</Text>
+                <Text style={styles.cardTitle}>Top Selling Dishes</Text>
+                <Text style={styles.cardBadge}>Live Ranking</Text>
               </View>
 
-              {stats.topSellingItems.map((item, idx) => (
-                <View key={idx} style={styles.leaderboardRow}>
-                  <View style={styles.rankCircle}>
-                    <Text style={styles.rankText}>{idx + 1}</Text>
-                  </View>
+              {stats.topSellingItems.length === 0 ? (
+                <Text style={{ fontSize: 12, color: Colors.textMuted, paddingVertical: 12 }}>
+                  No dish sales recorded yet.
+                </Text>
+              ) : (
+                stats.topSellingItems.map((item, idx) => (
+                  <View key={idx} style={styles.leaderboardRow}>
+                    <View style={styles.rankCircle}>
+                      <Text style={styles.rankText}>{idx + 1}</Text>
+                    </View>
 
-                  <View style={styles.leaderboardInfo}>
-                    <Text style={styles.leaderboardName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.leaderboardSold}>{item.sold} portions sold</Text>
-                  </View>
+                    <View style={styles.leaderboardInfo}>
+                      <Text style={styles.leaderboardName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.leaderboardSold}>{item.sold} portions sold</Text>
+                    </View>
 
-                  <Text style={styles.leaderboardRev}>₱{item.revenue.toLocaleString()}</Text>
-                </View>
-              ))}
+                    <Text style={styles.leaderboardRev}>₱{item.revenue.toLocaleString()}</Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         )}

@@ -26,8 +26,8 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Sign Out / Switch Account',
-      'Sign out and return to demo account selection?',
+      'Sign Out',
+      'Sign out of your account?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -127,10 +127,32 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Staff / Owner Quick Access Panel */}
-        {(user?.role === 'staff' || user?.role === 'owner') && (
+        {/* Role Portals: Strict Role Segregation */}
+        {user?.role === 'owner' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionCardTitle}>Staff Operations</Text>
+            <Text style={styles.sectionCardTitle}>Executive Owner Portal</Text>
+
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={() => {
+                setRole('owner');
+                router.push('/staff/owner' as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="stats-chart-outline" size={18} color={Colors.saffron} style={styles.menuIcon} />
+              <View style={styles.menuTextCol}>
+                <Text style={styles.menuItemTitle}>Owner Analytics & Inventory</Text>
+                <Text style={styles.menuItemSub}>Revenue, live order audit & stock control</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {user?.role === 'staff' && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionCardTitle}>Cashier & Kitchen Operations</Text>
 
             <TouchableOpacity
               style={styles.menuRow}
@@ -140,7 +162,7 @@ export default function ProfileScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="calculator-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+              <Ionicons name="calculator-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
               <View style={styles.menuTextCol}>
                 <Text style={styles.menuItemTitle}>POS Cashier Terminal</Text>
                 <Text style={styles.menuItemSub}>Ring up orders & process registers</Text>
@@ -156,31 +178,13 @@ export default function ProfileScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name="flame-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+              <Ionicons name="flame-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
               <View style={styles.menuTextCol}>
                 <Text style={styles.menuItemTitle}>Kitchen Display System (KDS)</Text>
                 <Text style={styles.menuItemSub}>Live kitchen ticket preparation & bump</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
-
-            {user?.role === 'owner' && (
-              <TouchableOpacity
-                style={styles.menuRow}
-                onPress={() => {
-                  setRole('owner');
-                  router.push('/staff/owner' as any);
-                }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="stats-chart-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuItemTitle}>Owner Analytics & Inventory</Text>
-                  <Text style={styles.menuItemSub}>Revenue, sales stream & stock control</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-              </TouchableOpacity>
-            )}
           </View>
         )}
 
@@ -315,8 +319,8 @@ export default function ProfileScreen() {
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="swap-horizontal-outline" size={18} color={Colors.text} />
-            <Text style={styles.logoutButtonText}>Switch Demo Account / Sign Out</Text>
+            <Ionicons name="log-out-outline" size={18} color={Colors.text} />
+            <Text style={styles.logoutButtonText}>Sign Out</Text>
           </TouchableOpacity>
         )}
 

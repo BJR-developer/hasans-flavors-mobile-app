@@ -9,6 +9,8 @@ import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJa
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useOrderStore } from '@/store/useOrderStore';
+import { useTableStore } from '@/store/useTableStore';
+import { useFavoritesStore } from '@/store/useFavoritesStore';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -56,11 +58,13 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Initialize Auth session & bootstrap live menu and order stores from Supabase
+  // Initialize Auth session & bootstrap live menu, tables, favorites, and order stores from Supabase
   useEffect(() => {
     useAuthStore.getState().initializeAuth();
     useMenuStore.getState().fetchMenuData();
     useOrderStore.getState().fetchOrders();
+    useTableStore.getState().fetchTables();
+    useFavoritesStore.getState().loadFavorites();
   }, []);
 
   if (!fontsLoaded && !fontError) {

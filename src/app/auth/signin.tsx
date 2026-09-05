@@ -29,7 +29,7 @@ export default function SignInScreen() {
   const { login, quickLogin, socialLogin, isLoading } = useAuthStore();
 
   const [email, setEmail] = useState('customer@hasan.com');
-  const [password, setPassword] = useState('spice1234');
+  const [password, setPassword] = useState('Password123!');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -69,10 +69,13 @@ export default function SignInScreen() {
 
     if (accountType === 'customer') {
       setEmail('customer@hasan.com');
+      setPassword('Password123!');
     } else if (accountType === 'staff') {
-      setEmail('staff@hasan.com');
+      setEmail('cashier@hasan.com');
+      setPassword('Password123!');
     } else {
       setEmail('owner@hasan.com');
+      setPassword('Password123!');
     }
 
     const res = await quickLogin(accountType);
@@ -126,7 +129,7 @@ export default function SignInScreen() {
       <View style={styles.demoProfileSection}>
         <View style={styles.demoLabelRow}>
           <Ionicons name="flash-outline" size={13} color={Colors.saffron} />
-          <Text style={styles.demoSectionLabel}>QUICK DEMO PROFILES (1-TAP LOGIN):</Text>
+          <Text style={styles.demoSectionLabel}>QUICK ROLE SIGN IN (1-TAP ACCESS):</Text>
         </View>
         <View style={styles.demoButtonsRow}>
           <TouchableOpacity
@@ -153,8 +156,8 @@ export default function SignInScreen() {
               <Ionicons name="receipt" size={15} color={Colors.saffron} />
             </View>
             <View style={styles.demoRoleInfo}>
-              <Text style={styles.demoRoleTitle}>Staff (POS / KDS)</Text>
-              <Text style={styles.demoRoleSub}>staff@hasan.com</Text>
+              <Text style={styles.demoRoleTitle}>Cashier (POS / KDS)</Text>
+              <Text style={styles.demoRoleSub}>cashier@hasan.com</Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
           </TouchableOpacity>

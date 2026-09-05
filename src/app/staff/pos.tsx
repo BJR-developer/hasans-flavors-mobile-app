@@ -36,6 +36,29 @@ export default function POSTerminalScreen() {
   const { user, logout } = useAuthStore();
   const { setRole } = useRoleStore();
 
+  // Role Gate: Owner is strictly prohibited from POS register
+  if (user?.role === 'owner') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="shield-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Cashier Register Restricted
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            You are signed in as Owner. POS register operations are managed by Cashier staff.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/staff/owner' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Go to Owner Dashboard</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Mode & Filters
   const [posMode, setPosMode] = useState<'register' | 'orders'>('register');
   const [selectedCatId, setSelectedCatId] = useState<string>('all');
@@ -304,19 +327,6 @@ export default function POSTerminalScreen() {
             <Ionicons name="flame" size={14} color={Colors.primary} />
             <Text style={styles.actionPillText}>Kitchen KDS</Text>
           </TouchableOpacity>
-
-          {user?.role === 'owner' && (
-            <TouchableOpacity
-              style={styles.actionPill}
-              onPress={() => {
-                setRole('owner');
-                router.push('/staff/owner' as any);
-              }}
-            >
-              <Ionicons name="stats-chart" size={14} color={Colors.halalGreen} />
-              <Text style={styles.actionPillText}>Owner</Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} hitSlop={8}>
             <Ionicons name="log-out-outline" size={18} color={Colors.error} />
