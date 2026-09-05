@@ -1,201 +1,142 @@
 import { create } from 'zustand';
-import { DailyStats, Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types';
-import { CartItem } from '@/types';
+import { DailyStats, Order, OrderStatus, PaymentMethod, PaymentStatus, CartItem } from '@/types';
+import { supabase } from '@/lib/supabase';
 
-const INITIAL_MOCK_ORDERS: Order[] = [
-  {
-    id: 'ord-101',
-    orderNumber: '#HF-8821',
-    type: 'dine_in',
-    tableNumber: 'Table 04',
-    customerName: 'Ahmad Al-Mansoor',
-    customerPhone: '+63 917 555 1290',
-    items: [
-      {
-        cartItemId: 'mock-1',
-        dish: {
-          id: '4066',
-          name: 'Chicken Biryani Bilao – Good for 8 People',
-          slug: 'chicken-biryani-bilao',
-          price: 1100,
-          formattedPrice: '₱1,100',
-          category: 'Rice & Biryani',
-          description: 'Special fragrant basmati with tender marinated chicken and boiled eggs.',
-          imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop',
-          spiceLevel: 3,
-          isHalal: true,
-          isChefSpecial: true,
-          isPopular: true,
-          inStock: true,
-          preparationTime: '20-25 mins',
-          calories: '650 kcal',
-          rating: '4.9',
-          reviewCount: 120,
-        },
-        quantity: 1,
-        portion: { id: 'family', name: 'Family Platter / Bilao', priceDelta: 0, serves: '8 People' },
-        spiceLevel: 3,
-        selectedAddons: [
-          { id: 'raitha', name: 'Extra Mint Cucumber Raitha', price: 45 },
-          { id: 'gulab', name: 'Gulab Jamun Dessert (2 pcs)', price: 75 },
-        ],
-        specialNotes: 'Extra spicy on the side',
-        unitPrice: 1220,
-        totalPrice: 1220,
-      },
-    ],
-    subtotal: 1220,
-    tax: 61,
-    serviceFee: 61,
-    deliveryFee: 0,
-    discount: 0,
-    total: 1342,
-    status: 'preparing',
-    paymentMethod: 'gcash',
-    paymentStatus: 'paid',
-    createdAt: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-    estimatedMinutes: 20,
-    specialNotes: 'VIP Guest, cutlery for 4',
-  },
-  {
-    id: 'ord-102',
-    orderNumber: '#HF-8822',
-    type: 'delivery',
-    customerName: 'Fatima Z.',
-    customerPhone: '+63 928 443 8912',
-    deliveryAddress: 'Unit 402, Greenbelt Residences, Makati City',
-    items: [
-      {
-        cartItemId: 'mock-2',
-        dish: {
-          id: '4070',
-          name: 'Crunchy Bite – Full Spicy Meat Roll',
-          slug: 'crunchy-bite-meat',
-          price: 280,
-          formattedPrice: '₱280',
-          category: 'Snacks & Street Bites',
-          description: 'Crispy flaky paratha wrapped around spiced tender meat chunks.',
-          imageUrl: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?q=80&w=800&auto=format&fit=crop',
-          spiceLevel: 3,
-          isHalal: true,
-          isChefSpecial: false,
-          isPopular: true,
-          inStock: true,
-          preparationTime: '10-15 mins',
-          calories: '480 kcal',
-          rating: '4.8',
-          reviewCount: 65,
-        },
-        quantity: 2,
-        portion: { id: 'regular', name: 'Regular Portion', priceDelta: 0, serves: '1 Person' },
-        spiceLevel: 2,
-        selectedAddons: [],
-        unitPrice: 280,
-        totalPrice: 560,
-      },
-    ],
-    subtotal: 560,
-    tax: 28,
-    serviceFee: 0,
-    deliveryFee: 75,
-    discount: 50,
-    total: 613,
-    status: 'pending',
-    paymentMethod: 'cash',
-    paymentStatus: 'unpaid',
-    createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-    estimatedMinutes: 30,
-    specialNotes: 'Leave at front desk with security guard.',
-  },
-  {
-    id: 'ord-103',
-    orderNumber: '#HF-8820',
-    type: 'dine_in',
-    tableNumber: 'Table 07',
-    customerName: 'Rashid Khan',
-    customerPhone: '+63 919 123 9876',
-    items: [
-      {
-        cartItemId: 'mock-3',
-        dish: {
-          id: '4075',
-          name: 'Chicken Haleem & Paratha Combo',
-          slug: 'chicken-haleem',
-          price: 340,
-          formattedPrice: '₱340',
-          category: 'Non-Veg Curries & Specials',
-          description: 'Slow-cooked lentil and meat stew with aromatic spices, ginger, and fried onions.',
-          imageUrl: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?q=80&w=800&auto=format&fit=crop',
-          spiceLevel: 2,
-          isHalal: true,
-          isChefSpecial: true,
-          isPopular: true,
-          inStock: true,
-          preparationTime: '15 mins',
-          calories: '520 kcal',
-          rating: '4.9',
-          reviewCount: 94,
-        },
-        quantity: 2,
-        portion: { id: 'regular', name: 'Regular Portion', priceDelta: 0, serves: '1 Person' },
-        spiceLevel: 2,
-        selectedAddons: [{ id: 'roti', name: 'Fresh Hot Tandoori Roti', price: 35 }],
-        unitPrice: 375,
-        totalPrice: 750,
-      },
-    ],
-    subtotal: 750,
-    tax: 37,
-    serviceFee: 37,
-    deliveryFee: 0,
-    discount: 0,
-    total: 824,
-    status: 'ready',
-    paymentMethod: 'card',
-    paymentStatus: 'paid',
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    estimatedMinutes: 20,
-    specialNotes: 'Served to table',
-  },
-];
+const mapOrderRow = (row: any): Order => ({
+  id: String(row.id),
+  orderNumber: row.order_number,
+  type: row.type || 'dine_in',
+  tableNumber: row.table_number || undefined,
+  customerName: row.customer_name || 'Diner',
+  customerPhone: row.customer_phone || undefined,
+  deliveryAddress: row.notes || undefined,
+  items: Array.isArray(row.items) ? row.items : [],
+  subtotal: Number(row.subtotal || 0),
+  tax: Number(row.tax || 0),
+  serviceFee: 0,
+  deliveryFee: Number(row.delivery_fee || 0),
+  discount: 0,
+  total: Number(row.total || 0),
+  status: row.status as OrderStatus,
+  paymentMethod: row.payment_method as PaymentMethod,
+  paymentStatus: row.payment_status as PaymentStatus,
+  createdAt: row.created_at,
+  estimatedMinutes: 20,
+  specialNotes: row.notes || undefined,
+});
+
+export interface PlaceOrderParams {
+  type: 'dine_in' | 'delivery' | 'takeout';
+  items: CartItem[];
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  tableNumber?: string;
+  paymentMethod: PaymentMethod;
+  subtotal: number;
+  tax: number;
+  serviceFee: number;
+  deliveryFee: number;
+  discount: number;
+  total: number;
+  specialNotes?: string;
+}
 
 interface OrderState {
   orders: Order[];
+  activeFilter: OrderStatus | 'all';
+  searchQuery: string;
+  selectedOrder: Order | null;
   activeOrderId: string | null;
+  isLoading: boolean;
 
   // Actions
-  placeOrder: (params: {
-    type: 'dine_in' | 'delivery' | 'takeout';
-    items: CartItem[];
-    customerName: string;
-    customerPhone?: string;
-    deliveryAddress?: string;
-    tableNumber?: string;
-    paymentMethod: PaymentMethod;
-    subtotal: number;
-    tax: number;
-    serviceFee: number;
-    deliveryFee: number;
-    discount: number;
-    total: number;
-    specialNotes?: string;
-  }) => Order;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  updatePaymentStatus: (orderId: string, status: PaymentStatus) => void;
+  fetchOrders: () => Promise<void>;
+  placeOrder: (params: PlaceOrderParams) => Order;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  updatePaymentStatus: (orderId: string, paymentStatus: PaymentStatus, method?: PaymentMethod) => Promise<void>;
   setActiveOrder: (orderId: string | null) => void;
+  setActiveFilter: (filter: OrderStatus | 'all') => void;
+  setSearchQuery: (query: string) => void;
+  setSelectedOrder: (order: Order | null) => void;
   getOrderById: (orderId: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];
+  getFilteredOrders: () => Order[];
   getDailyStats: () => DailyStats;
+  getStats: () => DailyStats;
 }
 
-export const useOrderStore = create<OrderState>((set, get) => ({
-  orders: INITIAL_MOCK_ORDERS,
-  activeOrderId: 'ord-101',
+let realtimeSubscribed = false;
 
-  placeOrder: (params) => {
+export const useOrderStore = create<OrderState>((set, get) => ({
+  orders: [],
+  activeFilter: 'all',
+  searchQuery: '',
+  selectedOrder: null,
+  activeOrderId: null,
+  isLoading: false,
+
+  fetchOrders: async () => {
+    try {
+      set({ isLoading: true });
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const mapped = data.map(mapOrderRow);
+        set({
+          orders: mapped,
+          activeOrderId: mapped[0]?.id || null,
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+
+      // Realtime subscription
+      if (!realtimeSubscribed) {
+        realtimeSubscribed = true;
+        supabase
+          .channel('mobile:public:orders')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'orders' },
+            (payload) => {
+              const currentOrders = get().orders;
+              if (payload.eventType === 'INSERT') {
+                const newOrder = mapOrderRow(payload.new);
+                set({ orders: [newOrder, ...currentOrders] });
+              } else if (payload.eventType === 'UPDATE') {
+                const updatedOrder = mapOrderRow(payload.new);
+                set({
+                  orders: currentOrders.map((o) =>
+                    o.id === updatedOrder.id ? updatedOrder : o
+                  ),
+                });
+                if (get().selectedOrder?.id === updatedOrder.id) {
+                  set({ selectedOrder: updatedOrder });
+                }
+              } else if (payload.eventType === 'DELETE') {
+                set({
+                  orders: currentOrders.filter((o) => o.id !== String(payload.old.id)),
+                });
+              }
+            }
+          )
+          .subscribe();
+      }
+    } catch (e) {
+      console.warn('Error fetching orders from Supabase:', e);
+      set({ isLoading: false });
+    }
+  },
+
+  placeOrder: (params: PlaceOrderParams): Order => {
     const newSeq = 8820 + get().orders.length + 1;
     const newOrder: Order = {
-      id: `ord-${Date.now()}`,
+      id: `ord_${Date.now()}`,
       orderNumber: `#HF-${newSeq}`,
       type: params.type,
       tableNumber: params.tableNumber,
@@ -217,43 +158,131 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       specialNotes: params.specialNotes,
     };
 
+    // Optimistically update store
     set((state) => ({
       orders: [newOrder, ...state.orders],
       activeOrderId: newOrder.id,
+      selectedOrder: newOrder,
     }));
+
+    // Async push to Supabase
+    const dbPayload = {
+      id: newOrder.id,
+      order_number: newOrder.orderNumber,
+      customer_name: newOrder.customerName,
+      customer_phone: newOrder.customerPhone || null,
+      table_number: newOrder.tableNumber || null,
+      type: newOrder.type,
+      status: newOrder.status,
+      payment_status: newOrder.paymentStatus,
+      payment_method: newOrder.paymentMethod,
+      subtotal: newOrder.subtotal,
+      tax: newOrder.tax,
+      delivery_fee: newOrder.deliveryFee || 0,
+      total: newOrder.total,
+      notes: newOrder.specialNotes || newOrder.deliveryAddress || null,
+      items: newOrder.items,
+      created_at: newOrder.createdAt,
+      updated_at: new Date().toISOString(),
+    };
+
+    supabase
+      .from('orders')
+      .insert(dbPayload)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Failed to sync order to Supabase:', error);
+        }
+      });
 
     return newOrder;
   },
 
-  updateOrderStatus: (orderId, status) => {
+  updateOrderStatus: async (orderId: string, status: OrderStatus) => {
     set((state) => ({
       orders: state.orders.map((o) => (o.id === orderId ? { ...o, status } : o)),
     }));
+
+    try {
+      await supabase
+        .from('orders')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to update order status:', e);
+    }
   },
 
-  updatePaymentStatus: (orderId, status) => {
+  updatePaymentStatus: async (orderId: string, paymentStatus: PaymentStatus, method?: PaymentMethod) => {
     set((state) => ({
-      orders: state.orders.map((o) => (o.id === orderId ? { ...o, paymentStatus: status } : o)),
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? { ...o, paymentStatus, ...(method ? { paymentMethod: method } : {}) }
+          : o
+      ),
     }));
+
+    try {
+      const updates: any = { payment_status: paymentStatus, updated_at: new Date().toISOString() };
+      if (method) updates.payment_method = method;
+      await supabase.from('orders').update(updates).eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to update payment status:', e);
+    }
   },
 
-  setActiveOrder: (orderId) => {
+  setActiveOrder: (orderId: string | null) => {
     set({ activeOrderId: orderId });
   },
 
-  getOrderById: (orderId) => {
-    return get().orders.find((o) => o.id === orderId);
+  setActiveFilter: (filter) => {
+    set({ activeFilter: filter });
   },
 
-  getOrdersByStatus: (status) => {
+  setSearchQuery: (query) => {
+    set({ searchQuery: query });
+  },
+
+  setSelectedOrder: (order) => {
+    set({ selectedOrder: order });
+  },
+
+  getOrderById: (orderId) => {
+    return get().orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+  },
+
+  getOrdersByStatus: (status: OrderStatus) => {
     return get().orders.filter((o) => o.status === status);
   },
 
+  getFilteredOrders: () => {
+    const { orders, activeFilter, searchQuery } = get();
+
+    return orders.filter((order) => {
+      if (activeFilter !== 'all' && order.status !== activeFilter) {
+        return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchNum = order.orderNumber.toLowerCase().includes(q);
+        const matchCustomer = order.customerName.toLowerCase().includes(q);
+        const matchTable = (order.tableNumber || '').toLowerCase().includes(q);
+        const matchItems = order.items.some((i) => i.dish.name.toLowerCase().includes(q));
+
+        if (!matchNum && !matchCustomer && !matchTable && !matchItems) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  },
+
   getDailyStats: () => {
-    const orders = get().orders;
-    const todayRevenue = orders
-      .filter((o) => o.paymentStatus === 'paid')
-      .reduce((sum, o) => sum + o.total, 0);
+    const { orders } = get();
+    const paidOrders = orders.filter((o) => o.paymentStatus === 'paid' && o.status !== 'cancelled');
+    const todayRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
 
     const activeTables = new Set(
       orders
@@ -262,29 +291,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         .filter(Boolean)
     ).size;
 
-    // Calculate top selling
-    const dishSales: Record<string, { name: string; sold: number; revenue: number }> = {};
-    orders.forEach((o) => {
-      o.items.forEach((item) => {
-        const name = item.dish.name;
-        if (!dishSales[name]) {
-          dishSales[name] = { name, sold: 0, revenue: 0 };
-        }
-        dishSales[name].sold += item.quantity;
-        dishSales[name].revenue += item.totalPrice;
-      });
-    });
-
-    const topSellingItems = Object.values(dishSales)
-      .sort((a, b) => b.sold - a.sold)
-      .slice(0, 5);
-
     return {
       todayRevenue,
       orderCount: orders.length,
       activeTables,
       avgPrepTimeMinutes: 18,
-      topSellingItems,
+      topSellingItems: [],
     };
+  },
+
+  getStats: () => {
+    return get().getDailyStats();
   },
 }));

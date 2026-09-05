@@ -16,9 +16,11 @@ import Animated, {
     withDelay,
     withTiming,
 } from 'react-native-reanimated';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function SplashScreen() {
     const router = useRouter();
+    const { isOnboarded, setHasSeenSplash } = useAuthStore();
 
     // Shared values for staggered animations
     const logoScale = useSharedValue(0.92);
@@ -27,7 +29,12 @@ export default function SplashScreen() {
     const loaderWidth = useSharedValue(0);
 
     const navigateNext = () => {
-        router.replace('/(tabs)' as any);
+        setHasSeenSplash(true);
+        if (isOnboarded) {
+            router.replace('/(tabs)' as any);
+        } else {
+            router.replace('/onboarding' as any);
+        }
     };
 
     useEffect(() => {

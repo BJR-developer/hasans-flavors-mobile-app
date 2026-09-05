@@ -20,7 +20,7 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { useMenuStore } from '@/store/useMenuStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRoleStore } from '@/store/useRoleStore';
-import { Dish, Order, OrderType } from '@/types';
+import { Dish, Order, OrderType, OrderStatus } from '@/types';
 import * as Haptics from 'expo-haptics';
 
 const CASH_PRESETS = [100, 200, 500, 1000, 2000];
@@ -50,6 +50,62 @@ export default function POSTerminalScreen() {
 
   // Digital Receipt Modal
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
+
+  // Orders Table Mode - Filter & Pagination States
+  const [ordersSearch, setOrdersSearch] = useState<string>('');
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState<'all' | 'unpaid' | 'active' | 'completed'>('all');
+  const [ordersPage, setOrdersPage] = useState<number>(1);
+  const [ordersPerPage, setOrdersPerPage] = useState<number>(8);
+
+  // Filtered & Paginated orders for POS Table view
+  const filteredOrders = useMemo(() => {
+    return orders
+      .filter((o) => {
+        if (ordersStatusFilter === 'unpaid') {
+          if (o.paymentStatus !== 'unpaid') return false;
+        } else if (ordersStatusFilter === 'active') {
+          if (o.status === 'completed' || o.status === 'cancelled') return false;
+        } else if (ordersStatusFilter === 'completed') {
+          if (o.status !== 'completed') return false;
+        }
+
+        if (ordersSearch.trim()) {
+          const q = ordersSearch.trim().toLowerCase();
+          const matchNum = o.orderNumber.toLowerCase().includes(q);
+          const matchCust = o.customerName.toLowerCase().includes(q);
+          const matchTable = (o.tableNumber || '').toLowerCase().includes(q);
+          const matchType = (o.type || '').toLowerCase().includes(q);
+          const matchItems = o.items.some((it) => it.dish.name.toLowerCase().includes(q));
+          if (!matchNum && !matchCust && !matchTable && !matchType && !matchItems) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, ordersStatusFilter, ordersSearch]);
+
+  const totalOrdersCount = filteredOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalOrdersCount / ordersPerPage));
+  const currentPage = Math.min(Math.max(1, ordersPage), totalPages);
+  const startIndex = (currentPage - 1) * ordersPerPage;
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice(startIndex, startIndex + ordersPerPage);
+  }, [filteredOrders, startIndex, ordersPerPage]);
+
+  const getOrderStatusMeta = (status: OrderStatus) => {
+    switch (status) {
+      case 'pending':
+        return { label: 'Received', color: Colors.saffron, bg: Colors.saffronLight, icon: 'time-outline' as const };
+      case 'preparing':
+        return { label: 'In Kitchen', color: Colors.primary, bg: Colors.primaryLight, icon: 'flame-outline' as const };
+      case 'ready':
+        return { label: 'Ready', color: Colors.halalGreen, bg: Colors.halalGreenLight, icon: 'checkmark-circle-outline' as const };
+      case 'completed':
+        return { label: 'Completed', color: Colors.textSecondary, bg: Colors.surface, icon: 'checkmark-done-outline' as const };
+      case 'cancelled':
+        return { label: 'Cancelled', color: Colors.error, bg: '#FDE8E8', icon: 'close-circle-outline' as const };
+    }
+  };
 
   // Filtered dishes with image support
   const filteredDishes = useMemo(() => {
@@ -607,61 +663,476 @@ export default function POSTerminalScreen() {
           </View>
         </View>
       ) : (
-        /* Orders History Tab */
+        /* Orders History Tab - Table Design with Pagination */
         <ScrollView
           style={styles.ordersScroll}
           contentContainerStyle={styles.ordersScrollContainer}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.ordersGrid}>
-            {orders.map((o) => (
-              <View
-                key={o.id}
-                style={[
-                  styles.orderHistoryCard,
-                  isDesktop && styles.orderHistoryCardDesktop,
-                ]}
-              >
-                <View style={styles.orderHistoryHeader}>
-                  <View>
-                    <Text style={styles.orderNum}>{o.orderNumber}</Text>
-                    <Text style={styles.orderSub}>
-                      {o.customerName} • {o.tableNumber || (o.type === 'delivery' ? 'Delivery' : 'Takeout')}
+          {/* Quick Metrics Bar */}
+          <View style={styles.ordersStatsRow}>
+            <View style={styles.ordersStatCard}>
+              <View style={[styles.ordersStatIconBox, { backgroundColor: Colors.primaryLight }]}>
+                <Ionicons name="receipt" size={16} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.ordersStatLabel}>Total Orders</Text>
+                <Text style={styles.ordersStatVal}>{orders.length}</Text>
+              </View>
+            </View>
+
+            <View style={styles.ordersStatCard}>
+              <View style={[styles.ordersStatIconBox, { backgroundColor: Colors.saffronLight }]}>
+                <Ionicons name="alert-circle" size={16} color={Colors.saffron} />
+              </View>
+              <View>
+                <Text style={styles.ordersStatLabel}>Unpaid Orders</Text>
+                <Text style={styles.ordersStatVal}>
+                  {orders.filter((o) => o.paymentStatus === 'unpaid').length}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ordersStatCard}>
+              <View style={[styles.ordersStatIconBox, { backgroundColor: Colors.primaryLight }]}>
+                <Ionicons name="flame" size={16} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.ordersStatLabel}>In Kitchen / Active</Text>
+                <Text style={styles.ordersStatVal}>
+                  {orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled').length}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ordersStatCard}>
+              <View style={[styles.ordersStatIconBox, { backgroundColor: Colors.halalGreenLight }]}>
+                <Ionicons name="checkmark-done" size={16} color={Colors.halalGreen} />
+              </View>
+              <View>
+                <Text style={styles.ordersStatLabel}>Completed</Text>
+                <Text style={styles.ordersStatVal}>
+                  {orders.filter((o) => o.status === 'completed').length}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Orders Filter & Controls Bar */}
+          <View style={styles.tableControlsCard}>
+            <View style={styles.tableSearchRow}>
+              <View style={styles.tableSearchBox}>
+                <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.tableSearchInput}
+                  placeholder="Search by order #, customer, table, or dish..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={ordersSearch}
+                  onChangeText={(txt) => {
+                    setOrdersSearch(txt);
+                    setOrdersPage(1);
+                  }}
+                  autoCorrect={false}
+                />
+                {ordersSearch ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setOrdersSearch('');
+                      setOrdersPage(1);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Rows Per Page Selector */}
+              <View style={styles.perPageContainer}>
+                <Text style={styles.perPageLabel}>Show:</Text>
+                {[5, 8, 12, 20].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.perPageBtn,
+                      ordersPerPage === num && styles.perPageBtnActive,
+                    ]}
+                    onPress={() => {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setOrdersPerPage(num);
+                      setOrdersPage(1);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.perPageBtnText,
+                        ordersPerPage === num && styles.perPageBtnTextActive,
+                      ]}
+                    >
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Status Filter Tabs */}
+            <View style={styles.tableFilterTabsRow}>
+              {[
+                { id: 'all', label: `All Orders (${orders.length})` },
+                {
+                  id: 'unpaid',
+                  label: `Unpaid (${orders.filter((o) => o.paymentStatus === 'unpaid').length})`,
+                },
+                {
+                  id: 'active',
+                  label: `In Progress (${
+                    orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled').length
+                  })`,
+                },
+                {
+                  id: 'completed',
+                  label: `Completed (${orders.filter((o) => o.status === 'completed').length})`,
+                },
+              ].map((tab) => {
+                const isActive = ordersStatusFilter === tab.id;
+                return (
+                  <TouchableOpacity
+                    key={tab.id}
+                    style={[
+                      styles.tableFilterPill,
+                      isActive && styles.tableFilterPillActive,
+                    ]}
+                    onPress={() => {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setOrdersStatusFilter(tab.id as any);
+                      setOrdersPage(1);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.tableFilterPillText,
+                        isActive && styles.tableFilterPillTextActive,
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Orders Data Table Container */}
+          <View style={styles.tableCardWrapper}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              <View style={styles.tableMinContainer}>
+                {/* Table Header */}
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.thCell, styles.thColOrder]}>ORDER #</Text>
+                  <Text style={[styles.thCell, styles.thColTime]}>DATE & TIME</Text>
+                  <Text style={[styles.thCell, styles.thColCustomer]}>CUSTOMER / TABLE</Text>
+                  <Text style={[styles.thCell, styles.thColItems]}>ITEMS SUMMARY</Text>
+                  <Text style={[styles.thCell, styles.thColTotal]}>TOTAL</Text>
+                  <Text style={[styles.thCell, styles.thColPayment]}>PAYMENT</Text>
+                  <Text style={[styles.thCell, styles.thColStatus]}>KITCHEN STATUS</Text>
+                  <Text style={[styles.thCell, styles.thColActions]}>ACTIONS</Text>
+                </View>
+
+                {/* Table Rows */}
+                {paginatedOrders.length === 0 ? (
+                  <View style={styles.tableEmptyState}>
+                    <Ionicons name="receipt-outline" size={38} color={Colors.textMuted} />
+                    <Text style={styles.tableEmptyTitle}>No orders match your filter</Text>
+                    <Text style={styles.tableEmptySub}>
+                      Try clearing your search query or choosing another status tab.
                     </Text>
                   </View>
-                  <View style={styles.orderRightMeta}>
-                    <Text style={styles.orderHistoryTotal}>₱{o.total.toLocaleString()}</Text>
-                    <View style={styles.paidTag}>
-                      <Text style={styles.paidTagText}>{o.paymentStatus.toUpperCase()}</Text>
-                    </View>
-                  </View>
-                </View>
+                ) : (
+                  paginatedOrders.map((o, idx) => {
+                    const statusMeta = getOrderStatusMeta(o.status);
+                    const isPaid = o.paymentStatus === 'paid';
+                    const isEven = idx % 2 === 0;
 
-                {/* Items breakdown with quantity */}
-                <Text style={styles.orderItemsSummary}>
-                  {o.items.map((it) => `${it.quantity}x ${it.dish.name}`).join(', ')}
-                </Text>
+                    return (
+                      <View
+                        key={o.id}
+                        style={[
+                          styles.tableDataRow,
+                          isEven ? styles.tableRowEven : styles.tableRowOdd,
+                        ]}
+                      >
+                        {/* Order # */}
+                        <View style={[styles.tdCell, styles.thColOrder]}>
+                          <Text style={styles.tdOrderNum}>{o.orderNumber}</Text>
+                          <View style={styles.tdTypePill}>
+                            <Ionicons
+                              name={
+                                o.type === 'dine_in'
+                                  ? 'restaurant-outline'
+                                  : o.type === 'delivery'
+                                  ? 'bicycle-outline'
+                                  : 'bag-handle-outline'
+                              }
+                              size={10}
+                              color={Colors.textSecondary}
+                            />
+                            <Text style={styles.tdTypePillText}>
+                              {o.type === 'dine_in'
+                                ? o.tableNumber || 'Dine-In'
+                                : o.type === 'delivery'
+                                ? 'Delivery'
+                                : 'Takeout'}
+                            </Text>
+                          </View>
+                        </View>
 
-                <View style={styles.orderActionsRow}>
-                  <TouchableOpacity
-                    style={styles.orderReceiptBtn}
-                    onPress={() => setReceiptOrder(o)}
-                  >
-                    <Ionicons name="receipt-outline" size={14} color={Colors.primary} />
-                    <Text style={styles.orderReceiptText}>View / Print Receipt</Text>
-                  </TouchableOpacity>
+                        {/* Date & Time */}
+                        <View style={[styles.tdCell, styles.thColTime]}>
+                          <Text style={styles.tdTimeText}>
+                            {new Date(o.createdAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                          <Text style={styles.tdDateText}>
+                            {new Date(o.createdAt).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </Text>
+                        </View>
 
-                  {o.status !== 'completed' && (
-                    <TouchableOpacity
-                      style={styles.orderCompleteBtn}
-                      onPress={() => updateOrderStatus(o.id, 'completed')}
-                    >
-                      <Text style={styles.orderCompleteText}>Complete</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                        {/* Customer */}
+                        <View style={[styles.tdCell, styles.thColCustomer]}>
+                          <Text style={styles.tdCustomerName} numberOfLines={1}>
+                            {o.customerName || 'Walk-in Guest'}
+                          </Text>
+                          <Text style={styles.tdCustomerSub} numberOfLines={1}>
+                            {o.tableNumber || (o.type === 'delivery' ? 'Delivery' : 'Takeaway')}
+                          </Text>
+                        </View>
+
+                        {/* Items Summary */}
+                        <View style={[styles.tdCell, styles.thColItems]}>
+                          <Text style={styles.tdItemsText} numberOfLines={2}>
+                            {o.items.map((it) => `${it.quantity}x ${it.dish.name}`).join(', ')}
+                          </Text>
+                          <Text style={styles.tdItemsCount}>
+                            {o.items.reduce((s, i) => s + i.quantity, 0)} items total
+                          </Text>
+                        </View>
+
+                        {/* Total */}
+                        <View style={[styles.tdCell, styles.thColTotal]}>
+                          <Text style={styles.tdTotalText}>₱{o.total.toLocaleString()}</Text>
+                          <Text style={styles.tdTotalSub}>Inc. 5% VAT</Text>
+                        </View>
+
+                        {/* Payment */}
+                        <View style={[styles.tdCell, styles.thColPayment]}>
+                          <View
+                            style={[
+                              styles.paymentBadge,
+                              isPaid ? styles.paymentPaid : styles.paymentUnpaid,
+                            ]}
+                          >
+                            <Ionicons
+                              name={isPaid ? 'checkmark-circle' : 'alert-circle'}
+                              size={11}
+                              color={isPaid ? Colors.halalGreen : Colors.saffron}
+                            />
+                            <Text
+                              style={[
+                                styles.paymentBadgeText,
+                                isPaid ? styles.paymentPaidText : styles.paymentUnpaidText,
+                              ]}
+                            >
+                              {o.paymentStatus.toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={styles.paymentMethodText}>
+                            {o.paymentMethod === 'cash' ? 'Cash' : 'Online'}
+                          </Text>
+                        </View>
+
+                        {/* Kitchen Status */}
+                        <View style={[styles.tdCell, styles.thColStatus]}>
+                          <View
+                            style={[
+                              styles.kitchenStatusBadge,
+                              { backgroundColor: statusMeta.bg },
+                            ]}
+                          >
+                            <Ionicons
+                              name={statusMeta.icon}
+                              size={11}
+                              color={statusMeta.color}
+                            />
+                            <Text
+                              style={[
+                                styles.kitchenStatusBadgeText,
+                                { color: statusMeta.color },
+                              ]}
+                            >
+                              {statusMeta.label}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Actions */}
+                        <View style={[styles.tdCell, styles.thColActions]}>
+                          <View style={styles.tdActionsRow}>
+                            <TouchableOpacity
+                              style={styles.actionReceiptBtn}
+                              onPress={() => {
+                                try {
+                                  Haptics.selectionAsync();
+                                } catch {}
+                                setReceiptOrder(o);
+                              }}
+                              hitSlop={4}
+                            >
+                              <Ionicons name="receipt-outline" size={13} color={Colors.primary} />
+                              <Text style={styles.actionReceiptBtnText}>Receipt</Text>
+                            </TouchableOpacity>
+
+                            {o.status !== 'completed' && (
+                              <TouchableOpacity
+                                style={styles.actionCompleteBtn}
+                                onPress={() => {
+                                  try {
+                                    Haptics.notificationAsync(
+                                      Haptics.NotificationFeedbackType.Success
+                                    );
+                                  } catch {}
+                                  updateOrderStatus(o.id, 'completed');
+                                }}
+                                hitSlop={4}
+                              >
+                                <Ionicons name="checkmark-outline" size={12} color={Colors.textLight} />
+                                <Text style={styles.actionCompleteBtnText}>Complete</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
               </View>
-            ))}
+            </ScrollView>
+
+            {/* Pagination Footer */}
+            <View style={styles.paginationFooter}>
+              <Text style={styles.paginationCountText}>
+                {totalOrdersCount === 0
+                  ? 'No orders'
+                  : `Showing ${startIndex + 1} - ${Math.min(
+                      startIndex + ordersPerPage,
+                      totalOrdersCount
+                    )} of ${totalOrdersCount} orders`}
+              </Text>
+
+              <View style={styles.paginationNavRow}>
+                {/* Prev Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.pageNavBtn,
+                    currentPage <= 1 && styles.pageNavBtnDisabled,
+                  ]}
+                  onPress={() => {
+                    if (currentPage > 1) {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setOrdersPage(currentPage - 1);
+                    }
+                  }}
+                  disabled={currentPage <= 1}
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={14}
+                    color={currentPage <= 1 ? Colors.textMuted : Colors.text}
+                  />
+                  <Text
+                    style={[
+                      styles.pageNavBtnText,
+                      currentPage <= 1 && styles.pageNavBtnTextDisabled,
+                    ]}
+                  >
+                    Prev
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Page Number Chips */}
+                <View style={styles.pagePillsRow}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    const isCurrent = pageNum === currentPage;
+                    return (
+                      <TouchableOpacity
+                        key={pageNum}
+                        style={[
+                          styles.pageNumberPill,
+                          isCurrent && styles.pageNumberPillActive,
+                        ]}
+                        onPress={() => {
+                          try {
+                            Haptics.selectionAsync();
+                          } catch {}
+                          setOrdersPage(pageNum);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.pageNumberPillText,
+                            isCurrent && styles.pageNumberPillTextActive,
+                          ]}
+                        >
+                          {pageNum}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Next Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.pageNavBtn,
+                    currentPage >= totalPages && styles.pageNavBtnDisabled,
+                  ]}
+                  onPress={() => {
+                    if (currentPage < totalPages) {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setOrdersPage(currentPage + 1);
+                    }
+                  }}
+                  disabled={currentPage >= totalPages}
+                >
+                  <Text
+                    style={[
+                      styles.pageNavBtnText,
+                      currentPage >= totalPages && styles.pageNavBtnTextDisabled,
+                    ]}
+                  >
+                    Next
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={currentPage >= totalPages ? Colors.textMuted : Colors.text}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </ScrollView>
       )}
@@ -1418,106 +1889,464 @@ const styles = StyleSheet.create({
   },
   ordersScroll: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
   ordersScrollContainer: {
     padding: Spacing.md,
+    gap: Spacing.sm,
+    paddingBottom: 40,
   },
-  ordersGrid: {
+  /* Quick Stats Metrics Bar */
+  ordersStatsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: Spacing.sm,
   },
-  orderHistoryCard: {
-    width: '100%',
+  ordersStatCard: {
+    flex: 1,
+    minWidth: 150,
     backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     ...Shadows.subtle,
   },
-  orderHistoryCardDesktop: {
-    width: '49%',
+  ordersStatIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  orderHistoryHeader: {
+  ordersStatLabel: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+  },
+  ordersStatVal: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.text,
+    marginTop: 1,
+  },
+  /* Table Controls & Filter Card */
+  tableControlsCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.xs,
+    ...Shadows.subtle,
+  },
+  tableSearchRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  orderNum: {
+  tableSearchBox: {
+    flex: 1,
+    minWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.round,
+    paddingHorizontal: 10,
+    height: 34,
+    gap: 6,
+  },
+  tableSearchInput: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.text,
+    paddingVertical: 0,
+  },
+  perPageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  perPageLabel: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+    marginRight: 2,
+  },
+  perPageBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  perPageBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  perPageBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textSecondary,
+  },
+  perPageBtnTextActive: {
+    color: Colors.textLight,
+  },
+  tableFilterTabsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tableFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tableFilterPillActive: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  tableFilterPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.textMuted,
+  },
+  tableFilterPillTextActive: {
+    color: Colors.primary,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+  },
+  /* Table Container & Rows */
+  tableCardWrapper: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+    ...Shadows.subtle,
+  },
+  tableMinContainer: {
+    minWidth: 980,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+  },
+  thCell: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  thColOrder: {
+    width: 120,
+  },
+  thColTime: {
+    width: 110,
+  },
+  thColCustomer: {
+    width: 150,
+  },
+  thColItems: {
+    flex: 1,
+    minWidth: 240,
+    paddingRight: 10,
+  },
+  thColTotal: {
+    width: 110,
+  },
+  thColPayment: {
+    width: 110,
+  },
+  thColStatus: {
+    width: 120,
+  },
+  thColActions: {
+    width: 140,
+    textAlign: 'center',
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  tableRowEven: {
+    backgroundColor: Colors.card,
+  },
+  tableRowOdd: {
+    backgroundColor: '#FAF9F8',
+  },
+  tdCell: {
+    justifyContent: 'center',
+  },
+  tdOrderNum: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '800',
     fontFamily: Typography.fontFamily.extraBold,
     color: Colors.text,
   },
-  orderSub: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  orderRightMeta: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  orderHistoryTotal: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  paidTag: {
-    backgroundColor: Colors.halalGreenLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.round,
-  },
-  paidTagText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: Colors.halalGreen,
-  },
-  orderItemsSummary: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textSecondary,
-  },
-  orderActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    paddingTop: 8,
-  },
-  orderReceiptBtn: {
-    flex: 1,
+  tdTypePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 7,
-    borderRadius: Radius.round,
-    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+    alignSelf: 'flex-start',
+    marginTop: 3,
+    gap: 3,
   },
-  orderReceiptText: {
+  tdTypePillText: {
+    fontSize: 9,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+  },
+  tdTimeText: {
     fontSize: 11,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
   },
-  orderCompleteBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: 7,
-    borderRadius: Radius.round,
+  tdDateText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 1,
   },
-  orderCompleteText: {
+  tdCustomerName: {
     fontSize: 11,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  tdCustomerSub: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  tdItemsText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textSecondary,
+    lineHeight: 15,
+  },
+  tdItemsCount: {
+    fontSize: 9,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  tdTotalText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '900',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.primary,
+  },
+  tdTotalSub: {
+    fontSize: 9,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  paymentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.round,
+    alignSelf: 'flex-start',
+    gap: 3,
+  },
+  paymentPaid: {
+    backgroundColor: Colors.halalGreenLight,
+  },
+  paymentUnpaid: {
+    backgroundColor: Colors.saffronLight,
+  },
+  paymentBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  paymentPaidText: {
+    color: Colors.halalGreen,
+  },
+  paymentUnpaidText: {
+    color: Colors.saffron,
+  },
+  paymentMethodText: {
+    fontSize: 9,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  kitchenStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radius.round,
+    alignSelf: 'flex-start',
+    gap: 3,
+  },
+  kitchenStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  tdActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionReceiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 3,
+  },
+  actionReceiptBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
+  },
+  actionCompleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 3,
+  },
+  actionCompleteBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textLight,
+  },
+  tableEmptyState: {
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  tableEmptyTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  tableEmptySub: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+  },
+  /* Pagination Footer */
+  paginationFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: 8,
+  },
+  paginationCountText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+  },
+  paginationNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pageNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.xs,
+    gap: 3,
+  },
+  pageNavBtnDisabled: {
+    opacity: 0.4,
+    backgroundColor: Colors.surface,
+  },
+  pageNavBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  pageNavBtnTextDisabled: {
+    color: Colors.textMuted,
+  },
+  pagePillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  pageNumberPill: {
+    width: 24,
+    height: 24,
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageNumberPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  pageNumberPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  pageNumberPillTextActive: {
     color: Colors.textLight,
   },
   modalBackdrop: {

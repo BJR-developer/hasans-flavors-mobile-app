@@ -5,14 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  useFonts,
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-} from '@expo-google-fonts/plus-jakarta-sans';
+import { useFonts, PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useMenuStore } from '@/store/useMenuStore';
+import { useOrderStore } from '@/store/useOrderStore';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -59,6 +55,13 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => { });
     }
   }, [fontsLoaded, fontError]);
+
+  // Initialize Auth session & bootstrap live menu and order stores from Supabase
+  useEffect(() => {
+    useAuthStore.getState().initializeAuth();
+    useMenuStore.getState().fetchMenuData();
+    useOrderStore.getState().fetchOrders();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
