@@ -2,29 +2,48 @@ import { create } from 'zustand';
 import { DailyStats, Order, OrderStatus, PaymentMethod, PaymentStatus, CartItem } from '@/types';
 import { supabase } from '@/lib/supabase';
 
-const mapOrderRow = (row: any): Order => ({
-  id: String(row.id),
-  orderNumber: row.order_number,
-  customerId: row.customer_id || undefined,
-  type: row.type || 'dine_in',
-  tableNumber: row.table_number || undefined,
-  customerName: row.customer_name || 'Diner',
-  customerPhone: row.customer_phone || undefined,
-  deliveryAddress: row.notes || undefined,
-  items: Array.isArray(row.items) ? row.items : [],
-  subtotal: Number(row.subtotal || 0),
-  tax: Number(row.tax || 0),
-  serviceFee: 0,
-  deliveryFee: Number(row.delivery_fee || 0),
-  discount: 0,
-  total: Number(row.total || 0),
-  status: row.status as OrderStatus,
-  paymentMethod: row.payment_method as PaymentMethod,
-  paymentStatus: row.payment_status as PaymentStatus,
-  createdAt: row.created_at,
-  estimatedMinutes: 20,
-  specialNotes: row.notes || undefined,
-});
+const mapOrderRow = (row: any): Order => {
+  const subtotal = Number(row.subtotal || 0);
+  const tax = Number(row.tax || 0);
+  const deliveryFee = Number(row.delivery_fee || 0);
+  const discount = Number(row.discount || 0);
+  const total = Number(row.total || 0);
+  const amountPaid = Number(
+    row.amount_paid !== undefined && row.amount_paid !== null
+      ? row.amount_paid
+      : row.payment_status === 'paid'
+      ? total
+      : 0
+  );
+  const balanceDue = Math.max(0, total - amountPaid);
+
+  return {
+    id: String(row.id),
+    orderNumber: row.order_number,
+    customerId: row.customer_id || undefined,
+    type: row.type || 'dine_in',
+    tableNumber: row.table_number || undefined,
+    customerName: row.customer_name || 'Diner',
+    customerPhone: row.customer_phone || undefined,
+    deliveryAddress: row.notes || undefined,
+    items: Array.isArray(row.items) ? row.items : [],
+    subtotal,
+    tax,
+    serviceFee: 0,
+    deliveryFee,
+    discount,
+    total,
+    amountPaid,
+    balanceDue,
+    status: row.status as OrderStatus,
+    paymentMethod: row.payment_method as PaymentMethod,
+    paymentStatus: row.payment_status as PaymentStatus,
+    paymentHistory: Array.isArray(row.payment_history) ? row.payment_history : [],
+    createdAt: row.created_at,
+    estimatedMinutes: 20,
+    specialNotes: row.notes || undefined,
+  };
+};
 
 export interface PlaceOrderParams {
   type: 'dine_in' | 'delivery' | 'takeout';
@@ -35,6 +54,7 @@ export interface PlaceOrderParams {
   deliveryAddress?: string;
   tableNumber?: string;
   paymentMethod: PaymentMethod;
+  paymentStatus?: PaymentStatus;
   subtotal: number;
   tax: number;
   serviceFee: number;
@@ -56,7 +76,15 @@ interface OrderState {
   fetchOrders: () => Promise<void>;
   placeOrder: (params: PlaceOrderParams) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
-  updatePaymentStatus: (orderId: string, paymentStatus: PaymentStatus, method?: PaymentMethod) => Promise<void>;
+  updatePaymentStatus: (
+    orderId: string,
+    paymentStatus: PaymentStatus,
+    method?: PaymentMethod,
+    amountPaid?: number,
+    closeOrder?: boolean
+  ) => Promise<void>;
+  addItemsToOrder: (orderId: string, additionalItems: CartItem[]) => Promise<void>;
+  applyDiscount: (orderId: string, discount: number) => Promise<void>;
   setActiveOrder: (orderId: string | null) => void;
   setActiveFilter: (filter: OrderStatus | 'all') => void;
   setSearchQuery: (query: string) => void;
@@ -137,6 +165,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
   placeOrder: (params: PlaceOrderParams): Order => {
     const newSeq = 8820 + get().orders.length + 1;
+    const finalPaymentStatus: PaymentStatus =
+      params.paymentStatus ||
+      (params.type === 'dine_in' ? 'unpaid' : params.paymentMethod === 'cash' ? 'unpaid' : 'paid');
+
+    const amountPaid = finalPaymentStatus === 'paid' ? params.total : 0;
+    const balanceDue = finalPaymentStatus === 'paid' ? 0 : params.total;
+
     const newOrder: Order = {
       id: `ord_${Date.now()}`,
       orderNumber: `#HF-${newSeq}`,
@@ -153,9 +188,23 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       deliveryFee: params.deliveryFee,
       discount: params.discount,
       total: params.total,
+      amountPaid,
+      balanceDue,
       status: 'pending',
       paymentMethod: params.paymentMethod,
-      paymentStatus: params.paymentMethod === 'cash' ? 'unpaid' : 'paid',
+      paymentStatus: finalPaymentStatus,
+      paymentHistory:
+        amountPaid > 0
+          ? [
+              {
+                id: `pay_${Date.now()}`,
+                amount: amountPaid,
+                method: params.paymentMethod,
+                timestamp: new Date().toISOString(),
+                note: 'Initial payment',
+              },
+            ]
+          : [],
       createdAt: new Date().toISOString(),
       estimatedMinutes: params.type === 'delivery' ? 35 : 20,
       specialNotes: params.specialNotes,
@@ -183,7 +232,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       subtotal: newOrder.subtotal,
       tax: newOrder.tax,
       delivery_fee: newOrder.deliveryFee || 0,
+      discount: newOrder.discount || 0,
       total: newOrder.total,
+      amount_paid: amountPaid,
+      payment_history: newOrder.paymentHistory,
       notes: newOrder.specialNotes || newOrder.deliveryAddress || null,
       items: newOrder.items,
       created_at: newOrder.createdAt,
@@ -217,21 +269,132 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  updatePaymentStatus: async (orderId: string, paymentStatus: PaymentStatus, method?: PaymentMethod) => {
+  updatePaymentStatus: async (
+    orderId: string,
+    paymentStatus: PaymentStatus,
+    method?: PaymentMethod,
+    amountPaid?: number,
+    closeOrder?: boolean
+  ) => {
+    set((state) => ({
+      orders: state.orders.map((o) => {
+        if (o.id === orderId) {
+          const newAmountPaid =
+            amountPaid !== undefined
+              ? amountPaid
+              : paymentStatus === 'paid'
+              ? o.total
+              : o.amountPaid || 0;
+          const balanceDue = Math.max(0, o.total - newAmountPaid);
+          return {
+            ...o,
+            paymentStatus,
+            ...(method ? { paymentMethod: method } : {}),
+            amountPaid: newAmountPaid,
+            balanceDue,
+            ...(closeOrder ? { status: 'completed' as OrderStatus } : {}),
+          };
+        }
+        return o;
+      }),
+    }));
+
+    try {
+      const updates: any = {
+        payment_status: paymentStatus,
+        updated_at: new Date().toISOString(),
+      };
+      if (method) updates.payment_method = method;
+      if (amountPaid !== undefined) updates.amount_paid = amountPaid;
+      if (closeOrder) updates.status = 'completed';
+      await supabase.from('orders').update(updates).eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to update payment status:', e);
+    }
+  },
+
+  addItemsToOrder: async (orderId: string, additionalItems: CartItem[]) => {
+    const current = get().orders.find((o) => o.id === orderId);
+    if (!current) return;
+
+    const mergedItems = [...current.items, ...additionalItems];
+    const subtotal = mergedItems.reduce((sum, i) => sum + i.totalPrice, 0);
+    const tax = Math.round(subtotal * 0.05);
+    const total = subtotal + tax + current.deliveryFee - current.discount;
+    const amountPaid = current.amountPaid || 0;
+    const paymentStatus: PaymentStatus =
+      amountPaid >= total ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'unpaid';
+    const balanceDue = Math.max(0, total - amountPaid);
+
     set((state) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
-          ? { ...o, paymentStatus, ...(method ? { paymentMethod: method } : {}) }
+          ? {
+              ...o,
+              items: mergedItems,
+              subtotal,
+              tax,
+              total,
+              paymentStatus,
+              balanceDue,
+            }
           : o
       ),
     }));
 
     try {
-      const updates: any = { payment_status: paymentStatus, updated_at: new Date().toISOString() };
-      if (method) updates.payment_method = method;
-      await supabase.from('orders').update(updates).eq('id', orderId);
+      await supabase
+        .from('orders')
+        .update({
+          items: mergedItems,
+          subtotal,
+          tax,
+          total,
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
     } catch (e) {
-      console.error('Failed to update payment status:', e);
+      console.error('Failed to add items to order:', e);
+    }
+  },
+
+  applyDiscount: async (orderId: string, discount: number) => {
+    const current = get().orders.find((o) => o.id === orderId);
+    if (!current) return;
+
+    const total = Math.max(0, current.subtotal + current.tax + current.deliveryFee - discount);
+    const amountPaid = current.amountPaid || 0;
+    const paymentStatus: PaymentStatus =
+      amountPaid >= total ? 'paid' : amountPaid > 0 ? 'partially_paid' : 'unpaid';
+    const balanceDue = Math.max(0, total - amountPaid);
+
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              discount,
+              total,
+              paymentStatus,
+              balanceDue,
+            }
+          : o
+      ),
+    }));
+
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          discount,
+          total,
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to apply discount:', e);
     }
   },
 

@@ -97,7 +97,7 @@ export default function KDSScreen() {
   }
 
   const pendingOrders = orders.filter(
-    (o) => o.status === 'pending' && (filterType === 'all' || o.type === filterType)
+    (o) => (o.status === 'pending' || o.status === 'sent_to_kitchen') && (filterType === 'all' || o.type === filterType)
   );
   const preparingOrders = orders.filter(
     (o) => o.status === 'preparing' && (filterType === 'all' || o.type === filterType)
@@ -105,17 +105,22 @@ export default function KDSScreen() {
   const readyOrders = orders.filter(
     (o) => o.status === 'ready' && (filterType === 'all' || o.type === filterType)
   );
+  const servedOrders = orders.filter(
+    (o) => o.status === 'served' && (filterType === 'all' || o.type === filterType)
+  );
 
   const handleBumpStatus = (orderId: string, currentStatus: OrderStatus) => {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
 
-    if (currentStatus === 'pending') {
+    if (currentStatus === 'pending' || currentStatus === 'sent_to_kitchen') {
       updateOrderStatus(orderId, 'preparing');
     } else if (currentStatus === 'preparing') {
       updateOrderStatus(orderId, 'ready');
     } else if (currentStatus === 'ready') {
+      updateOrderStatus(orderId, 'served');
+    } else if (currentStatus === 'served') {
       updateOrderStatus(orderId, 'completed');
     }
   };
@@ -183,6 +188,30 @@ export default function KDSScreen() {
                   : 'Takeout'}
               </Text>
             </View>
+
+            {/* Payment Status Indicator */}
+            <View
+              style={{
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: Radius.xs,
+                backgroundColor: order.paymentStatus === 'paid' ? '#E8F5E9' : '#FFF8E1',
+                borderWidth: 1,
+                borderColor: order.paymentStatus === 'paid' ? '#C8E6C9' : '#FFE082',
+                marginLeft: 4,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: '800',
+                  color: order.paymentStatus === 'paid' ? '#2E7D32' : '#B45309',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {order.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
+              </Text>
+            </View>
           </View>
 
           {/* Elapsed Timer Pill */}
@@ -243,31 +272,37 @@ export default function KDSScreen() {
           activeOpacity={0.88}
           style={[
             styles.bumpButton,
-            order.status === 'pending'
+            order.status === 'pending' || order.status === 'sent_to_kitchen'
               ? styles.bumpPending
               : order.status === 'preparing'
               ? styles.bumpPreparing
+              : order.status === 'ready'
+              ? { backgroundColor: '#1D4ED8' }
               : styles.bumpReady,
           ]}
           onPress={() => handleBumpStatus(order.id, order.status)}
         >
           <Ionicons
             name={
-              order.status === 'pending'
+              order.status === 'pending' || order.status === 'sent_to_kitchen'
                 ? 'flame-outline'
                 : order.status === 'preparing'
                 ? 'checkmark-circle-outline'
+                : order.status === 'ready'
+                ? 'restaurant-outline'
                 : 'checkmark-done-outline'
             }
             size={16}
             color={Colors.textLight}
           />
           <Text style={styles.bumpButtonText}>
-            {order.status === 'pending'
+            {order.status === 'pending' || order.status === 'sent_to_kitchen'
               ? 'Start Cooking'
               : order.status === 'preparing'
               ? 'Mark Ready for Service'
-              : 'Complete & Clear Ticket'}
+              : order.status === 'ready'
+              ? 'Mark as Served'
+              : 'Archive Ticket'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -380,6 +415,22 @@ export default function KDSScreen() {
             </View>
           ) : (
             <View style={styles.ticketGrid}>{readyOrders.map(renderOrderTicket)}</View>
+          )}
+        </View>
+
+        {/* Section 4: Served (At Tables / In Dining) */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>4. Served to Diners ({servedOrders.length})</Text>
+            <Text style={styles.sectionSub}>At tables • Check payment status before close</Text>
+          </View>
+
+          {servedOrders.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No orders currently served</Text>
+            </View>
+          ) : (
+            <View style={styles.ticketGrid}>{servedOrders.map(renderOrderTicket)}</View>
           )}
         </View>
       </ScrollView>

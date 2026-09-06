@@ -228,11 +228,14 @@ export default function OrderTrackingScreen() {
 
   const getStepIndex = (status: OrderStatus) => {
     switch (status) {
+      case 'draft':
       case 'pending':
+      case 'sent_to_kitchen':
         return 0;
       case 'preparing':
         return 1;
       case 'ready':
+      case 'served':
         return 2;
       case 'completed':
         return 3;
@@ -245,7 +248,9 @@ export default function OrderTrackingScreen() {
 
   const getStatusHeadline = () => {
     switch (order.status) {
+      case 'draft':
       case 'pending':
+      case 'sent_to_kitchen':
         return {
           badge: 'ORDER RECEIVED',
           title: 'Ticket Received by Kitchen',
@@ -269,6 +274,12 @@ export default function OrderTrackingScreen() {
               title: 'Packed & Ready at Counter',
               desc: 'Packed in heat-sealed containers ready for collection.',
             };
+      case 'served':
+        return {
+          badge: 'SERVED AT TABLE',
+          title: `Served at ${order.tableNumber || 'Your Table'}`,
+          desc: 'Enjoy your meal! When finished, you may request your bill from your server or cashier.',
+        };
       case 'completed':
       default:
         return {

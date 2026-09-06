@@ -33,7 +33,12 @@ export default function OrdersScreen() {
   });
 
   const activeOrders = orders.filter(
-    (o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready'
+    (o) =>
+      o.status === 'pending' ||
+      o.status === 'sent_to_kitchen' ||
+      o.status === 'preparing' ||
+      o.status === 'ready' ||
+      o.status === 'served'
   );
   const pastOrders = orders.filter(
     (o) => o.status === 'completed' || o.status === 'cancelled'
@@ -43,12 +48,17 @@ export default function OrdersScreen() {
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {
+      case 'draft':
+        return { label: 'Draft', color: Colors.textMuted, icon: 'document-text-outline' };
       case 'pending':
+      case 'sent_to_kitchen':
         return { label: 'Received', color: Colors.saffron, icon: 'time-outline' };
       case 'preparing':
         return { label: 'In Kitchen', color: Colors.primary, icon: 'flame-outline' };
       case 'ready':
         return { label: 'Ready for Pickup', color: Colors.halalGreen, icon: 'checkmark-circle-outline' };
+      case 'served':
+        return { label: 'Served', color: '#1D4ED8', icon: 'restaurant-outline' };
       case 'completed':
         return { label: 'Delivered', color: Colors.textMuted, icon: 'checkmark-outline' };
       case 'cancelled':

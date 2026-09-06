@@ -113,6 +113,8 @@ export default function POSTerminalScreen() {
   const [orderType, setOrderType] = useState<OrderType>('dine_in');
   const [selectedTable, setSelectedTable] = useState<string>('Table 01');
   const [customerName, setCustomerName] = useState<string>('Walk-in Guest');
+  const [paymentTiming, setPaymentTiming] = useState<'pay_later' | 'pay_now'>('pay_later');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'gcash' | 'card'>('cash');
   const [cashTendered, setCashTendered] = useState<string>('');
 
   // Digital Receipt Modal
@@ -120,7 +122,9 @@ export default function POSTerminalScreen() {
 
   // Orders Table Mode - Filter & Pagination States
   const [ordersSearch, setOrdersSearch] = useState<string>('');
-  const [ordersStatusFilter, setOrdersStatusFilter] = useState<'all' | 'unpaid' | 'active' | 'completed'>('all');
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState<
+    'all' | 'open' | 'unpaid' | 'ready' | 'served' | 'completed'
+  >('all');
   const [ordersPage, setOrdersPage] = useState<number>(1);
   const [ordersPerPage, setOrdersPerPage] = useState<number>(8);
 
@@ -129,9 +133,13 @@ export default function POSTerminalScreen() {
     return orders
       .filter((o) => {
         if (ordersStatusFilter === 'unpaid') {
-          if (o.paymentStatus !== 'unpaid') return false;
-        } else if (ordersStatusFilter === 'active') {
+          if (o.paymentStatus !== 'unpaid' && o.paymentStatus !== 'partially_paid') return false;
+        } else if (ordersStatusFilter === 'open') {
           if (o.status === 'completed' || o.status === 'cancelled') return false;
+        } else if (ordersStatusFilter === 'ready') {
+          if (o.status !== 'ready') return false;
+        } else if (ordersStatusFilter === 'served') {
+          if (o.status !== 'served') return false;
         } else if (ordersStatusFilter === 'completed') {
           if (o.status !== 'completed') return false;
         }
@@ -161,14 +169,19 @@ export default function POSTerminalScreen() {
 
   const getOrderStatusMeta = (status: OrderStatus) => {
     switch (status) {
+      case 'draft':
+        return { label: 'Draft', color: Colors.textSecondary, bg: Colors.surface, icon: 'document-text-outline' as const };
       case 'pending':
+      case 'sent_to_kitchen':
         return { label: 'Received', color: Colors.saffron, bg: Colors.saffronLight, icon: 'time-outline' as const };
       case 'preparing':
         return { label: 'In Kitchen', color: Colors.primary, bg: Colors.primaryLight, icon: 'flame-outline' as const };
       case 'ready':
         return { label: 'Ready', color: Colors.halalGreen, bg: Colors.halalGreenLight, icon: 'checkmark-circle-outline' as const };
+      case 'served':
+        return { label: 'Served', color: '#1D4ED8', bg: '#EFF6FF', icon: 'restaurant-outline' as const };
       case 'completed':
-        return { label: 'Completed', color: Colors.textSecondary, bg: Colors.surface, icon: 'checkmark-done-outline' as const };
+        return { label: 'Closed', color: Colors.textSecondary, bg: Colors.surface, icon: 'checkmark-done-outline' as const };
       case 'cancelled':
         return { label: 'Cancelled', color: Colors.error, bg: '#FDE8E8', icon: 'close-circle-outline' as const };
     }
@@ -245,13 +258,16 @@ export default function POSTerminalScreen() {
   const tenderedNumber = parseFloat(cashTendered) || 0;
   const changeDue = Math.max(0, tenderedNumber - total);
 
-  // Complete Payment & Show Receipt (Cash Only)
-  const handleChargeAndPrint = () => {
+  // Place Order (Supports Pay Later - default for dine-in - and Pay Now)
+  const handlePlaceOrder = () => {
     if (posCart.length === 0) return;
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
+
+    const isPayNow = paymentTiming === 'pay_now';
+    const finalPaymentStatus = isPayNow ? 'paid' : 'unpaid';
 
     const cartItems = posCart.map((item) => ({
       cartItemId: `pos-${item.dish.id}-${Date.now()}`,
@@ -269,14 +285,15 @@ export default function POSTerminalScreen() {
       tableNumber: orderType === 'dine_in' ? selectedTable || 'Table 01' : undefined,
       customerName: customerName.trim() || 'Walk-in Guest',
       items: cartItems,
-      paymentMethod: 'cash',
+      paymentMethod,
+      paymentStatus: finalPaymentStatus,
       subtotal,
       tax,
       serviceFee: 0,
       deliveryFee: 0,
-      discount: 0, // No discounts
+      discount: 0,
       total,
-      specialNotes: `Counter POS (Cash Only) • Cashier: ${user?.name || 'Staff'}`,
+      specialNotes: `Counter POS • ${isPayNow ? `Paid (${paymentMethod})` : 'Pay Later (Unpaid)'} • Cashier: ${user?.name || 'Staff'}`,
     });
 
     setReceiptOrder(newOrder);
@@ -646,58 +663,112 @@ export default function POSTerminalScreen() {
               )}
             </ScrollView>
 
-            {/* Bottom Checkout & Payment Section (Cash Only) */}
+            {/* Bottom Checkout & Payment Section */}
             <View style={styles.ticketFooterSection}>
-              {/* Payment Method Badge (Cash Only) */}
-              <View style={styles.cashOnlyBadgeRow}>
-                <View style={styles.cashOnlyPill}>
-                  <Ionicons name="cash" size={15} color={Colors.halalGreen} />
-                  <Text style={styles.cashOnlyPillText}>CASH PAYMENT ONLY</Text>
-                </View>
-                <Text style={styles.cashOnlySubText}>Exact or Cash Change Supported</Text>
+              {/* Payment Timing Selector (Pay Later vs Pay Now) */}
+              <View style={{ flexDirection: 'row', backgroundColor: Colors.surface, padding: 4, borderRadius: Radius.md, marginBottom: 8, gap: 4 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 7,
+                    borderRadius: Radius.sm,
+                    backgroundColor: paymentTiming === 'pay_later' ? Colors.card : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setPaymentTiming('pay_later')}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: paymentTiming === 'pay_later' ? Colors.text : Colors.textMuted }}>
+                    {orderType === 'dine_in' ? 'Pay Later (Standard)' : 'Pay Later / COD'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 7,
+                    borderRadius: Radius.sm,
+                    backgroundColor: paymentTiming === 'pay_now' ? Colors.card : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setPaymentTiming('pay_now')}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: paymentTiming === 'pay_now' ? Colors.text : Colors.textMuted }}>
+                    Pay Now (Prepaid)
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Quick Cash Presets & Tendered Input */}
-              <View style={styles.cashTenderBox}>
-                <View style={styles.presetButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.presetBtn}
-                    onPress={() => setCashTendered(total.toString())}
-                  >
-                    <Text style={styles.presetBtnText}>Exact</Text>
-                  </TouchableOpacity>
-                  {CASH_PRESETS.map((amt) => (
-                    <TouchableOpacity
-                      key={amt}
-                      style={styles.presetBtn}
-                      onPress={() => setCashTendered(amt.toString())}
-                    >
-                      <Text style={styles.presetBtnText}>₱{amt}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <View style={styles.tenderInputRow}>
-                  <Text style={styles.tenderLabel}>Tendered:</Text>
-                  <View style={styles.tenderInputWrapper}>
-                    <Text style={styles.pesoSymbol}>₱</Text>
-                    <TextInput
-                      style={styles.tenderInput}
-                      keyboardType="numeric"
-                      placeholder="0.00"
-                      placeholderTextColor={Colors.textMuted}
-                      value={cashTendered}
-                      onChangeText={setCashTendered}
-                    />
+              {/* If Pay Now is selected: show method selector & cash presets */}
+              {paymentTiming === 'pay_now' && (
+                <View style={{ marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                    {(['cash', 'gcash', 'card'] as const).map((m) => (
+                      <TouchableOpacity
+                        key={m}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 6,
+                          borderRadius: Radius.sm,
+                          borderWidth: 1,
+                          borderColor: paymentMethod === m ? Colors.text : Colors.border,
+                          backgroundColor: paymentMethod === m ? Colors.text : Colors.card,
+                          alignItems: 'center',
+                        }}
+                        onPress={() => setPaymentMethod(m)}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', color: paymentMethod === m ? Colors.textLight : Colors.text }}>
+                          {m}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                  <View style={styles.changeDueBox}>
-                    <Text style={styles.changeDueLabel}>Change:</Text>
-                    <Text style={styles.changeDueVal}>₱{changeDue.toLocaleString()}</Text>
-                  </View>
-                </View>
-              </View>
 
-              {/* Math Totals (No discounts) */}
+                  {paymentMethod === 'cash' && (
+                    <View style={styles.cashTenderBox}>
+                      <View style={styles.presetButtonsRow}>
+                        <TouchableOpacity
+                          style={styles.presetBtn}
+                          onPress={() => setCashTendered(total.toString())}
+                        >
+                          <Text style={styles.presetBtnText}>Exact</Text>
+                        </TouchableOpacity>
+                        {CASH_PRESETS.map((amt) => (
+                          <TouchableOpacity
+                            key={amt}
+                            style={styles.presetBtn}
+                            onPress={() => setCashTendered(amt.toString())}
+                          >
+                            <Text style={styles.presetBtnText}>₱{amt}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <View style={styles.tenderInputRow}>
+                        <Text style={styles.tenderLabel}>Tendered:</Text>
+                        <View style={styles.tenderInputWrapper}>
+                          <Text style={styles.pesoSymbol}>₱</Text>
+                          <TextInput
+                            style={styles.tenderInput}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={Colors.textMuted}
+                            value={cashTendered}
+                            onChangeText={setCashTendered}
+                          />
+                        </View>
+                        <View style={styles.changeDueBox}>
+                          <Text style={styles.changeDueLabel}>Change:</Text>
+                          <Text style={styles.changeDueVal}>₱{changeDue.toLocaleString()}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Math Totals */}
               <View style={styles.totalsBox}>
                 <View style={styles.totalsRow}>
                   <Text style={styles.totalsLabel}>Subtotal</Text>
@@ -714,17 +785,30 @@ export default function POSTerminalScreen() {
                 </View>
               </View>
 
-              {/* Charge Action Button */}
+              {/* Action Button */}
               <TouchableOpacity
-                style={[styles.chargeBtn, posCart.length === 0 && styles.chargeBtnDisabled]}
-                onPress={handleChargeAndPrint}
+                style={[
+                  styles.chargeBtn,
+                  paymentTiming === 'pay_now' && { backgroundColor: Colors.halalGreen },
+                  posCart.length === 0 && styles.chargeBtnDisabled,
+                ]}
+                onPress={handlePlaceOrder}
                 disabled={posCart.length === 0}
                 activeOpacity={0.88}
               >
+                <Ionicons
+                  name={paymentTiming === 'pay_now' ? 'print-outline' : 'send-outline'}
+                  size={17}
+                  color={Colors.textLight}
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.chargeBtnText}>
-                  Cash ₱{total.toLocaleString()} &amp; Print Thermal Bill
+                  {paymentTiming === 'pay_now'
+                    ? `Charge ₱${total.toLocaleString()} & Send`
+                    : orderType === 'dine_in'
+                    ? `Send to Kitchen (${selectedTable} • Pay Later)`
+                    : `Place Order (Pay Later • ₱${total.toLocaleString()})`}
                 </Text>
-                <Ionicons name="print-outline" size={17} color={Colors.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -848,16 +932,24 @@ export default function POSTerminalScreen() {
             {/* Status Filter Tabs */}
             <View style={styles.tableFilterTabsRow}>
               {[
-                { id: 'all', label: `All Orders (${orders.length})` },
+                { id: 'all', label: `All (${orders.length})` },
                 {
-                  id: 'unpaid',
-                  label: `Unpaid (${orders.filter((o) => o.paymentStatus === 'unpaid').length})`,
-                },
-                {
-                  id: 'active',
-                  label: `In Progress (${
+                  id: 'open',
+                  label: `Open (${
                     orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled').length
                   })`,
+                },
+                {
+                  id: 'unpaid',
+                  label: `Unpaid (${orders.filter((o) => o.paymentStatus !== 'paid').length})`,
+                },
+                {
+                  id: 'ready',
+                  label: `Ready (${orders.filter((o) => o.status === 'ready').length})`,
+                },
+                {
+                  id: 'served',
+                  label: `Served (${orders.filter((o) => o.status === 'served').length})`,
                 },
                 {
                   id: 'completed',
@@ -1065,24 +1157,61 @@ export default function POSTerminalScreen() {
                               hitSlop={4}
                             >
                               <Ionicons name="receipt-outline" size={13} color={Colors.primary} />
-                              <Text style={styles.actionReceiptBtnText}>Receipt</Text>
+                              <Text style={styles.actionReceiptBtnText}>
+                                {isPaid ? 'Receipt' : 'Bill'}
+                              </Text>
                             </TouchableOpacity>
 
-                            {o.status !== 'completed' && (
+                            {(o.status === 'pending' || o.status === 'sent_to_kitchen') && (
                               <TouchableOpacity
-                                style={styles.actionCompleteBtn}
+                                style={[styles.actionCompleteBtn, { backgroundColor: Colors.saffron }]}
+                                onPress={() => updateOrderStatus(o.id, 'preparing')}
+                                hitSlop={4}
+                              >
+                                <Text style={styles.actionCompleteBtnText}>Cook</Text>
+                              </TouchableOpacity>
+                            )}
+
+                            {o.status === 'preparing' && (
+                              <TouchableOpacity
+                                style={[styles.actionCompleteBtn, { backgroundColor: Colors.primary }]}
+                                onPress={() => updateOrderStatus(o.id, 'ready')}
+                                hitSlop={4}
+                              >
+                                <Text style={styles.actionCompleteBtnText}>Ready</Text>
+                              </TouchableOpacity>
+                            )}
+
+                            {o.status === 'ready' && (
+                              <TouchableOpacity
+                                style={[styles.actionCompleteBtn, { backgroundColor: '#1D4ED8' }]}
+                                onPress={() => updateOrderStatus(o.id, 'served')}
+                                hitSlop={4}
+                              >
+                                <Text style={styles.actionCompleteBtnText}>Serve</Text>
+                              </TouchableOpacity>
+                            )}
+
+                            {!isPaid && (
+                              <TouchableOpacity
+                                style={[styles.actionCompleteBtn, { backgroundColor: Colors.halalGreen }]}
                                 onPress={() => {
-                                  try {
-                                    Haptics.notificationAsync(
-                                      Haptics.NotificationFeedbackType.Success
-                                    );
-                                  } catch {}
-                                  updateOrderStatus(o.id, 'completed');
+                                  const { updatePaymentStatus } = useOrderStore.getState();
+                                  updatePaymentStatus(o.id, 'paid');
                                 }}
                                 hitSlop={4}
                               >
-                                <Ionicons name="checkmark-outline" size={12} color={Colors.textLight} />
-                                <Text style={styles.actionCompleteBtnText}>Complete</Text>
+                                <Text style={styles.actionCompleteBtnText}>Pay</Text>
+                              </TouchableOpacity>
+                            )}
+
+                            {isPaid && o.status === 'served' && (
+                              <TouchableOpacity
+                                style={[styles.actionCompleteBtn, { backgroundColor: Colors.text }]}
+                                onPress={() => updateOrderStatus(o.id, 'completed')}
+                                hitSlop={4}
+                              >
+                                <Text style={styles.actionCompleteBtnText}>Close</Text>
                               </TouchableOpacity>
                             )}
                           </View>
@@ -1216,6 +1345,14 @@ export default function POSTerminalScreen() {
                 <Text style={styles.thermalBrandTitle}>HASAN'S FLAVORS</Text>
                 <Text style={styles.thermalBrandSub}>AUTHENTIC HALAL CUISINE</Text>
                 <Text style={styles.thermalTagline}>100% Zabihah Halal • Manila</Text>
+                <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', marginTop: 4 }}>
+                  {receiptOrder?.paymentStatus === 'paid'
+                    ? '*** OFFICIAL SALES RECEIPT ***'
+                    : '*** GUEST BILL / TABLE CHECK ***'}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: receiptOrder?.paymentStatus === 'paid' ? Colors.halalGreen : Colors.saffron }}>
+                  {receiptOrder?.paymentStatus === 'paid' ? '★ PAID IN FULL ★' : '⚠ PAYMENT PENDING ⚠'}
+                </Text>
                 <Text style={styles.thermalStars}>================================</Text>
               </View>
 
@@ -1295,8 +1432,16 @@ export default function POSTerminalScreen() {
                   </Text>
                 </View>
                 <View style={styles.thermalMathRow}>
+                  <Text style={styles.thermalMathLabel}>PAYMENT STATUS:</Text>
+                  <Text style={[styles.thermalMathVal, { fontWeight: '900', color: receiptOrder?.paymentStatus === 'paid' ? '#000' : '#B45309' }]}>
+                    {(receiptOrder?.paymentStatus || 'unpaid').toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.thermalMathRow}>
                   <Text style={styles.thermalMathLabel}>PAYMENT METHOD:</Text>
-                  <Text style={styles.thermalMathVal}>CASH ONLY</Text>
+                  <Text style={styles.thermalMathVal}>
+                    {(receiptOrder?.paymentMethod || 'cash').toUpperCase()}
+                  </Text>
                 </View>
                 <View style={styles.thermalMathRow}>
                   <Text style={styles.thermalMathLabel}>TOTAL ITEMS:</Text>
@@ -1309,11 +1454,19 @@ export default function POSTerminalScreen() {
               {/* Footer Notice */}
               <Text style={styles.thermalStars}>================================</Text>
               <View style={styles.thermalFooterNote}>
-                <Text style={styles.thermalNoticeText}>*** THANK YOU FOR DINING! ***</Text>
+                <Text style={styles.thermalNoticeText}>
+                  {receiptOrder?.paymentStatus === 'paid'
+                    ? '*** THANK YOU FOR DINING! ***'
+                    : '*** PRESENT TO CASHIER UPON EXIT ***'}
+                </Text>
                 <Text style={styles.thermalNoticeSub}>Please visit Hasan's Flavors again</Text>
                 <Text style={styles.thermalNoticeSub}>WiFi: HasansGuest • Pass: spice1234</Text>
                 <Text style={styles.thermalNoticeSub}>VAT Reg. TIN: 402-891-233-000</Text>
-                <Text style={styles.thermalCustomerCopy}>--- CUSTOMER OFFICIAL SLIP ---</Text>
+                <Text style={styles.thermalCustomerCopy}>
+                  {receiptOrder?.paymentStatus === 'paid'
+                    ? '--- CUSTOMER OFFICIAL RECEIPT ---'
+                    : '--- GUEST TABLE CHECK SLIP ---'}
+                </Text>
               </View>
               <Text style={styles.thermalStars}>================================</Text>
             </View>
