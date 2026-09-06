@@ -36,8 +36,52 @@ export default function POSTerminalScreen() {
   const { user, logout } = useAuthStore();
   const { setRole } = useRoleStore();
 
-  // Role Gate: Owner is strictly prohibited from POS register
-  if (user?.role === 'owner') {
+  // Role Gate: POS is strictly restricted to Cashier / Staff
+  if (!user) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="lock-closed-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Sign In Required
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            POS Register operations require staff authentication. Please sign in with your staff account.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/auth/signin' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Sign In to Staff Account</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (user.role === 'customer') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="shield-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Cashier Register Restricted
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            You are signed in as a Customer. The POS Cashier terminal is restricted to authorized restaurant staff.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/(tabs)' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Return to Dining Menu</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (user.role === 'owner') {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
@@ -252,16 +296,29 @@ export default function POSTerminalScreen() {
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    const doLogout = async () => {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      await logout();
+      router.replace('/auth/signin' as any);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Sign out of Staff terminal?') : true;
+      if (confirmed) {
+        await doLogout();
+      }
+      return;
+    }
+
     Alert.alert('Sign Out', 'Sign out of Staff terminal?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/auth/signin' as any);
-        },
+        onPress: doLogout,
       },
     ]);
   };

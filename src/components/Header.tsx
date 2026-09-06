@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   const router = useRouter();
   const itemCount = useCartStore((state) => state.getItemCount());
   const currentTable = useTableStore((state) => state.currentTable);
-  const user = useAuthStore((state) => state.user);
+  const { user, isAuthenticated } = useAuthStore();
 
   const handleBack = () => {
     try {
@@ -71,22 +71,32 @@ export const Header: React.FC<HeaderProps> = ({
             onPress={handleProfilePress}
           >
             <View style={styles.avatarWrapper}>
-              <Image
-                source={{
-                  uri:
-                    user?.avatarUrl ||
-                    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
-                }}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+              {user?.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons
+                    name={isAuthenticated ? 'person' : 'person-outline'}
+                    size={20}
+                    color={isAuthenticated ? Colors.primary : Colors.textSecondary}
+                  />
+                </View>
+              )}
             </View>
             <View style={styles.profileTextCol}>
               <Text style={styles.greetingText} numberOfLines={1}>
-                Hello, {user?.name ? user.name.split(' ')[0] : 'Diner'} 👋
+                {isAuthenticated && user ? `Hello, ${user.name.split(' ')[0]}` : 'Welcome Guest'} 👋
               </Text>
               <Text style={styles.statusText} numberOfLines={1}>
-                {currentTable ? `Table: ${currentTable}` : user?.tier || "Hasan's Flavors"}
+                {currentTable
+                  ? `Table: ${currentTable}`
+                  : isAuthenticated && user
+                  ? (user.role === 'owner' ? 'Owner Admin' : user.role === 'staff' ? 'Staff' : 'Diner VIP')
+                  : 'Tap to Sign In'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -182,6 +192,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
   },
   avatarImage: {
     width: '100%',

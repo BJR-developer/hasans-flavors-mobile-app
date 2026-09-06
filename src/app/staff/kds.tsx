@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,8 +28,53 @@ export default function KDSScreen() {
   const { setRole } = useRoleStore();
   const [filterType, setFilterType] = useState<'all' | 'dine_in' | 'delivery'>('all');
 
+  // Role Gate: KDS is strictly restricted to Kitchen Staff / Cashier
+  if (!user) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="lock-closed-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Sign In Required
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            Kitchen Display System (KDS) operations require staff authentication.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/auth/signin' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Sign In to Staff Account</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (user.role === 'customer') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="shield-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Kitchen KDS Restricted
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            You are signed in as a Customer. The Kitchen Display System is restricted to kitchen staff.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/(tabs)' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Return to Dining Menu</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Role Gate: Owner restricted from Kitchen KDS
-  if (user?.role === 'owner') {
+  if (user.role === 'owner') {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
@@ -79,7 +125,23 @@ export default function KDSScreen() {
     return Math.max(1, elapsed);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    const doLogout = async () => {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      await logout();
+      router.replace('/auth/signin' as any);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Sign out of Staff account?') : true;
+      if (confirmed) {
+        await doLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Sign out of Staff account?',
@@ -88,13 +150,7 @@ export default function KDSScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            try {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch {}
-            logout();
-            router.replace('/auth/signin' as any);
-          },
+          onPress: doLogout,
         },
       ]
     );

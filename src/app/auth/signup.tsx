@@ -1,13 +1,22 @@
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import {
+  getPasswordRules,
+  validateConfirmPassword,
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  validatePhone,
+} from '@/lib/validation';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -26,7 +35,7 @@ export default function SignUpScreen() {
   const isTabletOrDesktop = width >= 768;
   const isWeb = Platform.OS === 'web';
 
-  const { signup, socialLogin, isLoading } = useAuthStore();
+  const { signup, socialLogin, isLoading, isAuthenticated, user } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,40 +45,147 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
 
-  const handleFillDemo = () => {
-    try {
-      Haptics.selectionAsync();
-    } catch {}
-    setName('Amina Sheikh');
-    setEmail('amina.sheikh@example.com');
-    setPhone('+63 917 555 7890');
-    setPassword('secret123');
-    setConfirmPassword('secret123');
+  // Field-level error messages
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    password?: string;
+    confirmPassword?: string;
+    terms?: string;
+    general?: string;
+  }>({});
+
+  // Dynamic keyboard height tracking to ensure scrolling is never stuck
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
+
+  // If already authenticated, redirect to role-based dashboard immediately
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'owner') router.replace('/staff/owner' as any);
+      else if (user.role === 'staff') router.replace('/staff/pos' as any);
+      else router.replace('/(tabs)' as any);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates?.height || 260);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const passwordRules = getPasswordRules(password);
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    if (errors.name || errors.general) {
+      setErrors((prev) => ({ ...prev, name: undefined, general: undefined }));
+    }
+  };
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (errors.email || errors.general) {
+      setErrors((prev) => ({ ...prev, email: undefined, general: undefined }));
+    }
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setPhone(val);
+    if (errors.phone || errors.general) {
+      setErrors((prev) => ({ ...prev, phone: undefined, general: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (val: string) => {
+    setPassword(val);
+    if (errors.password || errors.general) {
+      setErrors((prev) => ({ ...prev, password: undefined, general: undefined }));
+    }
+    if (confirmPassword && errors.confirmPassword) {
+      setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+    }
+  };
+
+  const handleConfirmPasswordChange = (val: string) => {
+    setConfirmPassword(val);
+    if (errors.confirmPassword || errors.general) {
+      setErrors((prev) => ({ ...prev, confirmPassword: undefined, general: undefined }));
+    }
   };
 
   const handleSignUp = async () => {
-    if (!name.trim()) {
-      Alert.alert('Required', 'Please enter your full name.');
-      return;
+    const nextErrors: typeof errors = {};
+
+    // 1. Validate full name
+    const nameVal = validateFullName(name);
+    if (!nameVal.isValid) {
+      nextErrors.name = nameVal.error;
     }
-    if (!email.trim()) {
-      Alert.alert('Required', 'Please enter your email address.');
-      return;
+
+    // 2. Validate email address format and presence
+    const emailVal = validateEmail(email);
+    if (!emailVal.isValid) {
+      nextErrors.email = emailVal.error;
     }
-    if (!phone.trim()) {
-      Alert.alert('Required', 'Please enter your phone number.');
-      return;
+
+    // 3. Validate phone number
+    const phoneVal = validatePhone(phone);
+    if (!phoneVal.isValid) {
+      nextErrors.phone = phoneVal.error;
     }
-    if (!password) {
-      Alert.alert('Required', 'Please choose a password.');
-      return;
+
+    // 4. Validate password and enforce strength patterns
+    const passVal = validatePassword(password);
+    if (!passVal.isValid) {
+      nextErrors.password = passVal.error;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Password Mismatch', 'The passwords you entered do not match.');
-      return;
+
+    // 5. Validate confirm password matches
+    const confirmVal = validateConfirmPassword(password, confirmPassword);
+    if (!confirmVal.isValid) {
+      nextErrors.confirmPassword = confirmVal.error;
     }
+
+    // 6. Validate terms agreement
     if (!agreeTerms) {
-      Alert.alert('Terms', 'Please accept the Terms of Service to create your account.');
+      nextErrors.terms = 'Please accept the Terms of Service to create an account.';
+    }
+
+    // Stop if any errors found
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
+
+      // Scroll to the first error area if needed
+      if (nextErrors.name || nextErrors.email) {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      } else if (nextErrors.phone || nextErrors.password) {
+        scrollViewRef.current?.scrollTo({ y: 180, animated: true });
+      } else {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }
       return;
     }
 
@@ -98,6 +214,14 @@ export default function SignUpScreen() {
           },
         ]
       );
+    } else {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
+      setErrors({
+        general: res.message || 'Failed to create account. Please try again.',
+      });
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }
   };
 
@@ -130,85 +254,156 @@ export default function SignUpScreen() {
         )}
         <Text style={styles.welcomeTitle}>Create Account</Text>
         <Text style={styles.welcomeSubtitle}>
-          Join Hasan's Spice Club to earn rewards and reorder with ease.
+          Join Hasan's Flavors to manage your orders with ease.
         </Text>
       </View>
 
-      {/* Autofill Demo */}
-      <TouchableOpacity
-        style={styles.demoBanner}
-        onPress={handleFillDemo}
-        activeOpacity={0.8}
-      >
-        <View style={styles.demoBannerLeft}>
-          <Ionicons name="sparkles" size={14} color={Colors.saffron} />
-          <Text style={styles.demoBannerText}>
-            Autofill demo diner: <Text style={styles.demoBold}>Amina Sheikh</Text>
-          </Text>
+      {/* General Error Banner */}
+      {errors.general && (
+        <View style={styles.generalErrorBanner}>
+          <Ionicons name="alert-circle" size={18} color={Colors.error} />
+          <Text style={styles.generalErrorText}>{errors.general}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={13} color={Colors.saffron} />
-      </TouchableOpacity>
+      )}
 
       {/* Input Form */}
       <View style={styles.formContainer}>
+        {/* Full Name */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Full Name</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="person-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.name ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="person-outline"
+              size={18}
+              color={errors.name ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               value={name}
-              onChangeText={setName}
+              onChangeText={handleNameChange}
               placeholder="Enter your full name"
               placeholderTextColor={Colors.textMuted}
               autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => emailInputRef.current?.focus()}
             />
           </View>
+          {errors.name && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.name}</Text>
+            </View>
+          )}
         </View>
 
+        {/* Email Address */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Email Address</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="mail-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.email ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={18}
+              color={errors.email ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
+              ref={emailInputRef}
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
+              onChangeText={handleEmailChange}
+              placeholder="Enter your email (e.g. name@example.com)"
               placeholderTextColor={Colors.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => phoneInputRef.current?.focus()}
             />
           </View>
+          {errors.email && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.email}</Text>
+            </View>
+          )}
         </View>
 
+        {/* Phone Number */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Phone Number</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="call-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.phone ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="call-outline"
+              size={18}
+              color={errors.phone ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
+              ref={phoneInputRef}
               style={styles.input}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={handlePhoneChange}
               placeholder="+63 9xx xxx xxxx"
               placeholderTextColor={Colors.textMuted}
               keyboardType="phone-pad"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
           </View>
+          {errors.phone && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.phone}</Text>
+            </View>
+          )}
         </View>
 
+        {/* Password */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.password ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={18}
+              color={errors.password ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
+              ref={passwordInputRef}
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
-              placeholder="At least 6 characters"
+              onChangeText={handlePasswordChange}
+              placeholder="8+ characters with uppercase, number & symbol"
               placeholderTextColor={Colors.textMuted}
               secureTextEntry={!showPassword}
+              returnKeyType="next"
+              onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+                }, 150);
+              }}
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
@@ -221,27 +416,143 @@ export default function SignUpScreen() {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Password pattern checklist badges */}
+          <View style={styles.passwordRulesContainer}>
+            <View style={styles.ruleBadge}>
+              <Ionicons
+                name={passwordRules.minLength ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={passwordRules.minLength ? Colors.halalGreen : Colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.ruleText,
+                  passwordRules.minLength && styles.ruleTextPassed,
+                ]}
+              >
+                8+ chars
+              </Text>
+            </View>
+            <View style={styles.ruleBadge}>
+              <Ionicons
+                name={passwordRules.hasUpper ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={passwordRules.hasUpper ? Colors.halalGreen : Colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.ruleText,
+                  passwordRules.hasUpper && styles.ruleTextPassed,
+                ]}
+              >
+                Uppercase (A-Z)
+              </Text>
+            </View>
+            <View style={styles.ruleBadge}>
+              <Ionicons
+                name={passwordRules.hasLower ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={passwordRules.hasLower ? Colors.halalGreen : Colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.ruleText,
+                  passwordRules.hasLower && styles.ruleTextPassed,
+                ]}
+              >
+                Lowercase (a-z)
+              </Text>
+            </View>
+            <View style={styles.ruleBadge}>
+              <Ionicons
+                name={passwordRules.hasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={passwordRules.hasNumber ? Colors.halalGreen : Colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.ruleText,
+                  passwordRules.hasNumber && styles.ruleTextPassed,
+                ]}
+              >
+                Number (0-9)
+              </Text>
+            </View>
+            <View style={styles.ruleBadge}>
+              <Ionicons
+                name={passwordRules.hasSpecial ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={passwordRules.hasSpecial ? Colors.halalGreen : Colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.ruleText,
+                  passwordRules.hasSpecial && styles.ruleTextPassed,
+                ]}
+              >
+                Symbol (!@#$)
+              </Text>
+            </View>
+          </View>
+
+          {errors.password && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.password}</Text>
+            </View>
+          )}
         </View>
 
+        {/* Confirm Password */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Confirm Password</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.confirmPassword ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={18}
+              color={errors.confirmPassword ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
+              ref={confirmPasswordInputRef}
               style={styles.input}
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm your password"
+              onChangeText={handleConfirmPasswordChange}
+              placeholder="Re-enter your password"
               placeholderTextColor={Colors.textMuted}
               secureTextEntry={!showPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleSignUp}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 150);
+              }}
             />
           </View>
+          {errors.confirmPassword && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+            </View>
+          )}
         </View>
 
         {/* Terms Checkbox */}
         <TouchableOpacity
           style={styles.termsRow}
-          onPress={() => setAgreeTerms(!agreeTerms)}
+          onPress={() => {
+            setAgreeTerms(!agreeTerms);
+            if (errors.terms) {
+              setErrors((prev) => ({ ...prev, terms: undefined }));
+            }
+          }}
           activeOpacity={0.7}
         >
           <Ionicons
@@ -254,6 +565,12 @@ export default function SignUpScreen() {
             <Text style={styles.termsLink}>Privacy Policy</Text>
           </Text>
         </TouchableOpacity>
+        {errors.terms && (
+          <View style={styles.errorRow}>
+            <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+            <Text style={styles.errorText}>{errors.terms}</Text>
+          </View>
+        )}
 
         {/* Submit Button */}
         <TouchableOpacity
@@ -311,9 +628,13 @@ export default function SignUpScreen() {
     </View>
   );
 
+  if (isAuthenticated && user) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Top Bar (Hidden on web; "Skip to menu" removed) */}
+      {/* Top Bar Navigation (Hidden on web) */}
       {!isWeb && (
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -329,6 +650,7 @@ export default function SignUpScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {isTabletOrDesktop ? (
           /* =========================================================
@@ -387,10 +709,15 @@ export default function SignUpScreen() {
 
             {/* Right Form Column */}
             <ScrollView
+              ref={scrollViewRef}
               style={styles.splitRightScroll}
-              contentContainerStyle={styles.splitRightScrollContent}
+              contentContainerStyle={[
+                styles.splitRightScrollContent,
+                { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : Spacing.xxl },
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
             >
               {renderFormContent()}
             </ScrollView>
@@ -400,10 +727,18 @@ export default function SignUpScreen() {
              MOBILE SINGLE COLUMN LAYOUT
              ========================================================= */
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 70 : Spacing.xxxl,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
           >
             {renderFormContent()}
           </ScrollView>
@@ -440,23 +775,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadows.subtle,
-  },
-  guestPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: Radius.round,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  guestPillText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    fontFamily: Typography.fontFamily.semiBold,
-    color: Colors.primary,
   },
 
   /* Split Layout (Tablet / Web) */
@@ -568,9 +886,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl,
+    justifyContent: 'center',
   },
   formInner: {
     maxWidth: 480,
@@ -615,33 +935,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
 
-  /* Autofill Banner */
-  demoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.saffronLight,
-    borderWidth: 1,
-    borderColor: '#FFE082',
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 9,
-    marginBottom: Spacing.lg,
-    ...Shadows.subtle,
-  },
-  demoBannerLeft: {
+  /* General Error Banner */
+  generalErrorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#FFF2F2',
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.md,
   },
-  demoBannerText: {
+  generalErrorText: {
+    flex: 1,
     fontSize: Typography.fontSize.xs,
-    color: Colors.saffronDark,
     fontFamily: Typography.fontFamily.medium,
-  },
-  demoBold: {
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
+    color: Colors.error,
+    lineHeight: 16,
   },
 
   /* Form Container */
@@ -649,7 +961,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   fieldGroup: {
-    gap: 6,
+    gap: 5,
   },
   fieldLabel: {
     fontSize: Typography.fontSize.xs,
@@ -668,6 +980,11 @@ const styles = StyleSheet.create({
     height: 48,
     ...Shadows.subtle,
   },
+  inputWrapperError: {
+    borderColor: Colors.error,
+    backgroundColor: '#FFFBFB',
+    borderWidth: 1.5,
+  },
   inputIcon: {
     marginRight: 8,
   },
@@ -677,6 +994,45 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.medium,
     color: Colors.text,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  errorText: {
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.error,
+  },
+
+  /* Password Pattern Checklist */
+  passwordRulesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  ruleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+  },
+  ruleText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+  },
+  ruleTextPassed: {
+    color: Colors.halalGreen,
+    fontWeight: '600',
+  },
+
   termsRow: {
     flexDirection: 'row',
     alignItems: 'center',

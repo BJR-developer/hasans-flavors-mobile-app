@@ -8,6 +8,7 @@ import {
   Switch,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,53 @@ export default function OwnerDashboardScreen() {
   const stats = getDailyStats();
   const outOfStockCount = dishes.filter((d) => !d.inStock).length;
 
+  // Role Gate: Strictly restricted to Owner
+  if (!user) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="lock-closed-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Sign In Required
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            Executive Owner operations require owner authentication. Please sign in with your owner credentials.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/auth/signin' as any)}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Sign In to Owner Account</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (user.role !== 'owner') {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
+          <Ionicons name="shield-outline" size={48} color={Colors.saffron} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+            Owner Portal Restricted
+          </Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+            You are currently signed in as {user.role === 'staff' ? 'Cashier / Staff' : 'Customer'}. Financial analytics and executive administration are restricted to the Owner.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace(user.role === 'staff' ? ('/staff/pos' as any) : ('/(tabs)' as any))}
+          >
+            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>
+              {user.role === 'staff' ? 'Return to POS Register' : 'Return to Dining Menu'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleToggleStock = (dishId: string) => {
     try {
       Haptics.selectionAsync();
@@ -39,7 +87,23 @@ export default function OwnerDashboardScreen() {
     toggleDishStock(dishId);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    const doLogout = async () => {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      await logout();
+      router.replace('/auth/signin' as any);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Sign out of Owner account?') : true;
+      if (confirmed) {
+        await doLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Sign out of Owner account?',
@@ -48,13 +112,7 @@ export default function OwnerDashboardScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            try {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch {}
-            logout();
-            router.replace('/auth/signin' as any);
-          },
+          onPress: doLogout,
         },
       ]
     );

@@ -8,21 +8,112 @@ import {
   Image,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useOrderStore } from '@/store/useOrderStore';
-import { OrderStatus } from '@/types';
+import { Order, OrderStatus } from '@/types';
+import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 
 export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const order = useOrderStore((state) => state.getOrderById(id || ''));
-  const updateOrderStatus = useOrderStore((state) => state.updateOrderStatus);
+  const storeOrder = useOrderStore((state) => state.getOrderById(id || ''));
+  const [order, setOrder] = useState<Order | undefined>(storeOrder);
+  const [isLoading, setIsLoading] = useState<boolean>(!storeOrder);
+
+  const fetchOrderDetails = async () => {
+    const fromStore = useOrderStore.getState().getOrderById(id || '');
+    if (fromStore) {
+      setOrder(fromStore);
+      setIsLoading(false);
+      return;
+    }
+
+    if (id) {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .or(`id.eq.${id},order_number.eq.${id}`)
+          .single();
+
+        if (!error && data) {
+          const mapped: Order = {
+            id: String(data.id),
+            orderNumber: data.order_number,
+            customerId: data.customer_id || undefined,
+            type: data.type || 'dine_in',
+            tableNumber: data.table_number || undefined,
+            customerName: data.customer_name || 'Diner',
+            customerPhone: data.customer_phone || undefined,
+            deliveryAddress: data.notes || undefined,
+            items: Array.isArray(data.items) ? data.items : [],
+            subtotal: Number(data.subtotal || 0),
+            tax: Number(data.tax || 0),
+            serviceFee: 0,
+            deliveryFee: Number(data.delivery_fee || 0),
+            discount: 0,
+            total: Number(data.total || 0),
+            status: data.status as OrderStatus,
+            paymentMethod: data.payment_method,
+            paymentStatus: data.payment_status,
+            createdAt: data.created_at,
+            estimatedMinutes: 20,
+            specialNotes: data.notes || undefined,
+          };
+          setOrder(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch order:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setIsLoading(false);
+    }
+  };
+
+  // Sync with store and live Supabase
+  useEffect(() => {
+    fetchOrderDetails();
+  }, [id, storeOrder]);
+
+  // Realtime Supabase Subscription for live order bumps
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`mobile:track:order:${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          const updated: any = payload.new;
+          if (updated && (String(updated.id) === id || updated.order_number === id)) {
+            setOrder((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    status: updated.status as OrderStatus,
+                    paymentStatus: updated.payment_status,
+                  }
+                : undefined
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
 
   // Countdown timer simulation
   const [countdownMinutes, setCountdownMinutes] = useState(order?.estimatedMinutes || 18);
@@ -74,6 +165,17 @@ export default function OrderTrackingScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]} edges={['top']}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ marginTop: 12, color: Colors.textSecondary, fontSize: 13, fontFamily: Typography.fontFamily.medium }}>
+          Connecting to kitchen ticket...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   if (!order) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -94,12 +196,20 @@ export default function OrderTrackingScreen() {
           </View>
           <Text style={styles.notFoundTitle}>Order Not Found</Text>
           <Text style={styles.notFoundSub}>This order ticket could not be located.</Text>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.replace('/(tabs)/orders' as any)}
-          >
-            <Text style={styles.backBtnText}>View All Orders</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: Spacing.md }}>
+            <TouchableOpacity
+              style={[styles.backBtn, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border }]}
+              onPress={fetchOrderDetails}
+            >
+              <Text style={[styles.backBtnText, { color: Colors.text }]}>Retry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.replace('/(tabs)/orders' as any)}
+            >
+              <Text style={styles.backBtnText}>View All Orders</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -170,15 +280,6 @@ export default function OrderTrackingScreen() {
   };
 
   const statusInfo = getStatusHeadline();
-
-  const handleSimulateNextStep = () => {
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
-    const sequence: OrderStatus[] = ['pending', 'preparing', 'ready', 'completed'];
-    const nextIdx = Math.min(sequence.length - 1, currentStepIdx + 1);
-    updateOrderStatus(order.id, sequence[nextIdx]);
-  };
 
   return (
     <View style={styles.screenContainer}>
@@ -357,18 +458,6 @@ export default function OrderTrackingScreen() {
             <Text style={styles.liveDescTitle}>{statusInfo.title}</Text>
             <Text style={styles.liveDescSub}>{statusInfo.desc}</Text>
           </View>
-
-          {/* Interactive Demo Simulation Button */}
-          {order.status !== 'completed' && (
-            <TouchableOpacity
-              style={styles.demoPillBtn}
-              onPress={handleSimulateNextStep}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="play-forward-outline" size={13} color={Colors.primary} />
-              <Text style={styles.demoPillBtnText}>Simulate Kitchen Progress</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Order Items Breakdown with Dish Images */}

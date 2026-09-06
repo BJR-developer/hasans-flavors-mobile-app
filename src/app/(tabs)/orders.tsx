@@ -14,14 +14,23 @@ import { Header } from '@/components/Header';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useOrderStore } from '@/store/useOrderStore';
 import { useCartStore } from '@/store/useCartStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { Order, OrderStatus } from '@/types';
 import * as Haptics from 'expo-haptics';
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const orders = useOrderStore((state) => state.orders);
+  const { user, isAuthenticated } = useAuthStore();
+  const allOrders = useOrderStore((state) => state.orders);
   const addItem = useCartStore((state) => state.addItem);
   const [filterTab, setFilterTab] = useState<'active' | 'history'>('active');
+
+  // Customer Order Isolation: only display orders belonging to this user
+  const orders = allOrders.filter((o) => {
+    if (!user) return false;
+    if (user.role === 'owner' || user.role === 'staff') return true;
+    return o.customerId === user.id || o.customerName.toLowerCase() === user.name.toLowerCase();
+  });
 
   const activeOrders = orders.filter(
     (o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready'
@@ -64,6 +73,31 @@ export default function OrdersScreen() {
     useOrderStore.getState().setActiveOrder(orderId);
     router.push(`/track/${orderId}` as any);
   };
+
+  if (!isAuthenticated || !user) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <Header title="Your Orders" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, ...Shadows.subtle }}>
+            <Ionicons name="receipt-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+              Sign In to View Orders
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+              Sign in with your account to access your live active orders, tracking status, and order history.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+              onPress={() => router.push('/auth/signin' as any)}
+            >
+              <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Sign In Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

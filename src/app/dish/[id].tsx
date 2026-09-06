@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +17,7 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useMenuStore } from '@/store/useMenuStore';
 import { useCartStore } from '@/store/useCartStore';
 import { ADDON_OPTIONS, PORTION_OPTIONS, SPICE_LEVELS } from '@/data/options';
-import { AddonOption, PortionOption } from '@/types';
+import { AddonOption, Dish, PortionOption } from '@/types';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -24,14 +25,46 @@ const { width } = Dimensions.get('window');
 export default function DishDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const dish = useMenuStore((state) => state.getDishById(id));
+  const storeDish = useMenuStore((state) => state.getDishById(id));
+  const fetchDishById = useMenuStore((state) => state.fetchDishById);
   const addItem = useCartStore((state) => state.addItem);
+
+  const [dish, setDish] = useState<Dish | undefined>(storeDish);
+  const [isLoading, setIsLoading] = useState<boolean>(!storeDish);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedPortion, setSelectedPortion] = useState<PortionOption>(PORTION_OPTIONS[0]);
-  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<number>(dish?.spiceLevel || 2);
+  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<number>(storeDish?.spiceLevel || 2);
   const [selectedAddons, setSelectedAddons] = useState<AddonOption[]>([]);
   const [specialNotes, setSpecialNotes] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (storeDish) {
+      setDish(storeDish);
+      setSelectedSpiceLevel(storeDish.spiceLevel || 2);
+      setIsLoading(false);
+    } else if (id) {
+      setIsLoading(true);
+      fetchDishById(id).then((d) => {
+        if (d) {
+          setDish(d);
+          setSelectedSpiceLevel(d.spiceLevel || 2);
+        }
+        setIsLoading(false);
+      });
+    }
+  }, [id, storeDish, fetchDishById]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ marginTop: 12, color: Colors.textSecondary, fontSize: 13 }}>Loading dish details...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!dish) {
     return (
@@ -70,6 +103,8 @@ export default function DishDetailScreen() {
     router.back();
   };
 
+  const allImages = dish.imageUrls && dish.imageUrls.length > 0 ? dish.imageUrls : [dish.imageUrl].filter(Boolean);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -77,9 +112,62 @@ export default function DishDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Hero Image */}
+        {/* Hero Product Images Gallery */}
         <View style={styles.heroImageWrapper}>
-          <Image source={{ uri: dish.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+          {allImages.length > 1 ? (
+            <ScrollView
+              ref={carouselRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const idx = Math.round(offsetX / width);
+                setActiveImageIndex(idx);
+              }}
+              style={styles.carouselScrollView}
+            >
+              {allImages.map((imgUri, index) => (
+                <Image
+                  key={imgUri + index}
+                  source={{ uri: imgUri }}
+                  style={[styles.heroImage, { width }]}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <Image
+              source={{ uri: allImages[0] || dish.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
+          )}
+
+          {/* Image Counter Badge */}
+          {allImages.length > 1 && (
+            <View style={styles.imageCounterBadge}>
+              <Ionicons name="images-outline" size={13} color="#FFFFFF" />
+              <Text style={styles.imageCounterText}>
+                {activeImageIndex + 1} / {allImages.length}
+              </Text>
+            </View>
+          )}
+
+          {/* Carousel Dots */}
+          {allImages.length > 1 && (
+            <View style={styles.carouselDotsContainer}>
+              {allImages.map((_, idx) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.carouselDot,
+                    idx === activeImageIndex && styles.carouselDotActive,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
 
           {/* Floating Top Navigation */}
           <SafeAreaView style={styles.floatingTopBar} edges={['top']}>
@@ -88,6 +176,40 @@ export default function DishDetailScreen() {
             </TouchableOpacity>
           </SafeAreaView>
         </View>
+
+        {/* Multi-Image Thumbnail Selector Strip */}
+        {allImages.length > 1 && (
+          <View style={styles.thumbnailStripWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbnailStrip}
+            >
+              {allImages.map((imgUri, idx) => {
+                const isSelected = idx === activeImageIndex;
+                return (
+                  <TouchableOpacity
+                    key={imgUri + idx}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      try {
+                        Haptics.selectionAsync();
+                      } catch {}
+                      setActiveImageIndex(idx);
+                      carouselRef.current?.scrollTo({ x: idx * width, animated: true });
+                    }}
+                    style={[
+                      styles.thumbnailBtn,
+                      isSelected && styles.thumbnailBtnActive,
+                    ]}
+                  >
+                    <Image source={{ uri: imgUri }} style={styles.thumbnailImg} resizeMode="cover" />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Dish Info Header */}
         <View style={styles.infoCard}>
@@ -218,7 +340,7 @@ export default function DishDetailScreen() {
                   </View>
 
                   <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
-                    +₱${addon.price}
+                    +₱{addon.price}
                   </Text>
                 </TouchableOpacity>
               );
@@ -278,9 +400,16 @@ export default function DishDetailScreen() {
           </View>
 
           {/* Add to Cart CTA */}
-          <TouchableOpacity activeOpacity={0.88} style={styles.addToCartBtn} onPress={handleAddToCart}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={[styles.addToCartBtn, !dish.inStock && styles.disabledAddToCartBtn]}
+            onPress={dish.inStock ? handleAddToCart : undefined}
+            disabled={!dish.inStock}
+          >
             <Text style={styles.addToCartText}>
-              Add to Cart • ₱{totalPrice.toLocaleString()}
+              {dish.inStock
+                ? `Add to Cart • ₱${totalPrice.toLocaleString()}`
+                : 'Currently Out of Stock'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -309,7 +438,75 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: Colors.surface,
   },
+  carouselScrollView: {
+    width: '100%',
+    height: 280,
+  },
   heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageCounterBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 14,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  imageCounterText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  carouselDotsContainer: {
+    position: 'absolute',
+    bottom: 14,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+  },
+  carouselDotActive: {
+    width: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  thumbnailStripWrapper: {
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingVertical: Spacing.sm,
+  },
+  thumbnailStrip: {
+    paddingHorizontal: Spacing.lg,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  thumbnailBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: Radius.sm,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: Colors.surface,
+  },
+  thumbnailBtnActive: {
+    borderColor: Colors.primary,
+  },
+  thumbnailImg: {
     width: '100%',
     height: '100%',
   },
@@ -577,6 +774,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
+  },
+  disabledAddToCartBtn: {
+    backgroundColor: Colors.textMuted,
+    opacity: 0.6,
   },
   addToCartText: {
     color: Colors.textLight,

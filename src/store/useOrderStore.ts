@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 const mapOrderRow = (row: any): Order => ({
   id: String(row.id),
   orderNumber: row.order_number,
+  customerId: row.customer_id || undefined,
   type: row.type || 'dine_in',
   tableNumber: row.table_number || undefined,
   customerName: row.customer_name || 'Diner',
@@ -28,6 +29,7 @@ const mapOrderRow = (row: any): Order => ({
 export interface PlaceOrderParams {
   type: 'dine_in' | 'delivery' | 'takeout';
   items: CartItem[];
+  customerId?: string;
   customerName: string;
   customerPhone?: string;
   deliveryAddress?: string;
@@ -138,6 +140,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const newOrder: Order = {
       id: `ord_${Date.now()}`,
       orderNumber: `#HF-${newSeq}`,
+      customerId: params.customerId,
       type: params.type,
       tableNumber: params.tableNumber,
       customerName: params.customerName || 'Valued Guest',
@@ -169,6 +172,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const dbPayload = {
       id: newOrder.id,
       order_number: newOrder.orderNumber,
+      customer_id: params.customerId || null,
       customer_name: newOrder.customerName,
       customer_phone: newOrder.customerPhone || null,
       table_number: newOrder.tableNumber || null,

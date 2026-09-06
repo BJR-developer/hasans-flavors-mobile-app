@@ -33,13 +33,19 @@ export const useTableStore = create<TableState>((set, get) => ({
         .order('id');
 
       if (!error && data && data.length > 0) {
-        const mapped: TableSession[] = data.map((row: any) => ({
-          tableNumber: row.table_number,
-          guestCount: row.guest_count || 4,
-          status: row.status as 'available' | 'occupied' | 'billing',
-          activeOrderId: row.current_order_id || undefined,
-          joinedAt: row.updated_at,
-        }));
+        const mapped: TableSession[] = data
+          .map((row: any) => ({
+            tableNumber: row.table_number,
+            guestCount: row.guest_count || 4,
+            status: row.status as 'available' | 'occupied' | 'billing',
+            activeOrderId: row.current_order_id || undefined,
+            joinedAt: row.updated_at,
+          }))
+          .sort((a, b) => {
+            const numA = parseInt(a.tableNumber.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.tableNumber.replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+          });
         set({ tables: mapped, isLoading: false });
       } else {
         set({ isLoading: false });
@@ -118,8 +124,24 @@ export const useTableStore = create<TableState>((set, get) => ({
     }
   },
 
-  clearTable: () => {
+  clearTable: async () => {
+    const current = get().currentTable;
     set({ currentTable: null, guestCount: 1 });
+
+    if (current) {
+      try {
+        await supabase
+          .from('dining_tables')
+          .update({
+            status: 'available',
+            current_order_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('table_number', current);
+      } catch (e) {
+        console.error('Failed to release table in Supabase:', e);
+      }
+    }
   },
 
   updateGuestCount: (count: number) => {

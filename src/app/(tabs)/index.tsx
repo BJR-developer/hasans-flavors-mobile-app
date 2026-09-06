@@ -45,7 +45,7 @@ const POPULAR_SUGGESTIONS = [
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { dishes, categories, selectedCategoryId, setSelectedCategory } = useMenuStore();
+  const { dishes, categories, selectedCategoryId, setSelectedCategory, isLoading } = useMenuStore();
   const itemCount = useCartStore((state) => state.getItemCount());
 
   // Search State & Animation

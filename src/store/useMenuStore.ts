@@ -1,10 +1,8 @@
 import { create } from 'zustand';
 import { Category, Dish } from '@/types';
-import menuFallback from '@/data/menu.json';
-import categoriesFallback from '@/data/categories.json';
 import { supabase } from '@/lib/supabase';
 
-const mapDishRow = (row: any): Dish => ({
+export const mapDishRow = (row: any): Dish => ({
   id: String(row.id),
   name: row.name,
   slug: row.slug,
@@ -13,6 +11,9 @@ const mapDishRow = (row: any): Dish => ({
   category: row.category_name,
   description: row.description || '',
   imageUrl: row.image_url || '',
+  imageUrls: Array.isArray(row.image_urls) && row.image_urls.length > 0
+    ? row.image_urls
+    : (row.image_url ? [row.image_url] : []),
   spiceLevel: Number(row.spice_level || 0),
   isHalal: row.is_halal ?? true,
   isChefSpecial: row.is_chef_special ?? false,
@@ -22,6 +23,8 @@ const mapDishRow = (row: any): Dish => ({
   calories: row.calories || '',
   rating: String(row.rating || '4.8'),
   reviewCount: Number(row.review_count || 10),
+  createdAt: row.created_at,
+  updatedAt: row.updated_at || row.created_at,
 });
 
 interface MenuState {
@@ -37,6 +40,7 @@ interface MenuState {
 
   // Actions
   fetchMenuData: () => Promise<void>;
+  fetchDishById: (dishId: string) => Promise<Dish | null>;
   setSelectedCategory: (categoryId: string) => void;
   setSearchQuery: (query: string) => void;
   setSpiceFilter: (level: number | null) => void;
@@ -49,37 +53,37 @@ interface MenuState {
 let realtimeSubscribed = false;
 
 export const useMenuStore = create<MenuState>((set, get) => ({
-  dishes: menuFallback as Dish[],
-  categories: categoriesFallback as Category[],
+  dishes: [],
+  categories: [],
   selectedCategoryId: 'all',
   searchQuery: '',
   selectedSpiceFilter: null,
   onlyChefSpecial: false,
   onlyHalal: false,
-  isLoading: false,
+  isLoading: true,
   isRealtimeConnected: false,
 
   fetchMenuData: async () => {
     try {
       set({ isLoading: true });
 
-      // 1. Fetch Dishes
+      // 1. Fetch Dishes directly from live Supabase table
       const { data: dishData, error: dishError } = await supabase
         .from('dishes')
         .select('*')
         .order('name');
 
-      if (!dishError && dishData && dishData.length > 0) {
+      if (!dishError && dishData) {
         set({ dishes: dishData.map(mapDishRow) });
       }
 
-      // 2. Fetch Categories
+      // 2. Fetch Categories directly from live Supabase table
       const { data: catData, error: catError } = await supabase
         .from('categories')
         .select('*')
         .order('sort_order');
 
-      if (!catError && catData && catData.length > 0) {
+      if (!catError && catData) {
         const mappedCats: Category[] = catData.map((c: any) => ({
           id: c.id,
           name: c.name,
@@ -128,9 +132,32 @@ export const useMenuStore = create<MenuState>((set, get) => ({
 
       set({ isLoading: false });
     } catch (e) {
-      console.warn('Failed to load menu from Supabase, using fallback:', e);
+      console.error('Failed to load menu from Supabase:', e);
       set({ isLoading: false });
     }
+  },
+
+  fetchDishById: async (dishId: string): Promise<Dish | null> => {
+    // Check in-memory store first
+    const existing = get().dishes.find((d) => d.id === dishId);
+    if (existing) return existing;
+
+    try {
+      const { data, error } = await supabase
+        .from('dishes')
+        .select('*')
+        .eq('id', dishId)
+        .single();
+
+      if (!error && data) {
+        const dish = mapDishRow(data);
+        set((state) => ({ dishes: [...state.dishes, dish] }));
+        return dish;
+      }
+    } catch (e) {
+      console.error('Error fetching dish by id:', e);
+    }
+    return null;
   },
 
   setSelectedCategory: (categoryId) => {

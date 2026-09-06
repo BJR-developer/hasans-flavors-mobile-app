@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,9 +38,16 @@ export default function CheckoutScreen() {
 
   const currentTable = useTableStore((state) => state.currentTable);
   const placeOrder = useOrderStore((state) => state.placeOrder);
-  const user = useAuthStore((state) => state.user);
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || !user)) {
+      router.replace('/auth/signin' as any);
+    }
+  }, [isAuthenticated, user, isLoading, router]);
 
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const subtotal = getSubtotal();
   const tax = getTax();
@@ -47,31 +55,97 @@ export default function CheckoutScreen() {
   const serviceFee = getServiceFee();
   const grandTotal = getTotal();
 
-  const handlePlaceOrder = () => {
-    if (items.length === 0) return;
+  if (items.length === 0) {
+    return (
+      <View style={styles.screenContainer}>
+        <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+          <Header title="Checkout" showBack showCart={false} showScanTable={false} />
+        </SafeAreaView>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, ...Shadows.subtle }}>
+            <Ionicons name="bag-outline" size={44} color={Colors.textMuted} style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+              Your Cart is Empty
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+              You don't have any items in your cart to checkout. Please browse our menu and add items to order.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+              onPress={() => router.replace('/(tabs)/menu' as any)}
+            >
+              <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Browse Menu</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
+  if (!isAuthenticated || !user) {
+    return (
+      <View style={styles.screenContainer}>
+        <SafeAreaView style={styles.topSafeArea} edges={['top']}>
+          <Header title="Checkout" showBack showCart={false} showScanTable={false} />
+        </SafeAreaView>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, ...Shadows.subtle }}>
+            <Ionicons name="lock-closed-outline" size={44} color={Colors.primary} style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
+              Sign In Required
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+              Please sign in to your account to review items and complete checkout.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
+              onPress={() => router.push('/auth/signin' as any)}
+            >
+              <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Sign In to Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const handlePlaceOrder = async () => {
+    if (items.length === 0 || isPlacingOrder) return;
+
+    if (!isAuthenticated || !user) {
+      router.push('/auth/signin' as any);
+      return;
+    }
+
+    setIsPlacingOrder(true);
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
 
-    const order = placeOrder({
-      type: deliveryType === 'dine_in' ? 'dine_in' : 'takeout',
-      items,
-      customerName: user?.name || 'Customer',
-      customerPhone: user?.phone || '+63 917 888 1234',
-      tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
-      paymentMethod: 'cash',
-      subtotal,
-      tax,
-      serviceFee,
-      deliveryFee,
-      discount: discountAmount,
-      total: grandTotal,
-      specialNotes: specialInstructions.trim(),
-    });
+      const order = await placeOrder({
+        type: deliveryType === 'dine_in' ? 'dine_in' : 'takeout',
+        items,
+        customerId: user.id,
+        customerName: user.name || 'Valued Diner',
+        customerPhone: user.phone || undefined,
+        tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
+        paymentMethod: 'cash',
+        subtotal,
+        tax,
+        serviceFee,
+        deliveryFee,
+        discount: discountAmount,
+        total: grandTotal,
+        specialNotes: specialInstructions.trim(),
+      });
 
-    clearCart();
-    router.replace(`/track/${order.id}` as any);
+      clearCart();
+      router.replace(`/track/${order.id}` as any);
+    } catch (err) {
+      console.error('Failed to place order:', err);
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -235,11 +309,18 @@ export default function CheckoutScreen() {
 
           <TouchableOpacity
             activeOpacity={0.88}
-            style={styles.placeOrderBtn}
+            style={[styles.placeOrderBtn, isPlacingOrder && { opacity: 0.7 }]}
             onPress={handlePlaceOrder}
+            disabled={isPlacingOrder}
           >
-            <Text style={styles.placeOrderBtnText}>Place Order</Text>
-            <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
+            {isPlacingOrder ? (
+              <ActivityIndicator color={Colors.textLight} size="small" />
+            ) : (
+              <>
+                <Text style={styles.placeOrderBtnText}>Place Order</Text>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>

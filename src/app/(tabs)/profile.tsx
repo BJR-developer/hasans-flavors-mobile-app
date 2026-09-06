@@ -9,6 +9,8 @@ import { useRouter } from 'expo-router';
 import {
   Alert,
   Image,
+  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,7 +26,23 @@ export default function ProfileScreen() {
   const clearTable = useTableStore((state) => state.clearTable);
   const { setRole } = useRoleStore();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const doLogout = async () => {
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      await logout();
+      router.replace('/auth/signin' as any);
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Sign out of your account?') : true;
+      if (confirmed) {
+        await doLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Sign out of your account?',
@@ -33,16 +51,37 @@ export default function ProfileScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            try {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch { }
-            logout();
-            router.replace('/auth/signin' as any);
-          },
+          onPress: doLogout,
         },
       ]
     );
+  };
+
+  const handleCallHotline = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    Linking.openURL('tel:+639178882345').catch(() => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('Restaurant Hotline: +63 917 888 2345');
+      } else {
+        Alert.alert('Restaurant Hotline', 'Call +63 917 888 2345');
+      }
+    });
+  };
+
+  const handleOpenWhatsApp = () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    const msg = encodeURIComponent("Hello Hasan's Flavors! I have an inquiry about my dining experience.");
+    Linking.openURL(`https://wa.me/639178882345?text=${msg}`).catch(() => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('WhatsApp Hotline: +63 917 888 2345');
+      } else {
+        Alert.alert('WhatsApp Hotline', 'WhatsApp is available at +63 917 888 2345');
+      }
+    });
   };
 
   const handleLeaveTable = () => {
@@ -50,20 +89,6 @@ export default function ProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } catch { }
     clearTable();
-  };
-
-  const handleReplaySplash = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch { }
-    router.push('/splash' as any);
-  };
-
-  const handleReplayOnboarding = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch { }
-    router.push('/onboarding' as any);
   };
 
   return (
@@ -92,11 +117,13 @@ export default function ProfileScreen() {
               <View style={styles.userNameRow}>
                 <Text style={styles.userName}>{user.name}</Text>
                 <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>{user.tier || user.roleLabel}</Text>
+                  <Text style={styles.verifiedText}>
+                    {user.role === 'owner' ? 'Owner' : user.role === 'staff' ? 'Staff' : 'Customer'}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.userEmail}>{user.email}</Text>
-              <Text style={styles.userPhone}>{user.phone}</Text>
+              {user.phone ? <Text style={styles.userPhone}>{user.phone}</Text> : null}
             </View>
           </View>
         ) : (
@@ -104,12 +131,12 @@ export default function ProfileScreen() {
           <View style={styles.guestCard}>
             <View style={styles.guestTopRow}>
               <View style={styles.guestAvatar}>
-                <Ionicons name="person-circle-outline" size={40} color={Colors.textSecondary} />
+                <Ionicons name="person-circle-outline" size={44} color={Colors.primary} />
               </View>
               <View style={styles.guestTextCol}>
                 <Text style={styles.guestTitle}>Welcome to Hasan's Flavors</Text>
                 <Text style={styles.guestSubtitle}>
-                  Sign in or switch demo accounts (Customer, Staff, Owner).
+                  Sign in or create an account to view your orders and manage your profile.
                 </Text>
               </View>
             </View>
@@ -120,8 +147,16 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/auth/signin' as any)}
                 activeOpacity={0.88}
               >
-                <Text style={styles.guestSignInText}>Sign In / Switch Account</Text>
+                <Text style={styles.guestSignInText}>Sign In</Text>
                 <Ionicons name="arrow-forward" size={14} color={Colors.textLight} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.guestSignUpBtn}
+                onPress={() => router.push('/auth/signup' as any)}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.guestSignUpText}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -188,54 +223,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Loyalty Rewards Card (Customer View) */}
-        {(!user || user.role === 'customer') && (
-          <View style={styles.loyaltyCard}>
-            <View style={styles.loyaltyHeader}>
-              <Text style={styles.loyaltyBadgeText}>SPICE CLUB REWARDS</Text>
-              <Text style={styles.pointsText}>
-                <Text style={styles.boldPoints}>{isAuthenticated ? user?.loyaltyPoints : '0'}</Text> pts
-              </Text>
-            </View>
-
-            <Text style={styles.loyaltyTitle}>Loyalty Points Balance</Text>
-            <Text style={styles.loyaltySub}>
-              {isAuthenticated
-                ? `You have ${user?.loyaltyPoints} points. 20 more points to unlock a complimentary specialty naan.`
-                : 'Earn 1 point for every ₱10 spent and receive 100 bonus welcome points on signup.'}
-            </Text>
-
-            <View style={styles.loyaltyProgressTrack}>
-              <View
-                style={[
-                  styles.loyaltyProgressFill,
-                  { width: isAuthenticated ? '94%' : '10%' },
-                ]}
-              />
-            </View>
-
-            <View style={styles.loyaltyFooter}>
-              <Text style={styles.loyaltyLevel}>
-                {isAuthenticated ? `${user?.loyaltyPoints} / 500 Pts` : '0 / 500 Pts'}
-              </Text>
-              <TouchableOpacity
-                style={styles.redeemBtn}
-                onPress={() => {
-                  if (!isAuthenticated) {
-                    router.push('/auth/signin' as any);
-                  } else {
-                    Alert.alert('Rewards', 'Redeem 500 pts for free Garlic Naan or Kabab at checkout.');
-                  }
-                }}
-              >
-                <Text style={styles.redeemBtnText}>
-                  {isAuthenticated ? 'Redeem' : 'Join Club'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
         {/* Dine-in Table Status if assigned */}
         {currentTable && (
           <View style={styles.sectionCard}>
@@ -251,40 +238,79 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* App Navigation Rows */}
+        {/* Live Support & Direct Contact */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionCardTitle}>Features & Support</Text>
-
-          <TouchableOpacity style={styles.menuRow} onPress={handleReplaySplash} activeOpacity={0.7}>
-            <Ionicons name="sparkles-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>Brand Splash</Text>
-              <Text style={styles.menuItemSub}>Replay the brand intro</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuRow} onPress={handleReplayOnboarding} activeOpacity={0.7}>
-            <Ionicons name="images-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>Onboarding Walkthrough</Text>
-              <Text style={styles.menuItemSub}>Browse app overview slides</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
+          <Text style={styles.sectionCardTitle}>Guest Support & Contact</Text>
 
           <TouchableOpacity
             style={styles.menuRow}
             onPress={() => router.push('/chat' as any)}
             activeOpacity={0.7}
           >
-            <Ionicons name="chatbubbles-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <Ionicons name="chatbubbles-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
             <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>Kitchen & Support Chat</Text>
-              <Text style={styles.menuItemSub}>Live assistance for dietary queries and orders</Text>
+              <Text style={styles.menuItemTitle}>Live Kitchen & Support Chat</Text>
+              <Text style={styles.menuItemSub}>Instant chat with our dining team & chef</Text>
+            </View>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Online</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={handleCallHotline}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="call-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuItemTitle}>Restaurant Hotline</Text>
+              <Text style={styles.menuItemSub}>+63 917 888 2345 • Immediate connection</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, { borderBottomWidth: 0 }]}
+            onPress={handleOpenWhatsApp}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="logo-whatsapp" size={18} color="#25D366" style={styles.menuIcon} />
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuItemTitle}>WhatsApp Concierge</Text>
+              <Text style={styles.menuItemSub}>Quick reservations & special dietary requests</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Restaurant Hours & Location */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionCardTitle}>Restaurant Hours & Location</Text>
+
+          <View style={styles.infoBlock}>
+            <View style={styles.infoBlockRow}>
+              <Ionicons name="time-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
+              <View style={styles.infoBlockCol}>
+                <Text style={styles.infoBlockTitle}>Operating Hours</Text>
+                <Text style={styles.infoBlockDesc}>Monday – Sunday: 11:00 AM – 11:00 PM</Text>
+                <Text style={styles.infoBlockSub}>Kitchen last call at 10:30 PM daily</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.infoBlock, { marginTop: 10 }]}>
+            <View style={styles.infoBlockRow}>
+              <Ionicons name="location-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
+              <View style={styles.infoBlockCol}>
+                <Text style={styles.infoBlockTitle}>Hasan's Bistro & Dining Lounge</Text>
+                <Text style={styles.infoBlockDesc}>28th St. Cor 7th Ave, BGC, Taguig, Metro Manila</Text>
+                <Text style={styles.infoBlockSub}>Dine-in Table Service, Curbside Pickup & Delivery</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Halal Guarantee */}
@@ -449,14 +475,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.text,
+    backgroundColor: Colors.primary,
     paddingVertical: 10,
     borderRadius: Radius.md,
   },
   guestSignInText: {
     color: Colors.textLight,
     fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  guestSignUpBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+  },
+  guestSignUpText: {
+    color: Colors.text,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
   },
   loyaltyCard: {
     backgroundColor: Colors.card,
@@ -616,6 +660,59 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 2,
     lineHeight: 15,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radius.round,
+    marginRight: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22c55e',
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  infoBlock: {
+    backgroundColor: Colors.surface,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  infoBlockRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  infoBlockCol: {
+    flex: 1,
+  },
+  infoBlockTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  infoBlockDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    lineHeight: 16,
+  },
+  infoBlockSub: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',

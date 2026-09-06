@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -62,7 +62,24 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const completeOnboarding = useAuthStore((state) => state.completeOnboarding);
+  const { isOnboarded, isAuthenticated, user, completeOnboarding } = useAuthStore();
+
+  // Onboarding is strictly one-time: if already completed, redirect immediately
+  useEffect(() => {
+    if (isOnboarded) {
+      if (isAuthenticated && user) {
+        if (user.role === 'owner') router.replace('/staff/owner' as any);
+        else if (user.role === 'staff') router.replace('/staff/pos' as any);
+        else router.replace('/(tabs)' as any);
+      } else {
+        router.replace('/auth/signin' as any);
+      }
+    }
+  }, [isOnboarded, isAuthenticated, user]);
+
+  if (isOnboarded) {
+    return null;
+  }
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -92,9 +109,9 @@ export default function OnboardingScreen() {
     }
   };
 
-  const finishOnboarding = (targetRoute: string) => {
-    completeOnboarding();
-    router.push(targetRoute as any);
+  const finishOnboarding = async (targetRoute: string) => {
+    await completeOnboarding();
+    router.replace(targetRoute as any);
   };
 
   const renderSlide = ({ item }: { item: Slide }) => {

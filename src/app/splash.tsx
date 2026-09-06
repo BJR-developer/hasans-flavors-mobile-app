@@ -20,7 +20,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function SplashScreen() {
     const router = useRouter();
-    const { isOnboarded, setHasSeenSplash } = useAuthStore();
+    const { isOnboarded, isAuthenticated, user, setHasSeenSplash } = useAuthStore();
 
     // Shared values for staggered animations
     const logoScale = useSharedValue(0.92);
@@ -31,7 +31,13 @@ export default function SplashScreen() {
     const navigateNext = () => {
         setHasSeenSplash(true);
         if (isOnboarded) {
-            router.replace('/(tabs)' as any);
+            if (isAuthenticated && user) {
+                if (user.role === 'owner') router.replace('/staff/owner' as any);
+                else if (user.role === 'staff') router.replace('/staff/pos' as any);
+                else router.replace('/(tabs)' as any);
+            } else {
+                router.replace('/auth/signin' as any);
+            }
         } else {
             router.replace('/onboarding' as any);
         }

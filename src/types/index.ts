@@ -7,6 +7,7 @@ export interface Dish {
   category: string;
   description: string;
   imageUrl: string;
+  imageUrls?: string[];
   spiceLevel: number; // 1 (Mild) to 4 (Fiery)
   isHalal: boolean;
   isChefSpecial: boolean;
@@ -16,6 +17,8 @@ export interface Dish {
   calories: string;
   rating: string;
   reviewCount: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Category {
@@ -60,6 +63,7 @@ export type PaymentStatus = 'paid' | 'unpaid';
 export interface Order {
   id: string;
   orderNumber: string;
+  customerId?: string;
   type: OrderType;
   tableNumber?: string;
   customerName: string;

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,19 +19,59 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import { validateEmail, validateSignInPassword } from '@/lib/validation';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const isTabletOrDesktop = width >= 768;
   const isWeb = Platform.OS === 'web';
 
-  const { login, quickLogin, socialLogin, isLoading } = useAuthStore();
+  const { login, socialLogin, isLoading, isAuthenticated, user } = useAuthStore();
 
-  const [email, setEmail] = useState('customer@hasan.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Form error state for inline display
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+    general?: string;
+  }>({});
+
+  // Dynamic keyboard height tracking to ensure scrolling is never stuck
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+
+  // If already authenticated, redirect to role-based dashboard immediately
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      handleRouteByRole(user.role);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates?.height || 260);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleRouteByRole = (role: 'customer' | 'staff' | 'owner') => {
     if (role === 'owner') {
@@ -43,9 +83,42 @@ export default function SignInScreen() {
     }
   };
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (errors.email || errors.general) {
+      setErrors((prev) => ({ ...prev, email: undefined, general: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (val: string) => {
+    setPassword(val);
+    if (errors.password || errors.general) {
+      setErrors((prev) => ({ ...prev, password: undefined, general: undefined }));
+    }
+  };
+
   const handleSignIn = async () => {
-    if (!email.trim()) {
-      Alert.alert('Required Field', 'Please enter your email address.');
+    // Clear previous errors
+    const nextErrors: { email?: string; password?: string; general?: string } = {};
+
+    // 1. Validate email address properly before attempting sign-in
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      nextErrors.email = emailValidation.error;
+    }
+
+    // 2. Validate password
+    const passwordValidation = validateSignInPassword(password);
+    if (!passwordValidation.isValid) {
+      nextErrors.password = passwordValidation.error;
+    }
+
+    // If there are validation errors, display them inline and stop immediately
+    if (nextErrors.email || nextErrors.password) {
+      setErrors(nextErrors);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
       return;
     }
 
@@ -59,31 +132,14 @@ export default function SignInScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
       handleRouteByRole(res.role);
-    }
-  };
-
-  const handleQuickAccount = async (accountType: 'customer' | 'staff' | 'owner') => {
-    try {
-      Haptics.selectionAsync();
-    } catch {}
-
-    if (accountType === 'customer') {
-      setEmail('customer@hasan.com');
-      setPassword('Password123!');
-    } else if (accountType === 'staff') {
-      setEmail('cashier@hasan.com');
-      setPassword('Password123!');
     } else {
-      setEmail('owner@hasan.com');
-      setPassword('Password123!');
-    }
-
-    const res = await quickLogin(accountType);
-    if (res.success) {
       try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch {}
-      handleRouteByRole(res.role);
+      setErrors({
+        general: res.message || 'Invalid email or password. Please check your credentials.',
+        password: 'Incorrect password',
+      });
     }
   };
 
@@ -121,94 +177,85 @@ export default function SignInScreen() {
         )}
         <Text style={styles.welcomeTitle}>Welcome Back</Text>
         <Text style={styles.welcomeSubtitle}>
-          Select a 1-tap demo profile or enter your credentials to continue.
+          Sign in with your email and password to access your account.
         </Text>
       </View>
 
-      {/* 3 Quick Role Switcher Buttons */}
-      <View style={styles.demoProfileSection}>
-        <View style={styles.demoLabelRow}>
-          <Ionicons name="flash-outline" size={13} color={Colors.saffron} />
-          <Text style={styles.demoSectionLabel}>QUICK ROLE SIGN IN (1-TAP ACCESS):</Text>
+      {/* General Error Banner */}
+      {errors.general && (
+        <View style={styles.generalErrorBanner}>
+          <Ionicons name="alert-circle" size={18} color={Colors.error} />
+          <Text style={styles.generalErrorText}>{errors.general}</Text>
         </View>
-        <View style={styles.demoButtonsRow}>
-          <TouchableOpacity
-            style={styles.demoRoleBtn}
-            onPress={() => handleQuickAccount('customer')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.demoRoleIconWrapper, { backgroundColor: Colors.primaryLight }]}>
-              <Ionicons name="person" size={15} color={Colors.primary} />
-            </View>
-            <View style={styles.demoRoleInfo}>
-              <Text style={styles.demoRoleTitle}>Customer Account</Text>
-              <Text style={styles.demoRoleSub}>customer@hasan.com</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.demoRoleBtn}
-            onPress={() => handleQuickAccount('staff')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.demoRoleIconWrapper, { backgroundColor: Colors.saffronLight }]}>
-              <Ionicons name="receipt" size={15} color={Colors.saffron} />
-            </View>
-            <View style={styles.demoRoleInfo}>
-              <Text style={styles.demoRoleTitle}>Cashier (POS / KDS)</Text>
-              <Text style={styles.demoRoleSub}>cashier@hasan.com</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.demoRoleBtn}
-            onPress={() => handleQuickAccount('owner')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.demoRoleIconWrapper, { backgroundColor: Colors.halalGreenLight }]}>
-              <Ionicons name="stats-chart" size={15} color={Colors.halalGreen} />
-            </View>
-            <View style={styles.demoRoleInfo}>
-              <Text style={styles.demoRoleTitle}>Owner Admin</Text>
-              <Text style={styles.demoRoleSub}>owner@hasan.com</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
 
       {/* Form Inputs */}
       <View style={styles.formContainer}>
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Email Address</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="mail-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.email ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={18}
+              color={errors.email ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
+              onChangeText={handleEmailChange}
+              placeholder="Enter your email (e.g. name@example.com)"
               placeholderTextColor={Colors.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
             />
           </View>
+          {errors.email && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.email}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+          <View
+            style={[
+              styles.inputWrapper,
+              errors.password ? styles.inputWrapperError : null,
+            ]}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={18}
+              color={errors.password ? Colors.error : Colors.textMuted}
+              style={styles.inputIcon}
+            />
             <TextInput
+              ref={passwordInputRef}
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               placeholder="Enter your password"
               placeholderTextColor={Colors.textMuted}
               secureTextEntry={!showPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleSignIn}
+              onFocus={() => {
+                // Ensure scrollview scrolls up so input and buttons are fully visible
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 150);
+              }}
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
@@ -221,6 +268,12 @@ export default function SignInScreen() {
               />
             </TouchableOpacity>
           </View>
+          {errors.password && (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.password}</Text>
+            </View>
+          )}
         </View>
 
         {/* Options Row */}
@@ -299,9 +352,13 @@ export default function SignInScreen() {
     </View>
   );
 
+  if (isAuthenticated && user) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Top Bar Navigation (Hidden on web; "Skip to menu" removed) */}
+      {/* Top Bar Navigation (Hidden on web) */}
       {!isWeb && (
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -317,6 +374,7 @@ export default function SignInScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {isTabletOrDesktop ? (
           /* =========================================================
@@ -375,10 +433,15 @@ export default function SignInScreen() {
 
             {/* Right Form Column */}
             <ScrollView
+              ref={scrollViewRef}
               style={styles.splitRightScroll}
-              contentContainerStyle={styles.splitRightScrollContent}
+              contentContainerStyle={[
+                styles.splitRightScrollContent,
+                { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : Spacing.xxl },
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
             >
               {renderFormContent()}
             </ScrollView>
@@ -388,10 +451,18 @@ export default function SignInScreen() {
              MOBILE SINGLE COLUMN LAYOUT
              ========================================================= */
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : Spacing.xxxl,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
           >
             {renderFormContent()}
           </ScrollView>
@@ -428,23 +499,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadows.subtle,
-  },
-  guestPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: Radius.round,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  guestPillText: {
-    fontSize: Typography.fontSize.xs,
-    fontFamily: Typography.fontFamily.semiBold,
-    fontWeight: '600',
-    color: Colors.primary,
   },
 
   /* Split Screen Layout (Tablet & Web) */
@@ -556,9 +610,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl,
+    justifyContent: 'center',
   },
   formInner: {
     maxWidth: 480,
@@ -602,58 +658,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* Demo Profiles Section */
-  demoProfileSection: {
-    marginBottom: Spacing.lg,
-  },
-  demoLabelRow: {
+  /* General Error Banner */
+  generalErrorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: Spacing.xs,
-  },
-  demoSectionLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.saffron,
-    letterSpacing: 0.6,
-  },
-  demoButtonsRow: {
-    gap: 7,
-  },
-  demoRoleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.card,
+    gap: 8,
+    backgroundColor: '#FFF2F2',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderColor: '#FFCDD2',
+    paddingVertical: 10,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 9,
-    gap: 10,
-    ...Shadows.subtle,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.md,
   },
-  demoRoleIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.round,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoRoleInfo: {
+  generalErrorText: {
     flex: 1,
-  },
-  demoRoleTitle: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.text,
-  },
-  demoRoleSub: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textMuted,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.error,
+    lineHeight: 16,
   },
 
   /* Form Fields */
@@ -661,7 +684,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   fieldGroup: {
-    gap: 6,
+    gap: 5,
   },
   fieldLabel: {
     fontSize: Typography.fontSize.xs,
@@ -680,6 +703,11 @@ const styles = StyleSheet.create({
     height: 48,
     ...Shadows.subtle,
   },
+  inputWrapperError: {
+    borderColor: Colors.error,
+    backgroundColor: '#FFFBFB',
+    borderWidth: 1.5,
+  },
   inputIcon: {
     marginRight: 8,
   },
@@ -688,6 +716,18 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     fontFamily: Typography.fontFamily.medium,
     color: Colors.text,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  errorText: {
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.error,
   },
   optionsRow: {
     flexDirection: 'row',

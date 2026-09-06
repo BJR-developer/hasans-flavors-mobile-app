@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Header } from '@/components/Header';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useTableStore } from '@/store/useTableStore';
@@ -18,13 +18,33 @@ import * as Haptics from 'expo-haptics';
 
 export default function QRTableScreen() {
   const router = useRouter();
-  const { currentTable, setTable, clearTable, guestCount, updateGuestCount, tables } = useTableStore();
+  const { table: urlTableParam } = useLocalSearchParams<{ table?: string }>();
+  const { currentTable, setTable, clearTable, guestCount, updateGuestCount, tables, fetchTables } = useTableStore();
   const setDeliveryType = useCartStore((state) => state.setDeliveryType);
 
-  const [selectedTableNum, setSelectedTableNum] = useState<string>(currentTable || 'Table 04');
+  useEffect(() => {
+    fetchTables();
+  }, [fetchTables]);
+
+  const [selectedTableNum, setSelectedTableNum] = useState<string>(currentTable || (tables[0]?.tableNumber || 'T-01'));
   const [selectedGuests, setSelectedGuests] = useState<number>(guestCount || 2);
   const [isCustomGuest, setIsCustomGuest] = useState<boolean>(![1, 2, 4, 6, 8].includes(guestCount || 2));
   const [isCameraScanning, setIsCameraScanning] = useState<boolean>(false);
+
+  // Auto-connect table if URL parameter was provided from QR scan
+  useEffect(() => {
+    if (urlTableParam) {
+      const decodedTable = decodeURIComponent(urlTableParam).trim();
+      if (decodedTable) {
+        setSelectedTableNum(decodedTable);
+        setTable(decodedTable, guestCount || 2);
+        setDeliveryType('dine_in');
+        try {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {}
+      }
+    }
+  }, [urlTableParam]);
 
   const handleConfirmTable = (tableNumber: string) => {
     try {

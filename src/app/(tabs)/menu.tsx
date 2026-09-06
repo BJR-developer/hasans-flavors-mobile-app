@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ export default function MenuScreen() {
     onlyChefSpecial,
     toggleChefSpecialFilter,
     getFilteredDishes,
+    isLoading,
   } = useMenuStore();
 
   const itemCount = useCartStore((state) => state.getItemCount());
@@ -163,7 +165,14 @@ export default function MenuScreen() {
         </View>
 
         {/* Dish List / Grid */}
-        {filteredDishes.length === 0 ? (
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={{ marginTop: 12, color: Colors.textSecondary, fontSize: 13, fontFamily: Typography.fontFamily.medium }}>
+              Loading culinary selections...
+            </Text>
+          </View>
+        ) : filteredDishes.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="search-outline" size={40} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No dishes found</Text>

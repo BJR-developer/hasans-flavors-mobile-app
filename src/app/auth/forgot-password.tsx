@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,6 +19,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useAuthStore } from '@/store/useAuthStore';
+import {
+  getPasswordRules,
+  validateConfirmPassword,
+  validateEmail,
+  validatePassword,
+} from '@/lib/validation';
 
 type Step = 'email' | 'otp' | 'new_password' | 'success';
 
@@ -37,7 +45,50 @@ export default function ForgotPasswordScreen() {
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
+  const { isAuthenticated, user, sendPasswordResetEmail, verifyPasswordResetOtp, updateNewPassword } = useAuthStore();
+
+  // If already authenticated, redirect away from auth screens
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'owner') router.replace('/staff/owner' as any);
+      else if (user.role === 'staff') router.replace('/staff/pos' as any);
+      else router.replace('/(tabs)' as any);
+    }
+  }, [isAuthenticated, user]);
+
+  // Field errors
+  const [errors, setErrors] = useState<{
+    email?: string;
+    otp?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+    general?: string;
+  }>({});
+
+  // Dynamic keyboard handling
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
   const otpInputsRef = useRef<(TextInput | null)[]>([]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates?.height || 260);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Countdown for OTP resend
   useEffect(() => {
@@ -56,28 +107,41 @@ export default function ForgotPasswordScreen() {
     return () => clearInterval(interval);
   }, [step, timer]);
 
+  const passwordRules = getPasswordRules(newPassword);
+
   // Step 1: Send OTP
   const handleSendCode = async () => {
-    if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+    const emailVal = validateEmail(email);
+    if (!emailVal.isValid) {
+      setErrors({ email: emailVal.error });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
       return;
     }
 
+    setErrors({});
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    const res = await sendPasswordResetEmail(email);
+    setIsLoading(false);
+
+    if (res.success) {
       setStep('otp');
       setTimer(60);
       setCanResend(false);
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-    }, 900);
+    } else {
+      setErrors({ email: res.message || 'Failed to send password reset email' });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
+    }
   };
 
   // Step 2: Handle OTP Input
@@ -85,6 +149,10 @@ export default function ForgotPasswordScreen() {
     const newArr = [...otp];
     newArr[index] = val;
     setOtp(newArr);
+
+    if (errors.otp) {
+      setErrors((prev) => ({ ...prev, otp: undefined }));
+    }
 
     if (val && index < 5) {
       otpInputsRef.current[index + 1]?.focus();
@@ -100,26 +168,36 @@ export default function ForgotPasswordScreen() {
   const handleVerifyOtp = async () => {
     const fullCode = otp.join('');
     if (fullCode.length < 6) {
-      Alert.alert('Incomplete Code', 'Please enter the complete 6-digit verification code.');
+      setErrors({ otp: 'Please enter the complete 6-digit verification code.' });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
       return;
     }
 
+    setErrors({});
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
     setIsLoading(true);
-    // Simulate verification
-    setTimeout(() => {
-      setIsLoading(false);
+    const res = await verifyPasswordResetOtp(email, fullCode);
+    setIsLoading(false);
+
+    if (res.success) {
       setStep('new_password');
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-    }, 800);
+    } else {
+      setErrors({ otp: res.message || 'Invalid or expired verification code.' });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
+    }
   };
 
-  const handleResendCode = () => {
+  const handleResendCode = async () => {
     if (!canResend) return;
     try {
       Haptics.selectionAsync();
@@ -127,32 +205,60 @@ export default function ForgotPasswordScreen() {
     setTimer(60);
     setCanResend(false);
     setOtp(['', '', '', '', '', '']);
-    Alert.alert('Code Sent', `A new 6-digit code has been sent to ${email}`);
+    setErrors({});
+
+    const res = await sendPasswordResetEmail(email);
+    const msg = res.message || `A new 6-digit code has been sent to ${email}`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.alert(`Code Sent: ${msg}`);
+    } else {
+      Alert.alert('Code Sent', msg);
+    }
   };
 
   // Step 3: Set New Password
   const handleUpdatePassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert('Password Too Short', 'Password must be at least 6 characters.');
-      return;
+    const nextErrors: typeof errors = {};
+
+    const passVal = validatePassword(newPassword);
+    if (!passVal.isValid) {
+      nextErrors.newPassword = passVal.error;
     }
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'Passwords do not match.');
+
+    const confirmVal = validateConfirmPassword(newPassword, confirmPassword);
+    if (!confirmVal.isValid) {
+      nextErrors.confirmPassword = confirmVal.error;
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
       return;
     }
 
+    setErrors({});
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    const res = await updateNewPassword(newPassword);
+    setIsLoading(false);
+
+    if (res.success) {
       setStep('success');
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-    }, 1000);
+    } else {
+      setErrors({ newPassword: res.message || 'Failed to update password.' });
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } catch {}
+    }
   };
 
   // Step Indicator
@@ -161,13 +267,50 @@ export default function ForgotPasswordScreen() {
       <View style={[styles.stepDot, styles.stepDotActive]}>
         <Text style={styles.stepDotNum}>1</Text>
       </View>
-      <View style={[styles.stepLine, (step === 'otp' || step === 'new_password' || step === 'success') && styles.stepLineActive]} />
-      <View style={[styles.stepDot, (step === 'otp' || step === 'new_password' || step === 'success') && styles.stepDotActive]}>
-        <Text style={[styles.stepDotNum, (step === 'otp' || step === 'new_password' || step === 'success') && styles.stepDotNumActive]}>2</Text>
+      <View
+        style={[
+          styles.stepLine,
+          (step === 'otp' || step === 'new_password' || step === 'success') &&
+            styles.stepLineActive,
+        ]}
+      />
+      <View
+        style={[
+          styles.stepDot,
+          (step === 'otp' || step === 'new_password' || step === 'success') &&
+            styles.stepDotActive,
+        ]}
+      >
+        <Text
+          style={[
+            styles.stepDotNum,
+            (step === 'otp' || step === 'new_password' || step === 'success') &&
+              styles.stepDotNumActive,
+          ]}
+        >
+          2
+        </Text>
       </View>
-      <View style={[styles.stepLine, (step === 'new_password' || step === 'success') && styles.stepLineActive]} />
-      <View style={[styles.stepDot, (step === 'new_password' || step === 'success') && styles.stepDotActive]}>
-        <Text style={[styles.stepDotNum, (step === 'new_password' || step === 'success') && styles.stepDotNumActive]}>3</Text>
+      <View
+        style={[
+          styles.stepLine,
+          (step === 'new_password' || step === 'success') && styles.stepLineActive,
+        ]}
+      />
+      <View
+        style={[
+          styles.stepDot,
+          (step === 'new_password' || step === 'success') && styles.stepDotActive,
+        ]}
+      >
+        <Text
+          style={[
+            styles.stepDotNum,
+            (step === 'new_password' || step === 'success') && styles.stepDotNumActive,
+          ]}
+        >
+          3
+        </Text>
       </View>
     </View>
   );
@@ -189,19 +332,40 @@ export default function ForgotPasswordScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Email Address</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputWrapper,
+                errors.email ? styles.inputWrapperError : null,
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={errors.email ? Colors.error : Colors.textMuted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(val) => {
+                  setEmail(val);
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
                 placeholder="name@example.com"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSendCode}
               />
             </View>
+            {errors.email && (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.email}</Text>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -253,6 +417,7 @@ export default function ForgotPasswordScreen() {
                 style={[
                   styles.otpBoxWrapper,
                   digit.length > 0 && styles.otpBoxWrapperFilled,
+                  errors.otp && styles.otpBoxWrapperError,
                 ]}
               >
                 <TextInput
@@ -272,6 +437,13 @@ export default function ForgotPasswordScreen() {
               </View>
             ))}
           </View>
+
+          {errors.otp && (
+            <View style={[styles.errorRow, { justifyContent: 'center', marginBottom: Spacing.xs }]}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.otp}</Text>
+            </View>
+          )}
 
           <View style={styles.resendRow}>
             <Text style={styles.resendText}>Didn't receive the code? </Text>
@@ -320,20 +492,34 @@ export default function ForgotPasswordScreen() {
           </View>
           <Text style={styles.screenTitle}>Create New Password</Text>
           <Text style={styles.screenSubtitle}>
-            Your new password must be different from previous passwords and at least 6 characters.
+            Your new password must be at least 8 characters and include uppercase, lowercase, numbers, and symbols.
           </Text>
 
           {renderStepIndicator()}
 
+          {/* New Password */}
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>New Password</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputWrapper,
+                errors.newPassword ? styles.inputWrapperError : null,
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={errors.newPassword ? Colors.error : Colors.textMuted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="At least 6 characters"
+                onChangeText={(val) => {
+                  setNewPassword(val);
+                  if (errors.newPassword) setErrors((prev) => ({ ...prev, newPassword: undefined }));
+                }}
+                placeholder="8+ characters"
                 placeholderTextColor={Colors.textMuted}
                 secureTextEntry={!showPassword}
               />
@@ -348,21 +534,127 @@ export default function ForgotPasswordScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Pattern Badges */}
+            <View style={styles.passwordRulesContainer}>
+              <View style={styles.ruleBadge}>
+                <Ionicons
+                  name={passwordRules.minLength ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={passwordRules.minLength ? Colors.halalGreen : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.ruleText,
+                    passwordRules.minLength && styles.ruleTextPassed,
+                  ]}
+                >
+                  8+ chars
+                </Text>
+              </View>
+              <View style={styles.ruleBadge}>
+                <Ionicons
+                  name={passwordRules.hasUpper ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={passwordRules.hasUpper ? Colors.halalGreen : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.ruleText,
+                    passwordRules.hasUpper && styles.ruleTextPassed,
+                  ]}
+                >
+                  Uppercase
+                </Text>
+              </View>
+              <View style={styles.ruleBadge}>
+                <Ionicons
+                  name={passwordRules.hasLower ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={passwordRules.hasLower ? Colors.halalGreen : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.ruleText,
+                    passwordRules.hasLower && styles.ruleTextPassed,
+                  ]}
+                >
+                  Lowercase
+                </Text>
+              </View>
+              <View style={styles.ruleBadge}>
+                <Ionicons
+                  name={passwordRules.hasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={passwordRules.hasNumber ? Colors.halalGreen : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.ruleText,
+                    passwordRules.hasNumber && styles.ruleTextPassed,
+                  ]}
+                >
+                  Number
+                </Text>
+              </View>
+              <View style={styles.ruleBadge}>
+                <Ionicons
+                  name={passwordRules.hasSpecial ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={passwordRules.hasSpecial ? Colors.halalGreen : Colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.ruleText,
+                    passwordRules.hasSpecial && styles.ruleTextPassed,
+                  ]}
+                >
+                  Symbol
+                </Text>
+              </View>
+            </View>
+
+            {errors.newPassword && (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.newPassword}</Text>
+              </View>
+            )}
           </View>
 
+          {/* Confirm Password */}
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Confirm New Password</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputWrapper,
+                errors.confirmPassword ? styles.inputWrapperError : null,
+              ]}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color={errors.confirmPassword ? Colors.error : Colors.textMuted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(val) => {
+                  setConfirmPassword(val);
+                  if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                }}
                 placeholder="Re-enter password"
                 placeholderTextColor={Colors.textMuted}
                 secureTextEntry={!showPassword}
               />
             </View>
+            {errors.confirmPassword && (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -412,7 +704,6 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Conditionally hide top bar if web platform, or show clean native back button */}
       {!isWeb && (
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -428,6 +719,7 @@ export default function ForgotPasswordScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
       >
         {isTabletOrDesktop ? (
           /* Responsive Split View */
@@ -475,20 +767,33 @@ export default function ForgotPasswordScreen() {
             </View>
 
             <ScrollView
+              ref={scrollViewRef}
               style={styles.splitRightScroll}
-              contentContainerStyle={styles.splitRightScrollContent}
+              contentContainerStyle={[
+                styles.splitRightScrollContent,
+                { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : Spacing.xxl },
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
             >
               <View style={styles.formInner}>{renderForm()}</View>
             </ScrollView>
           </View>
         ) : (
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : Spacing.xxxl,
+              },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
           >
             <View style={styles.formInner}>{renderForm()}</View>
           </ScrollView>
@@ -632,9 +937,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xxxl,
+    justifyContent: 'center',
   },
   formInner: {
     maxWidth: 480,
@@ -717,7 +1024,7 @@ const styles = StyleSheet.create({
 
   /* Inputs */
   fieldGroup: {
-    gap: 6,
+    gap: 5,
   },
   fieldLabel: {
     fontSize: Typography.fontSize.xs,
@@ -736,6 +1043,11 @@ const styles = StyleSheet.create({
     height: 48,
     ...Shadows.subtle,
   },
+  inputWrapperError: {
+    borderColor: Colors.error,
+    backgroundColor: '#FFFBFB',
+    borderWidth: 1.5,
+  },
   inputIcon: {
     marginRight: 8,
   },
@@ -744,6 +1056,44 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     fontFamily: Typography.fontFamily.medium,
     color: Colors.text,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  errorText: {
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.error,
+  },
+
+  /* Password Pattern Checklist */
+  passwordRulesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  ruleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+  },
+  ruleText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+  },
+  ruleTextPassed: {
+    color: Colors.halalGreen,
+    fontWeight: '600',
   },
 
   /* OTP Boxes */
@@ -767,6 +1117,10 @@ const styles = StyleSheet.create({
   otpBoxWrapperFilled: {
     borderColor: Colors.primary,
     backgroundColor: Colors.primaryLight,
+  },
+  otpBoxWrapperError: {
+    borderColor: Colors.error,
+    backgroundColor: '#FFFBFB',
   },
   otpBoxInput: {
     width: '100%',
