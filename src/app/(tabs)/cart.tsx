@@ -202,10 +202,20 @@ export default function CartScreen() {
                   {item.dish.name}
                 </Text>
 
-                <View style={styles.itemCustomizationRow}>
-                  <Text style={styles.itemPortionText}>{item.portion.name}</Text>
-                  <SpiceMeter level={item.spiceLevel} size="sm" />
-                </View>
+                {item.selectedVariants && item.selectedVariants.length > 0 ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                    {item.selectedVariants.map((v, idx) => (
+                      <Text key={idx} style={[styles.itemPortionText, { color: Colors.textSecondary }]}>
+                        {v.groupName}: {v.optionName}
+                      </Text>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.itemCustomizationRow}>
+                    <Text style={styles.itemPortionText}>{item.portion.name}</Text>
+                    <SpiceMeter level={item.spiceLevel} size="sm" />
+                  </View>
+                )}
 
                 {item.selectedAddons.length > 0 && (
                   <Text style={styles.addonsText} numberOfLines={2}>

@@ -497,7 +497,17 @@ export default function OrderTrackingScreen() {
                       {it.dish.name}
                     </Text>
                   </View>
-                  <Text style={styles.dishPortion}>{it.portion.name}</Text>
+                  {it.selectedVariants && it.selectedVariants.length > 0 ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                      {it.selectedVariants.map((v, idx) => (
+                        <Text key={idx} style={[styles.dishPortion, { color: Colors.textSecondary }]}>
+                          {v.groupName}: {v.optionName}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.dishPortion}>{it.portion.name}</Text>
+                  )}
                   {it.selectedAddons && it.selectedAddons.length > 0 ? (
                     <Text style={styles.dishAddons} numberOfLines={1}>
                       + {it.selectedAddons.map((a) => a.name).join(', ')}

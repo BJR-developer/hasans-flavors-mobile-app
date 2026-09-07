@@ -17,7 +17,7 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useMenuStore } from '@/store/useMenuStore';
 import { useCartStore } from '@/store/useCartStore';
 import { ADDON_OPTIONS, PORTION_OPTIONS, SPICE_LEVELS } from '@/data/options';
-import { AddonOption, Dish, PortionOption } from '@/types';
+import { AddonOption, Dish, PortionOption, SelectedVariant } from '@/types';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -39,6 +39,21 @@ export default function DishDetailScreen() {
   const [specialNotes, setSpecialNotes] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const carouselRef = useRef<ScrollView>(null);
+
+  const hasCustomVariants = !!(dish?.variants && dish.variants.length > 0);
+  const [selectedVariantsMap, setSelectedVariantsMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (dish?.variants && dish.variants.length > 0) {
+      const map: Record<string, string> = {};
+      dish.variants.forEach((g) => {
+        if (g.options && g.options.length > 0) {
+          map[g.id] = g.options[0].id;
+        }
+      });
+      setSelectedVariantsMap(map);
+    }
+  }, [dish]);
 
   useEffect(() => {
     if (storeDish) {
@@ -80,7 +95,15 @@ export default function DishDetailScreen() {
   }
 
   // Price calculations
-  const unitPrice = dish.price + selectedPortion.priceDelta + selectedAddons.reduce((sum, a) => sum + a.price, 0);
+  const variantsDelta = hasCustomVariants
+    ? dish.variants!.reduce((sum, g) => {
+        const optId = selectedVariantsMap[g.id];
+        const opt = g.options.find((o) => o.id === optId);
+        return sum + (opt ? opt.priceDelta : 0);
+      }, 0)
+    : selectedPortion.priceDelta;
+
+  const unitPrice = dish.price + variantsDelta + selectedAddons.reduce((sum, a) => sum + a.price, 0);
   const totalPrice = unitPrice * quantity;
 
   const handleToggleAddon = (addon: AddonOption) => {
@@ -99,7 +122,30 @@ export default function DishDetailScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
-    addItem(dish, quantity, selectedPortion, selectedSpiceLevel, selectedAddons, specialNotes);
+
+    const selectedVariants: SelectedVariant[] = hasCustomVariants
+      ? dish.variants!.map((g) => {
+          const optId = selectedVariantsMap[g.id];
+          const opt = g.options.find((o) => o.id === optId) || g.options[0];
+          return {
+            groupId: g.id,
+            groupName: g.name,
+            optionId: opt.id,
+            optionName: opt.name,
+            priceDelta: opt.priceDelta,
+          };
+        })
+      : [];
+
+    addItem(
+      dish,
+      quantity,
+      selectedPortion,
+      selectedSpiceLevel,
+      selectedAddons,
+      specialNotes,
+      selectedVariants
+    );
     router.back();
   };
 
@@ -238,83 +284,148 @@ export default function DishDetailScreen() {
           </View>
         </View>
 
-        {/* Portion Size Selection */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Portion Size</Text>
-          <Text style={styles.sectionSub}>Select desired serving size</Text>
+        {/* Render Custom Variants if configured, else Portion and Spice */}
+        {hasCustomVariants ? (
+          dish.variants!.map((group) => {
+            const currentOptId = selectedVariantsMap[group.id];
 
-          <View style={styles.optionsList}>
-            {PORTION_OPTIONS.map((p) => {
-              const selected = selectedPortion.id === p.id;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.optionRow, selected && styles.selectedOptionRow]}
-                  onPress={() => {
-                    try {
-                      Haptics.selectionAsync();
-                    } catch {}
-                    setSelectedPortion(p);
-                  }}
-                >
-                  <View style={styles.optionLeft}>
-                    <View style={[styles.radioCircle, selected && styles.radioCircleActive]}>
-                      {selected && <View style={styles.radioDot} />}
-                    </View>
-                    <View>
-                      <Text style={[styles.optionTitle, selected && styles.selectedOptionTitle]}>
-                        {p.name}
+            return (
+              <View key={group.id} style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>{group.name}</Text>
+                <Text style={styles.sectionSub}>Choose your preference</Text>
+
+                <View style={styles.optionsList}>
+                  {group.options.map((opt) => {
+                    const selected = currentOptId === opt.id;
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[styles.optionRow, selected && styles.selectedOptionRow]}
+                        onPress={() => {
+                          try {
+                            Haptics.selectionAsync();
+                          } catch {}
+                          setSelectedVariantsMap((prev) => ({
+                            ...prev,
+                            [group.id]: opt.id,
+                          }));
+                        }}
+                      >
+                        <View style={styles.optionLeft}>
+                          <View
+                            style={[
+                              styles.radioCircle,
+                              selected && styles.radioCircleActive,
+                            ]}
+                          >
+                            {selected && <View style={styles.radioDot} />}
+                          </View>
+                          <Text
+                            style={[
+                              styles.optionTitle,
+                              selected && styles.selectedOptionTitle,
+                            ]}
+                          >
+                            {opt.name}
+                          </Text>
+                        </View>
+
+                        <Text
+                          style={[
+                            styles.optionDelta,
+                            selected && styles.selectedOptionDelta,
+                          ]}
+                        >
+                          {opt.priceDelta === 0 ? 'Included' : `+₱${opt.priceDelta}`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })
+        ) : (
+          <>
+            {/* Portion Size Selection */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Portion Size</Text>
+              <Text style={styles.sectionSub}>Select desired serving size</Text>
+
+              <View style={styles.optionsList}>
+                {PORTION_OPTIONS.map((p) => {
+                  const selected = selectedPortion.id === p.id;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.optionRow, selected && styles.selectedOptionRow]}
+                      onPress={() => {
+                        try {
+                          Haptics.selectionAsync();
+                        } catch {}
+                        setSelectedPortion(p);
+                      }}
+                    >
+                      <View style={styles.optionLeft}>
+                        <View style={[styles.radioCircle, selected && styles.radioCircleActive]}>
+                          {selected && <View style={styles.radioDot} />}
+                        </View>
+                        <View>
+                          <Text style={[styles.optionTitle, selected && styles.selectedOptionTitle]}>
+                            {p.name}
+                          </Text>
+                          <Text style={styles.optionServes}>Serves: {p.serves}</Text>
+                        </View>
+                      </View>
+
+                      <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
+                        {p.priceDelta === 0 ? 'Included' : `+₱${p.priceDelta}`}
                       </Text>
-                      <Text style={styles.optionServes}>Serves: {p.serves}</Text>
-                    </View>
-                  </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
 
-                  <Text style={[styles.optionDelta, selected && styles.selectedOptionDelta]}>
-                    {p.priceDelta === 0 ? 'Included' : `+₱${p.priceDelta}`}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+            {/* Spice Level Selection */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Spice Level</Text>
+              <Text style={styles.sectionSub}>Adjust heat to your taste</Text>
 
-        {/* Spice Level Selection */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Spice Level</Text>
-          <Text style={styles.sectionSub}>Adjust heat to your taste</Text>
-
-          <View style={styles.spiceGrid}>
-            {SPICE_LEVELS.map((s) => {
-              const selected = selectedSpiceLevel === s.level;
-              return (
-                <TouchableOpacity
-                  key={s.level}
-                  style={[styles.spiceCard, selected && styles.spiceCardSelected]}
-                  onPress={() => {
-                    try {
-                      Haptics.selectionAsync();
-                    } catch {}
-                    setSelectedSpiceLevel(s.level);
-                  }}
-                >
-                  <View style={styles.spiceCardHeader}>
-                    <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
-                      {s.label}
-                    </Text>
-                    <Ionicons
-                      name="flame"
-                      size={14}
-                      color={selected ? Colors.primary : Colors.border}
-                    />
-                  </View>
-                  <Text style={styles.spiceDesc} numberOfLines={2}>
-                    {s.description}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+              <View style={styles.spiceGrid}>
+                {SPICE_LEVELS.map((s) => {
+                  const selected = selectedSpiceLevel === s.level;
+                  return (
+                    <TouchableOpacity
+                      key={s.level}
+                      style={[styles.spiceCard, selected && styles.spiceCardSelected]}
+                      onPress={() => {
+                        try {
+                          Haptics.selectionAsync();
+                        } catch {}
+                        setSelectedSpiceLevel(s.level);
+                      }}
+                    >
+                      <View style={styles.spiceCardHeader}>
+                        <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
+                          {s.label}
+                        </Text>
+                        <Ionicons
+                          name="flame"
+                          size={14}
+                          color={selected ? Colors.primary : Colors.border}
+                        />
+                      </View>
+                      <Text style={styles.spiceDesc} numberOfLines={2}>
+                        {s.description}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Extra Addons Checklist */}
         <View style={styles.sectionCard}>

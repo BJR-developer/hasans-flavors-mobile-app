@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AddonOption, CartItem, Dish, PortionOption } from '@/types';
+import { AddonOption, CartItem, Dish, PortionOption, SelectedVariant } from '@/types';
 import { PORTION_OPTIONS, PROMO_CODES } from '@/data/options';
 
 interface CartState {
@@ -15,7 +15,8 @@ interface CartState {
     portion?: PortionOption,
     spiceLevel?: number,
     addons?: AddonOption[],
-    specialNotes?: string
+    specialNotes?: string,
+    selectedVariants?: SelectedVariant[]
   ) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
@@ -39,12 +40,20 @@ export const useCartStore = create<CartState>((set, get) => ({
   discountAmount: 0,
   deliveryType: 'delivery',
 
-  addItem: (dish, quantity = 1, portion, spiceLevel = 2, addons = [], specialNotes = '') => {
+  addItem: (dish, quantity = 1, portion, spiceLevel = 2, addons = [], specialNotes = '', selectedVariants = []) => {
     const selectedPortion = portion || PORTION_OPTIONS[0];
-    const unitPrice = dish.price + selectedPortion.priceDelta + addons.reduce((sum, a) => sum + a.price, 0);
+    const variantsDelta = selectedVariants && selectedVariants.length > 0
+      ? selectedVariants.reduce((sum, v) => sum + (v.priceDelta || 0), 0)
+      : selectedPortion.priceDelta;
+
+    const unitPrice = dish.price + variantsDelta + addons.reduce((sum, a) => sum + a.price, 0);
     const totalPrice = unitPrice * quantity;
 
-    const cartItemId = `${dish.id}-${selectedPortion.id}-spice${spiceLevel}-${addons.map(a => a.id).sort().join('_')}`;
+    const variantsKey = selectedVariants && selectedVariants.length > 0
+      ? selectedVariants.map(v => `${v.groupId}:${v.optionId}`).sort().join(';')
+      : selectedPortion.id;
+
+    const cartItemId = `${dish.id}-${variantsKey}-spice${spiceLevel}-${addons.map(a => a.id).sort().join('_')}`;
 
     set((state) => {
       const existingIndex = state.items.findIndex((item) => item.cartItemId === cartItemId);
@@ -67,6 +76,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           portion: selectedPortion,
           spiceLevel,
           selectedAddons: addons,
+          selectedVariants: selectedVariants && selectedVariants.length > 0 ? selectedVariants : undefined,
           specialNotes,
           unitPrice,
           totalPrice,
