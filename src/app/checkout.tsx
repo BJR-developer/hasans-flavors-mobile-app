@@ -47,6 +47,7 @@ export default function CheckoutScreen() {
   }, [isAuthenticated, user, isLoading, router]);
 
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const subtotal = getSubtotal();
@@ -130,7 +131,7 @@ export default function CheckoutScreen() {
         customerName: user.name || 'Valued Diner',
         customerPhone: user.phone || undefined,
         tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
-        paymentMethod: 'cash',
+        paymentMethod,
         subtotal,
         tax,
         serviceFee,
@@ -187,28 +188,100 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Payment Method Selector (Cash Only) */}
+        {/* Payment Method Selector (Cash or Card) */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Payment Method</Text>
 
-          <View style={styles.singlePaymentOption}>
-            <View style={styles.paymentLeft}>
-              <View style={styles.radioCircleActive}>
-                <View style={styles.radioDot} />
+          <View style={{ gap: 8 }}>
+            {/* Cash Option */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.singlePaymentOption,
+                paymentMethod === 'cash'
+                  ? styles.paymentOptionActive
+                  : styles.paymentOptionInactive,
+              ]}
+              onPress={() => setPaymentMethod('cash')}
+            >
+              <View style={styles.paymentLeft}>
+                <View
+                  style={
+                    paymentMethod === 'cash'
+                      ? styles.radioCircleActive
+                      : styles.radioCircleInactive
+                  }
+                >
+                  {paymentMethod === 'cash' && <View style={styles.radioDot} />}
+                </View>
+                <View style={styles.paymentTextCol}>
+                  <Text
+                    style={
+                      paymentMethod === 'cash'
+                        ? styles.paymentNameSelected
+                        : styles.paymentNameUnselected
+                    }
+                  >
+                    {deliveryType === 'dine_in'
+                      ? 'Cash at Table / Counter'
+                      : 'Cash on Pickup / Takeout'}
+                  </Text>
+                  <Text style={styles.paymentDesc}>Pay with cash upon service</Text>
+                </View>
               </View>
-              <View style={styles.paymentTextCol}>
-                <Text style={styles.paymentNameSelected}>
-                  {deliveryType === 'dine_in'
-                    ? 'Cash at Table / Counter'
-                    : 'Cash on Pickup / Takeout'}
-                </Text>
-                <Text style={styles.paymentDesc}>Pay with cash upon service</Text>
-              </View>
-            </View>
 
-            <View style={styles.cashIconBadge}>
-              <Ionicons name="cash-outline" size={20} color={Colors.primary} />
-            </View>
+              <View style={styles.cashIconBadge}>
+                <Ionicons
+                  name="cash-outline"
+                  size={20}
+                  color={paymentMethod === 'cash' ? Colors.primary : Colors.textMuted}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {/* Card Option */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.singlePaymentOption,
+                paymentMethod === 'card'
+                  ? styles.paymentOptionActive
+                  : styles.paymentOptionInactive,
+              ]}
+              onPress={() => setPaymentMethod('card')}
+            >
+              <View style={styles.paymentLeft}>
+                <View
+                  style={
+                    paymentMethod === 'card'
+                      ? styles.radioCircleActive
+                      : styles.radioCircleInactive
+                  }
+                >
+                  {paymentMethod === 'card' && <View style={styles.radioDot} />}
+                </View>
+                <View style={styles.paymentTextCol}>
+                  <Text
+                    style={
+                      paymentMethod === 'card'
+                        ? styles.paymentNameSelected
+                        : styles.paymentNameUnselected
+                    }
+                  >
+                    Credit / Debit Card
+                  </Text>
+                  <Text style={styles.paymentDesc}>Pay via card terminal upon service</Text>
+                </View>
+              </View>
+
+              <View style={styles.cashIconBadge}>
+                <Ionicons
+                  name="card-outline"
+                  size={20}
+                  color={paymentMethod === 'card' ? Colors.primary : Colors.textMuted}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -399,9 +472,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.md,
     borderRadius: Radius.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
+  },
+  paymentOptionActive: {
     borderColor: Colors.primary,
     backgroundColor: Colors.primaryLight,
+  },
+  paymentOptionInactive: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
   },
   paymentLeft: {
     flexDirection: 'row',
@@ -418,6 +497,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  radioCircleInactive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
   radioDot: {
     width: 10,
     height: 10,
@@ -432,6 +518,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
+  },
+  paymentNameUnselected: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.text,
   },
   paymentDesc: {
     fontSize: 11,
