@@ -164,7 +164,24 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   placeOrder: (params: PlaceOrderParams): Order => {
-    const newSeq = 8820 + get().orders.length + 1;
+    // Calculate daily sequential order number: #1, #2 ... #10, #11, #38
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayOrders = get().orders.filter((o) => (o.createdAt || '').startsWith(todayStr));
+
+    let maxSeq = 0;
+    for (const o of todayOrders) {
+      const match = (o.orderNumber || '').match(/#?(\d+)/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (n > maxSeq && n < 10000) {
+          maxSeq = n;
+        }
+      }
+    }
+    const nextSeq = maxSeq > 0 ? maxSeq + 1 : todayOrders.length + 1;
+    const orderNumber = `#${nextSeq}`;
+
     const finalPaymentStatus: PaymentStatus =
       params.paymentStatus ||
       (params.type === 'dine_in' ? 'unpaid' : params.paymentMethod === 'cash' ? 'unpaid' : 'paid');
@@ -174,7 +191,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     const newOrder: Order = {
       id: `ord_${Date.now()}`,
-      orderNumber: `#HF-${newSeq}`,
+      orderNumber,
       customerId: params.customerId,
       type: params.type,
       tableNumber: params.tableNumber,
