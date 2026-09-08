@@ -34,7 +34,7 @@ export default function DishDetailScreen() {
 
   const [quantity, setQuantity] = useState(1);
   const [selectedPortion, setSelectedPortion] = useState<PortionOption>(PORTION_OPTIONS[0]);
-  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<number>(storeDish?.spiceLevel || 2);
+  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<number>(storeDish?.spiceLevel || 0);
   const [selectedAddons, setSelectedAddons] = useState<AddonOption[]>([]);
   const [specialNotes, setSpecialNotes] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -58,14 +58,14 @@ export default function DishDetailScreen() {
   useEffect(() => {
     if (storeDish) {
       setDish(storeDish);
-      setSelectedSpiceLevel(storeDish.spiceLevel || 2);
+      setSelectedSpiceLevel(storeDish.spiceLevel || 0);
       setIsLoading(false);
     } else if (id) {
       setIsLoading(true);
       fetchDishById(id).then((d) => {
         if (d) {
           setDish(d);
-          setSelectedSpiceLevel(d.spiceLevel || 2);
+          setSelectedSpiceLevel(d.spiceLevel || 0);
         }
         setIsLoading(false);
       });
@@ -137,11 +137,18 @@ export default function DishDetailScreen() {
         })
       : [];
 
+    const hasSpiceInVariants = hasCustomVariants && dish.variants!.some((g) => g.name.toLowerCase().includes('spice'));
+    const effectiveSpice = hasSpiceInVariants
+      ? 0
+      : (dish.spiceLevel && dish.spiceLevel > 0)
+      ? selectedSpiceLevel
+      : 0;
+
     addItem(
       dish,
       quantity,
       selectedPortion,
-      selectedSpiceLevel,
+      effectiveSpice,
       selectedAddons,
       specialNotes,
       selectedVariants
@@ -387,43 +394,45 @@ export default function DishDetailScreen() {
               </View>
             </View>
 
-            {/* Spice Level Selection */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Spice Level</Text>
-              <Text style={styles.sectionSub}>Adjust heat to your taste</Text>
+            {/* Spice Level Selection - only if dish explicitly has a positive legacy spice level */}
+            {dish.spiceLevel && dish.spiceLevel > 0 ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Spice Level</Text>
+                <Text style={styles.sectionSub}>Adjust heat to your taste</Text>
 
-              <View style={styles.spiceGrid}>
-                {SPICE_LEVELS.map((s) => {
-                  const selected = selectedSpiceLevel === s.level;
-                  return (
-                    <TouchableOpacity
-                      key={s.level}
-                      style={[styles.spiceCard, selected && styles.spiceCardSelected]}
-                      onPress={() => {
-                        try {
-                          Haptics.selectionAsync();
-                        } catch {}
-                        setSelectedSpiceLevel(s.level);
-                      }}
-                    >
-                      <View style={styles.spiceCardHeader}>
-                        <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
-                          {s.label}
+                <View style={styles.spiceGrid}>
+                  {SPICE_LEVELS.map((s) => {
+                    const selected = selectedSpiceLevel === s.level;
+                    return (
+                      <TouchableOpacity
+                        key={s.level}
+                        style={[styles.spiceCard, selected && styles.spiceCardSelected]}
+                        onPress={() => {
+                          try {
+                            Haptics.selectionAsync();
+                          } catch {}
+                          setSelectedSpiceLevel(s.level);
+                        }}
+                      >
+                        <View style={styles.spiceCardHeader}>
+                          <Text style={[styles.spiceLevelName, selected && styles.spiceLevelNameSelected]}>
+                            {s.label}
+                          </Text>
+                          <Ionicons
+                            name="flame"
+                            size={14}
+                            color={selected ? Colors.primary : Colors.border}
+                          />
+                        </View>
+                        <Text style={styles.spiceDesc} numberOfLines={2}>
+                          {s.description}
                         </Text>
-                        <Ionicons
-                          name="flame"
-                          size={14}
-                          color={selected ? Colors.primary : Colors.border}
-                        />
-                      </View>
-                      <Text style={styles.spiceDesc} numberOfLines={2}>
-                        {s.description}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            ) : null}
           </>
         )}
 

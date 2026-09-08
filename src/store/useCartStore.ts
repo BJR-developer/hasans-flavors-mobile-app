@@ -40,7 +40,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   discountAmount: 0,
   deliveryType: 'delivery',
 
-  addItem: (dish, quantity = 1, portion, spiceLevel = 2, addons = [], specialNotes = '', selectedVariants = []) => {
+  addItem: (dish, quantity = 1, portion, spiceLevel = 0, addons = [], specialNotes = '', selectedVariants = []) => {
     const selectedPortion = portion || PORTION_OPTIONS[0];
     const variantsDelta = selectedVariants && selectedVariants.length > 0
       ? selectedVariants.reduce((sum, v) => sum + (v.priceDelta || 0), 0)
@@ -53,7 +53,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       ? selectedVariants.map(v => `${v.groupId}:${v.optionId}`).sort().join(';')
       : selectedPortion.id;
 
-    const cartItemId = `${dish.id}-${variantsKey}-spice${spiceLevel}-${addons.map(a => a.id).sort().join('_')}`;
+    const effectiveSpice = spiceLevel || 0;
+    const cartItemId = `${dish.id}-${variantsKey}-spice${effectiveSpice}-${addons.map(a => a.id).sort().join('_')}`;
 
     set((state) => {
       const existingIndex = state.items.findIndex((item) => item.cartItemId === cartItemId);
@@ -74,7 +75,7 @@ export const useCartStore = create<CartState>((set, get) => ({
           dish,
           quantity,
           portion: selectedPortion,
-          spiceLevel,
+          spiceLevel: effectiveSpice,
           selectedAddons: addons,
           selectedVariants: selectedVariants && selectedVariants.length > 0 ? selectedVariants : undefined,
           specialNotes,
