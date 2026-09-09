@@ -97,6 +97,9 @@ export default function OnboardingScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
+    // Mark onboarding as completed immediately so any app reload never resets to onboarding
+    completeOnboarding();
+
     if (currentIndex < ONBOARDING_SLIDES.length - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);

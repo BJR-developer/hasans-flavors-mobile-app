@@ -26,10 +26,10 @@ import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-// Full-width peek carousel where cards are centered
-const CARD_WIDTH = Math.min(width * 0.88, 360);
-const CARD_GAP = 0; // Seamless tight spacing between cards
-const SNAP_INTERVAL = CARD_WIDTH;
+// Centered peeking carousel: card is full-bleed with narrow 6px gap
+const CARD_WIDTH = Math.min(width * 0.88, 350);
+const CARD_GAP = 6;
+const ITEM_WIDTH = CARD_WIDTH + CARD_GAP;
 const SIDE_SPACER = (width - CARD_WIDTH) / 2;
 const LOOP_MULTIPLIER = 80;
 
@@ -109,9 +109,14 @@ export default function HomeScreen() {
     return Math.floor(LOOP_MULTIPLIER / 2) * featuredDishes.length;
   }, [featuredDishes.length]);
 
+  // Exact snap offsets array so manual swipe ALWAYS stops dead-center
+  const snapOffsets = useMemo(() => {
+    return virtualData.map((_, i) => i * ITEM_WIDTH);
+  }, [virtualData]);
+
   const currentVirtualIndexRef = useRef(initialIndex);
   const carouselRef = useRef<Animated.FlatList>(null);
-  const scrollX = useRef(new Animated.Value(initialIndex * SNAP_INTERVAL)).current;
+  const scrollX = useRef(new Animated.Value(initialIndex * ITEM_WIDTH)).current;
   const isUserInteractingRef = useRef(false);
 
   // Auto-scroll loop every 4.5 seconds
@@ -123,7 +128,7 @@ export default function HomeScreen() {
       const nextIndex = currentVirtualIndexRef.current + 1;
       currentVirtualIndexRef.current = nextIndex;
       carouselRef.current?.scrollToOffset({
-        offset: nextIndex * SNAP_INTERVAL,
+        offset: nextIndex * ITEM_WIDTH,
         animated: true,
       });
     }, 4500);
@@ -137,7 +142,7 @@ export default function HomeScreen() {
       useNativeDriver: true,
       listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetX = event.nativeEvent.contentOffset.x;
-        const index = Math.round(offsetX / SNAP_INTERVAL);
+        const index = Math.round(offsetX / ITEM_WIDTH);
         currentVirtualIndexRef.current = index;
       },
     }
@@ -339,7 +344,7 @@ export default function HomeScreen() {
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
                 decelerationRate="fast"
-                snapToInterval={SNAP_INTERVAL}
+                snapToOffsets={snapOffsets}
                 snapToAlignment="start"
                 initialScrollIndex={initialIndex}
                 contentContainerStyle={styles.carouselContentContainer}
@@ -357,33 +362,33 @@ export default function HomeScreen() {
                   }, 1500);
                 }}
                 getItemLayout={(data, index) => ({
-                  length: SNAP_INTERVAL,
-                  offset: SNAP_INTERVAL * index,
+                  length: ITEM_WIDTH,
+                  offset: ITEM_WIDTH * index,
                   index,
                 })}
                 renderItem={({ item, index }: any) => {
-                  // Theatre Effect Interpolation with tight gap
+                  // Subtle depth without excessive shrinking gap
                   const inputRange = [
-                    (index - 1) * SNAP_INTERVAL,
-                    index * SNAP_INTERVAL,
-                    (index + 1) * SNAP_INTERVAL,
+                    (index - 1) * ITEM_WIDTH,
+                    index * ITEM_WIDTH,
+                    (index + 1) * ITEM_WIDTH,
                   ];
 
                   const scale = scrollX.interpolate({
                     inputRange,
-                    outputRange: [0.91, 1, 0.91],
+                    outputRange: [0.97, 1, 0.97],
                     extrapolate: 'clamp',
                   });
 
                   const translateY = scrollX.interpolate({
                     inputRange,
-                    outputRange: [6, 0, 6],
+                    outputRange: [3, 0, 3],
                     extrapolate: 'clamp',
                   });
 
                   const opacity = scrollX.interpolate({
                     inputRange,
-                    outputRange: [0.8, 1, 0.8],
+                    outputRange: [0.88, 1, 0.88],
                     extrapolate: 'clamp',
                   });
 
@@ -393,7 +398,7 @@ export default function HomeScreen() {
                         styles.cardWrapper,
                         {
                           width: CARD_WIDTH,
-                          paddingHorizontal: 2,
+                          marginRight: CARD_GAP,
                           transform: [{ scale }, { translateY }],
                           opacity,
                         },
@@ -860,7 +865,8 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   carouselContentContainer: {
-    paddingHorizontal: SIDE_SPACER,
+    paddingLeft: SIDE_SPACER,
+    paddingRight: SIDE_SPACER - CARD_GAP,
     paddingVertical: 0,
   },
   cardWrapper: {

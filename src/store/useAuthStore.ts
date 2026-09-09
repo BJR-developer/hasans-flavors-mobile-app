@@ -115,17 +115,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initializeAuth: async () => {
     try {
       set({ isLoading: true });
-      const [onboardedVal, splashVal] = await Promise.all([
+      const [onboardedVal, splashVal, savedProfileJson] = await Promise.all([
         safeGetItem(STORAGE_KEYS.ONBOARDED),
         safeGetItem(STORAGE_KEYS.SPLASH_SEEN),
+        safeGetItem(STORAGE_KEYS.USER_PROFILE),
       ]);
 
       const isOnboarded = onboardedVal === 'true';
       const hasSeenSplash = splashVal === 'true';
 
       let user: UserProfile | null = null;
+      if (savedProfileJson) {
+        try {
+          user = JSON.parse(savedProfileJson);
+        } catch {}
+      }
 
-      // Check live Supabase Session
+      // Check live Supabase Session in background / update fresh profile
       try {
         const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
         if (!sessionErr && session?.user) {
@@ -138,6 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (!profileErr && profile) {
             user = mapProfileRow(profile);
             await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(user));
+            await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
           } else {
             // User exists in auth but profile missing, create or map from auth metadata
             const meta = session.user.user_metadata || {};
@@ -156,10 +163,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             };
             user = fallbackProfile;
             await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(user));
+            await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
           }
-        } else {
-          // No active Supabase session -> ensure profile is cleared
-          await safeRemoveItem(STORAGE_KEYS.USER_PROFILE);
         }
       } catch (e) {
         console.warn('Supabase session check error:', e);
@@ -174,7 +179,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       set({
-        isOnboarded,
+        isOnboarded: isOnboarded || !!user,
         hasSeenSplash,
         user,
         isAuthenticated: !!user,
