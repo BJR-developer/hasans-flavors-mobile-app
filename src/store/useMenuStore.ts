@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Category, Dish } from '@/types';
+import { AddonOption, Category, Dish } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export const mapDishRow = (row: any): Dish => ({
@@ -30,6 +30,7 @@ export const mapDishRow = (row: any): Dish => ({
 interface MenuState {
   dishes: Dish[];
   categories: Category[];
+  addons: AddonOption[];
   selectedCategoryId: string;
   searchQuery: string;
   selectedSpiceFilter: number | null;
@@ -55,6 +56,7 @@ let realtimeSubscribed = false;
 export const useMenuStore = create<MenuState>((set, get) => ({
   dishes: [],
   categories: [],
+  addons: [],
   selectedCategoryId: 'all',
   searchQuery: '',
   selectedSpiceFilter: null,
@@ -96,7 +98,23 @@ export const useMenuStore = create<MenuState>((set, get) => ({
         set({ categories: mappedCats });
       }
 
-      // 3. Setup Supabase Realtime Subscription once
+      // 3. Fetch Addons directly from live Supabase table
+      const { data: addonData, error: addonError } = await supabase
+        .from('addons')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!addonError && addonData) {
+        const mappedAddons: AddonOption[] = addonData.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          price: Number(a.price || 0),
+          inStock: a.in_stock ?? true,
+        }));
+        set({ addons: mappedAddons });
+      }
+
+      // 4. Setup Supabase Realtime Subscription once
       if (!realtimeSubscribed) {
         realtimeSubscribed = true;
         supabase

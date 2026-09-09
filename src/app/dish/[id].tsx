@@ -27,7 +27,12 @@ export default function DishDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const storeDish = useMenuStore((state) => state.getDishById(id));
   const fetchDishById = useMenuStore((state) => state.fetchDishById);
+  const storeAddons = useMenuStore((state) => state.addons);
   const addItem = useCartStore((state) => state.addItem);
+
+  const availableAddons = (storeAddons && storeAddons.length > 0 ? storeAddons : ADDON_OPTIONS).filter(
+    (a) => a.inStock !== false
+  );
 
   const [dish, setDish] = useState<Dish | undefined>(storeDish);
   const [isLoading, setIsLoading] = useState<boolean>(!storeDish);
@@ -442,7 +447,7 @@ export default function DishDetailScreen() {
           <Text style={styles.sectionSub}>Optional sides to complete your meal</Text>
 
           <View style={styles.optionsList}>
-            {ADDON_OPTIONS.map((addon) => {
+            {availableAddons.map((addon) => {
               const selected = selectedAddons.some((a) => a.id === addon.id);
               return (
                 <TouchableOpacity
