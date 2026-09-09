@@ -35,8 +35,10 @@ export const useTableStore = create<TableState>((set, get) => ({
       if (!error && data && data.length > 0) {
         const mapped: TableSession[] = data
           .map((row: any) => ({
+            id: row.id,
             tableNumber: row.table_number,
-            guestCount: row.guest_count || 4,
+            capacity: Number(row.capacity || row.guest_count || 4),
+            guestCount: Number(row.guest_count || row.capacity || 4),
             status: row.status as 'available' | 'occupied' | 'billing',
             activeOrderId: row.current_order_id || undefined,
             joinedAt: row.updated_at,
@@ -69,7 +71,8 @@ export const useTableStore = create<TableState>((set, get) => ({
                       ? {
                           ...t,
                           status: updatedRow.status,
-                          guestCount: updatedRow.guest_count || t.guestCount,
+                          capacity: Number(updatedRow.capacity || updatedRow.guest_count || t.capacity || 4),
+                          guestCount: Number(updatedRow.guest_count || updatedRow.capacity || t.guestCount || 4),
                           activeOrderId: updatedRow.current_order_id || undefined,
                         }
                       : t
@@ -81,12 +84,21 @@ export const useTableStore = create<TableState>((set, get) => ({
                   tables: [
                     ...currentTables,
                     {
+                      id: newRow.id,
                       tableNumber: newRow.table_number,
-                      guestCount: newRow.guest_count || 4,
+                      capacity: Number(newRow.capacity || newRow.guest_count || 4),
+                      guestCount: Number(newRow.guest_count || newRow.capacity || 4),
                       status: newRow.status,
                       activeOrderId: newRow.current_order_id || undefined,
                     },
                   ],
+                });
+              } else if (payload.eventType === 'DELETE') {
+                const oldRow: any = payload.old;
+                set({
+                  tables: currentTables.filter(
+                    (t) => t.tableNumber !== oldRow.table_number && t.id !== oldRow.id
+                  ),
                 });
               }
             }

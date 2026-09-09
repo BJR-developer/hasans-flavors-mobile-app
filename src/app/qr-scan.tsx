@@ -262,7 +262,7 @@ export default function QRTableScreen() {
                     {t.tableNumber}
                   </Text>
                   <Text style={styles.tableStatusLabel}>
-                    {isOccupied ? 'Occupied' : 'Open'}
+                    {isOccupied ? 'Occupied' : `${t.capacity || t.guestCount || 4} Seats`}
                   </Text>
                 </TouchableOpacity>
               );
