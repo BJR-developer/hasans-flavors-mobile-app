@@ -351,7 +351,7 @@ export default function ForgotPasswordScreen() {
                   setEmail(val);
                   if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
-                placeholder="name@example.com"
+                placeholder="Enter your email"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
