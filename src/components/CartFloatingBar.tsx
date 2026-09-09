@@ -21,75 +21,89 @@ export const CartFloatingBar: React.FC = () => {
   };
 
   return (
-    <View style={styles.wrapper}>
-      <TouchableOpacity activeOpacity={0.9} style={styles.bar} onPress={handlePress}>
-        <View style={styles.left}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{itemCount}</Text>
-          </View>
-          <Text style={styles.itemsLabel}>
-            View Cart ({itemCount} {itemCount === 1 ? 'item' : 'items'})
-          </Text>
-        </View>
+    <View style={styles.dockedFooter}>
+      <View style={styles.priceCol}>
+        <Text style={styles.totalLabel}>Total Amount</Text>
+        <Text style={styles.totalAmount}>₱{total.toLocaleString()}</Text>
+      </View>
 
-        <View style={styles.right}>
-          <Text style={styles.totalText}>₱{total.toLocaleString()}</Text>
-          <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
+      <TouchableOpacity
+        activeOpacity={0.88}
+        style={styles.viewCartBtn}
+        onPress={handlePress}
+      >
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{itemCount}</Text>
         </View>
+        <Text style={styles.viewCartBtnText}>
+          View Cart ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+        </Text>
+        <Ionicons name="arrow-forward" size={16} color={Colors.textLight} />
       </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
+  dockedFooter: {
     position: 'absolute',
-    bottom: Spacing.lg,
-    left: Spacing.lg,
-    right: Spacing.lg,
-    zIndex: 99,
-  },
-  bar: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.lg,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 14,
+    paddingVertical: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 99,
     ...Shadows.elevated,
   },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  priceCol: {
+    gap: 2,
   },
-  badge: {
-    backgroundColor: '#FFFFFF',
-    width: 24,
-    height: 24,
-    borderRadius: Radius.round,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: Colors.primary,
-    fontWeight: '800',
+  totalLabel: {
     fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
   },
-  itemsLabel: {
-    color: Colors.textLight,
-    fontWeight: '700',
-    fontSize: Typography.fontSize.sm,
+  totalAmount: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.extraBold,
+    color: Colors.text,
   },
-  right: {
+  viewCartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    height: 48,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
   },
-  totalText: {
+  countBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.round,
+    minWidth: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countBadgeText: {
     color: Colors.textLight,
+    fontSize: 11,
     fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  viewCartBtnText: {
+    color: Colors.textLight,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.sm,
   },
 });

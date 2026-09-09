@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Animated,
-  Easing,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +15,6 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useOrderStore } from '@/store/useOrderStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
-import * as Haptics from 'expo-haptics';
 
 export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
@@ -26,11 +23,17 @@ export default function OrderTrackingScreen() {
   const storeOrder = useOrderStore((state) => state.getOrderById(id || ''));
   const [order, setOrder] = useState<Order | undefined>(storeOrder);
   const [isLoading, setIsLoading] = useState<boolean>(!storeOrder);
+  const [countdownMinutes, setCountdownMinutes] = useState<number>(
+    storeOrder?.estimatedMinutes || 20
+  );
 
   const fetchOrderDetails = async () => {
     const fromStore = useOrderStore.getState().getOrderById(id || '');
     if (fromStore) {
       setOrder(fromStore);
+      if (fromStore.estimatedMinutes) {
+        setCountdownMinutes(fromStore.estimatedMinutes);
+      }
       setIsLoading(false);
       return;
     }
@@ -45,6 +48,7 @@ export default function OrderTrackingScreen() {
           .single();
 
         if (!error && data) {
+          const estMin = Number(data.estimated_minutes || data.estimatedMinutes || 20);
           const mapped: Order = {
             id: String(data.id),
             orderNumber: data.order_number,
@@ -65,10 +69,11 @@ export default function OrderTrackingScreen() {
             paymentMethod: data.payment_method,
             paymentStatus: data.payment_status,
             createdAt: data.created_at,
-            estimatedMinutes: 20,
+            estimatedMinutes: estMin,
             specialNotes: data.notes || undefined,
           };
           setOrder(mapped);
+          setCountdownMinutes(estMin);
         }
       } catch (err) {
         console.warn('Failed to fetch order:', err);
@@ -85,7 +90,7 @@ export default function OrderTrackingScreen() {
     fetchOrderDetails();
   }, [id, storeOrder]);
 
-  // Realtime Supabase Subscription for live order bumps
+  // Realtime Supabase Subscription for live order bumps, checklist items, and estimated time
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -96,15 +101,27 @@ export default function OrderTrackingScreen() {
         (payload) => {
           const updated: any = payload.new;
           if (updated && (String(updated.id) === id || updated.order_number === id)) {
-            setOrder((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    status: updated.status as OrderStatus,
-                    paymentStatus: updated.payment_status,
-                  }
-                : undefined
-            );
+            setOrder((prev) => {
+              if (!prev) return undefined;
+              const nextItems = Array.isArray(updated.items) ? updated.items : prev.items;
+              const nextStatus = (updated.status as OrderStatus) || prev.status;
+              const nextEst =
+                updated.estimated_minutes !== undefined
+                  ? Number(updated.estimated_minutes)
+                  : prev.estimatedMinutes;
+
+              return {
+                ...prev,
+                status: nextStatus,
+                paymentStatus: updated.payment_status || prev.paymentStatus,
+                items: nextItems,
+                estimatedMinutes: nextEst,
+              };
+            });
+
+            if (updated.estimated_minutes !== undefined) {
+              setCountdownMinutes(Number(updated.estimated_minutes));
+            }
           }
         }
       )
@@ -114,49 +131,6 @@ export default function OrderTrackingScreen() {
       supabase.removeChannel(channel);
     };
   }, [id]);
-
-  // Countdown timer simulation
-  const [countdownMinutes, setCountdownMinutes] = useState(order?.estimatedMinutes || 18);
-
-  // Pulse animation for the active stage beacon
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const pulseOpacity = useRef(new Animated.Value(0.6)).current;
-
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.45,
-            duration: 1200,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1200,
-            easing: Easing.in(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(pulseOpacity, {
-            toValue: 0.15,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseOpacity, {
-            toValue: 0.6,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    );
-    pulseLoop.start();
-
-    return () => pulseLoop.stop();
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -235,8 +209,8 @@ export default function OrderTrackingScreen() {
       case 'preparing':
         return 1;
       case 'ready':
-      case 'served':
         return 2;
+      case 'served':
       case 'completed':
         return 3;
       default:
@@ -275,22 +249,23 @@ export default function OrderTrackingScreen() {
               desc: 'Packed in heat-sealed containers ready for collection.',
             };
       case 'served':
-        return {
-          badge: 'SERVED AT TABLE',
-          title: `Served at ${order.tableNumber || 'Your Table'}`,
-          desc: 'Enjoy your meal! When finished, you may request your bill from your server or cashier.',
-        };
       case 'completed':
       default:
         return {
-          badge: 'COMPLETED',
-          title: 'Delivered & Completed',
+          badge: 'ORDER DELIVERED',
+          title: `Delivered to ${order.tableNumber || 'Your Table'}`,
           desc: 'Enjoy your meal! Thank you for dining with Hasan’s Flavors.',
         };
     }
   };
 
   const statusInfo = getStatusHeadline();
+
+  // Kitchen Checklist Progress calculation
+  const completedItemsCount = order.items.filter((it: any) => !!it.completedInKitchen).length;
+  const totalItemsCount = order.items.length;
+  const checklistPercent = totalItemsCount > 0 ? (completedItemsCount / totalItemsCount) * 100 : 0;
+  const isAllKitchenDone = totalItemsCount > 0 && completedItemsCount === totalItemsCount;
 
   return (
     <View style={styles.screenContainer}>
@@ -335,13 +310,13 @@ export default function OrderTrackingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Minimal Hero ETA Status Card */}
+        {/* Minimal Hero ETA Status Card (Clean, static, NO animation) */}
         <View style={styles.heroStatusCard}>
           <View style={styles.statusBadgeRow}>
             <View
               style={[
                 styles.statusPill,
-                order.status === 'completed'
+                order.status === 'completed' || order.status === 'served'
                   ? styles.statusPillCompleted
                   : styles.statusPillActive,
               ]}
@@ -349,7 +324,7 @@ export default function OrderTrackingScreen() {
               <View
                 style={[
                   styles.statusDot,
-                  order.status === 'completed'
+                  order.status === 'completed' || order.status === 'served'
                     ? styles.statusDotCompleted
                     : styles.statusDotActive,
                 ]}
@@ -357,7 +332,7 @@ export default function OrderTrackingScreen() {
               <Text
                 style={[
                   styles.statusPillText,
-                  order.status === 'completed'
+                  order.status === 'completed' || order.status === 'served'
                     ? styles.statusPillTextCompleted
                     : styles.statusPillTextActive,
                 ]}
@@ -369,10 +344,13 @@ export default function OrderTrackingScreen() {
 
           {/* Big Minimal ETA Counter */}
           <View style={styles.etaDisplaySection}>
-            {order.status === 'completed' ? (
+            {order.status === 'completed' || order.status === 'served' ? (
               <View style={styles.deliveredIconWrapper}>
                 <Ionicons name="checkmark-circle" size={48} color={Colors.halalGreen} />
-                <Text style={styles.deliveredTitle}>Order Complete</Text>
+                <Text style={styles.deliveredTitle}>Order Delivered</Text>
+                <Text style={styles.deliveredSub}>
+                  Enjoy your meal at {order.tableNumber || 'your table'}!
+                </Text>
               </View>
             ) : (
               <>
@@ -394,7 +372,7 @@ export default function OrderTrackingScreen() {
             )}
           </View>
 
-          {/* Animated 4-Stage Stepper Track */}
+          {/* 4-Stage Stepper Track (Clean static nodes) */}
           <View style={styles.timelineSection}>
             <View style={styles.timelineTrackLine}>
               <View
@@ -414,17 +392,6 @@ export default function OrderTrackingScreen() {
                 return (
                   <View key={step.key} style={styles.stepNodeCol}>
                     <View style={styles.nodeWrapper}>
-                      {isCurrent && order.status !== 'completed' && (
-                        <Animated.View
-                          style={[
-                            styles.pulsingBeacon,
-                            {
-                              transform: [{ scale: pulseAnim }],
-                              opacity: pulseOpacity,
-                            },
-                          ]}
-                        />
-                      )}
                       <View
                         style={[
                           styles.nodeCircle,
@@ -471,55 +438,104 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
-        {/* Order Items Breakdown with Dish Images */}
+        {/* Order Items Breakdown & Kitchen Preparation Checklist */}
         <View style={styles.itemsCard}>
           <View style={styles.itemsCardHeader}>
-            <Text style={styles.cardTitle}>Order Items ({order.items.length})</Text>
+            <View style={styles.itemsHeaderLeft}>
+              <Text style={styles.cardTitle}>Order Items ({order.items.length})</Text>
+              <Text style={styles.checklistSummarySub}>
+                {completedItemsCount}/{totalItemsCount} prepared by kitchen
+              </Text>
+            </View>
             <View style={styles.cashBadge}>
               <Ionicons name="cash-outline" size={12} color={Colors.primary} />
-              <Text style={styles.cashBadgeText}>CASH</Text>
+              <Text style={styles.cashBadgeText}>
+                {order.paymentMethod?.toUpperCase() || 'CASH'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Live Kitchen Checklist Progress Bar */}
+          <View style={styles.checklistProgressBarWrapper}>
+            <View style={styles.checklistProgressTrack}>
+              <View
+                style={[
+                  styles.checklistProgressFill,
+                  {
+                    width: `${checklistPercent}%`,
+                    backgroundColor: isAllKitchenDone ? Colors.halalGreen : Colors.primary,
+                  },
+                ]}
+              />
             </View>
           </View>
 
           <View style={styles.itemListContainer}>
-            {order.items.map((it) => (
-              <View key={it.cartItemId} style={styles.orderItemRow}>
-                <Image
-                  source={{ uri: it.dish.imageUrl }}
-                  style={styles.itemThumbnail}
-                  resizeMode="cover"
-                />
+            {order.items.map((it: any, index: number) => {
+              const isDone = !!it.completedInKitchen || order.status === 'served' || order.status === 'completed';
 
-                <View style={styles.itemDetailsCol}>
-                  <View style={styles.itemNameRow}>
-                    <Text style={styles.qtyBadge}>{it.quantity}x</Text>
-                    <Text style={styles.dishName} numberOfLines={1}>
-                      {it.dish.name}
-                    </Text>
-                  </View>
-                  {it.selectedVariants && it.selectedVariants.length > 0 ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
-                      {it.selectedVariants.map((v, idx) => (
-                        <Text key={idx} style={[styles.dishPortion, { color: Colors.textSecondary }]}>
-                          {v.groupName}: {v.optionName}
-                        </Text>
-                      ))}
+              return (
+                <View key={it.cartItemId || `${it.dish?.id}-${index}`} style={styles.orderItemRow}>
+                  <Image
+                    source={{ uri: it.dish.imageUrl }}
+                    style={styles.itemThumbnail}
+                    resizeMode="cover"
+                  />
+
+                  <View style={styles.itemDetailsCol}>
+                    <View style={styles.itemNameRow}>
+                      <Text style={styles.qtyBadge}>{it.quantity}x</Text>
+                      <Text
+                        style={[
+                          styles.dishName,
+                          isDone && styles.dishNameDone,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {it.dish.name}
+                      </Text>
                     </View>
-                  ) : (
-                    <Text style={styles.dishPortion}>{it.portion.name}</Text>
-                  )}
-                  {it.selectedAddons && it.selectedAddons.length > 0 ? (
-                    <Text style={styles.dishAddons} numberOfLines={1}>
-                      + {it.selectedAddons.map((a) => a.name).join(', ')}
-                    </Text>
-                  ) : null}
-                </View>
 
-                <Text style={styles.itemPriceText}>
-                  ₱{it.totalPrice.toLocaleString()}
-                </Text>
-              </View>
-            ))}
+                    {it.selectedVariants && it.selectedVariants.length > 0 ? (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                        {it.selectedVariants.map((v: any, idx: number) => (
+                          <Text key={idx} style={[styles.dishPortion, { color: Colors.textSecondary }]}>
+                            {v.groupName}: {v.optionName}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.dishPortion}>{it.portion?.name}</Text>
+                    )}
+
+                    {it.selectedAddons && it.selectedAddons.length > 0 ? (
+                      <Text style={styles.dishAddons} numberOfLines={1}>
+                        + {it.selectedAddons.map((a: any) => a.name).join(', ')}
+                      </Text>
+                    ) : null}
+
+                    {/* Live Preparation Status Pill from Kitchen Checklist */}
+                    <View style={styles.itemStatusRow}>
+                      {isDone ? (
+                        <View style={styles.readyBadge}>
+                          <Ionicons name="checkmark-circle" size={13} color={Colors.halalGreen} />
+                          <Text style={styles.readyBadgeText}>Prepared & Plated</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.cookingBadge}>
+                          <Ionicons name="flame" size={12} color={Colors.saffron} />
+                          <Text style={styles.cookingBadgeText}>Cooking on line</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  <Text style={styles.itemPriceText}>
+                    ₱{(it.totalPrice || 0).toLocaleString()}
+                  </Text>
+                </View>
+              );
+            })}
           </View>
 
           <View style={styles.divider} />
@@ -552,7 +568,9 @@ export default function OrderTrackingScreen() {
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount (CASH)</Text>
+            <Text style={styles.totalLabel}>
+              Total Amount ({order.paymentMethod?.toUpperCase() || 'CASH'})
+            </Text>
             <Text style={styles.totalValue}>₱{order.total.toLocaleString()}</Text>
           </View>
         </View>
@@ -760,6 +778,13 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.halalGreen,
   },
+  deliveredSub: {
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
   timelineSection: {
     width: '100%',
     paddingHorizontal: Spacing.xs,
@@ -796,13 +821,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  pulsingBeacon: {
-    position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: Colors.primary,
   },
   nodeCircle: {
     width: 28,
@@ -872,24 +890,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
   },
-  demoPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: Spacing.md,
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primaryMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: Radius.round,
-  },
-  demoPillBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-  },
   itemsCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.xl,
@@ -905,11 +905,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 2,
   },
+  itemsHeaderLeft: {
+    gap: 2,
+  },
   cardTitle: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
+  },
+  checklistSummarySub: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textSecondary,
+  },
+  checklistProgressBarWrapper: {
+    marginVertical: 4,
+  },
+  checklistProgressTrack: {
+    height: 5,
+    backgroundColor: Colors.surface,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  checklistProgressFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   cashBadge: {
     flexDirection: 'row',
@@ -927,8 +948,8 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   itemListContainer: {
-    gap: 10,
-    marginTop: 4,
+    gap: 12,
+    marginTop: 6,
   },
   orderItemRow: {
     flexDirection: 'row',
@@ -939,14 +960,14 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.borderLight,
   },
   itemThumbnail: {
-    width: 46,
-    height: 46,
+    width: 48,
+    height: 48,
     borderRadius: Radius.md,
     backgroundColor: Colors.surface,
   },
   itemDetailsCol: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   itemNameRow: {
     flexDirection: 'row',
@@ -966,6 +987,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
   },
+  dishNameDone: {
+    color: Colors.textSecondary,
+  },
   dishPortion: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.regular,
@@ -975,6 +999,45 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: Typography.fontFamily.regular,
     color: Colors.textSecondary,
+  },
+  itemStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  readyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.halalGreenLight,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+  },
+  readyBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.halalGreen,
+  },
+  cookingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.saffronLight,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+  },
+  cookingBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.saffronDark,
   },
   itemPriceText: {
     fontSize: Typography.fontSize.xs,

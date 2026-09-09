@@ -146,15 +146,15 @@ export default function CartScreen() {
             */}
 
             <TouchableOpacity
-              style={[styles.typeButton, (deliveryType === 'takeout' || deliveryType === 'delivery') && styles.activeTypeButton]}
+              style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
               onPress={() => setDeliveryType('takeout')}
             >
               <Ionicons
                 name="bag-handle-outline"
                 size={16}
-                color={deliveryType === 'takeout' || deliveryType === 'delivery' ? Colors.textLight : Colors.textSecondary}
+                color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
               />
-              <Text style={[styles.typeLabel, (deliveryType === 'takeout' || deliveryType === 'delivery') && styles.activeTypeLabel]}>
+              <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
                 Takeout / Pickup
               </Text>
             </TouchableOpacity>
@@ -165,7 +165,7 @@ export default function CartScreen() {
               <Ionicons name="information-circle-outline" size={16} color={Colors.saffron} />
               <Text style={styles.dineInNoticeText}>
                 {currentTable
-                  ? `Assigned to ${currentTable}. Service will be delivered to your table.`
+                  ? `Assigned to ${currentTable}.`
                   : 'Please select your table number for direct table delivery.'}
               </Text>
               {!currentTable && (
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: 190,
+    paddingBottom: Spacing.lg,
     gap: Spacing.md,
   },
   emptyContainer: {

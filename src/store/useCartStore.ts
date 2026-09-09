@@ -38,7 +38,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   promoCode: null,
   discountAmount: 0,
-  deliveryType: 'delivery',
+  deliveryType: 'dine_in',
 
   addItem: (dish, quantity = 1, portion, spiceLevel = 0, addons = [], specialNotes = '', selectedVariants = []) => {
     const selectedPortion = portion || PORTION_OPTIONS[0];
@@ -114,7 +114,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   clearCart: () => {
-    set({ items: [], promoCode: null, discountAmount: 0 });
+    set({ items: [], promoCode: null, discountAmount: 0, deliveryType: 'dine_in' });
   },
 
   setDeliveryType: (type) => {

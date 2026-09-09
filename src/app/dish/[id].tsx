@@ -1,24 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { ADDON_OPTIONS, PORTION_OPTIONS, SPICE_LEVELS } from '@/data/options';
+import { useCartStore } from '@/store/useCartStore';
+import { useMenuStore } from '@/store/useMenuStore';
+import { AddonOption, Dish, PortionOption, SelectedVariant } from '@/types';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  TextInput,
-  Dimensions,
   ActivityIndicator,
+  Dimensions,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
-import { useMenuStore } from '@/store/useMenuStore';
-import { useCartStore } from '@/store/useCartStore';
-import { ADDON_OPTIONS, PORTION_OPTIONS, SPICE_LEVELS } from '@/data/options';
-import { AddonOption, Dish, PortionOption, SelectedVariant } from '@/types';
-import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -102,10 +102,10 @@ export default function DishDetailScreen() {
   // Price calculations
   const variantsDelta = hasCustomVariants
     ? dish.variants!.reduce((sum, g) => {
-        const optId = selectedVariantsMap[g.id];
-        const opt = g.options.find((o) => o.id === optId);
-        return sum + (opt ? opt.priceDelta : 0);
-      }, 0)
+      const optId = selectedVariantsMap[g.id];
+      const opt = g.options.find((o) => o.id === optId);
+      return sum + (opt ? opt.priceDelta : 0);
+    }, 0)
     : selectedPortion.priceDelta;
 
   const unitPrice = dish.price + variantsDelta + selectedAddons.reduce((sum, a) => sum + a.price, 0);
@@ -114,7 +114,7 @@ export default function DishDetailScreen() {
   const handleToggleAddon = (addon: AddonOption) => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     const exists = selectedAddons.some((a) => a.id === addon.id);
     if (exists) {
       setSelectedAddons(selectedAddons.filter((a) => a.id !== addon.id));
@@ -126,28 +126,28 @@ export default function DishDetailScreen() {
   const handleAddToCart = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } catch {}
+    } catch { }
 
     const selectedVariants: SelectedVariant[] = hasCustomVariants
       ? dish.variants!.map((g) => {
-          const optId = selectedVariantsMap[g.id];
-          const opt = g.options.find((o) => o.id === optId) || g.options[0];
-          return {
-            groupId: g.id,
-            groupName: g.name,
-            optionId: opt.id,
-            optionName: opt.name,
-            priceDelta: opt.priceDelta,
-          };
-        })
+        const optId = selectedVariantsMap[g.id];
+        const opt = g.options.find((o) => o.id === optId) || g.options[0];
+        return {
+          groupId: g.id,
+          groupName: g.name,
+          optionId: opt.id,
+          optionName: opt.name,
+          priceDelta: opt.priceDelta,
+        };
+      })
       : [];
 
     const hasSpiceInVariants = hasCustomVariants && dish.variants!.some((g) => g.name.toLowerCase().includes('spice'));
     const effectiveSpice = hasSpiceInVariants
       ? 0
       : (dish.spiceLevel && dish.spiceLevel > 0)
-      ? selectedSpiceLevel
-      : 0;
+        ? selectedSpiceLevel
+        : 0;
 
     addItem(
       dish,
@@ -252,7 +252,7 @@ export default function DishDetailScreen() {
                     onPress={() => {
                       try {
                         Haptics.selectionAsync();
-                      } catch {}
+                      } catch { }
                       setActiveImageIndex(idx);
                       carouselRef.current?.scrollTo({ x: idx * width, animated: true });
                     }}
@@ -316,7 +316,7 @@ export default function DishDetailScreen() {
                         onPress={() => {
                           try {
                             Haptics.selectionAsync();
-                          } catch {}
+                          } catch { }
                           setSelectedVariantsMap((prev) => ({
                             ...prev,
                             [group.id]: opt.id,
@@ -374,7 +374,7 @@ export default function DishDetailScreen() {
                       onPress={() => {
                         try {
                           Haptics.selectionAsync();
-                        } catch {}
+                        } catch { }
                         setSelectedPortion(p);
                       }}
                     >
@@ -415,7 +415,7 @@ export default function DishDetailScreen() {
                         onPress={() => {
                           try {
                             Haptics.selectionAsync();
-                          } catch {}
+                          } catch { }
                           setSelectedSpiceLevel(s.level);
                         }}
                       >
@@ -506,7 +506,7 @@ export default function DishDetailScreen() {
                 if (quantity > 1) {
                   try {
                     Haptics.selectionAsync();
-                  } catch {}
+                  } catch { }
                   setQuantity(quantity - 1);
                 }
               }}
@@ -522,7 +522,7 @@ export default function DishDetailScreen() {
               onPress={() => {
                 try {
                   Haptics.selectionAsync();
-                } catch {}
+                } catch { }
                 setQuantity(quantity + 1);
               }}
               hitSlop={6}
@@ -868,6 +868,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textAlignVertical: 'top',
     height: 70,
+    marginTop: 6
   },
   footerSafeArea: {
     backgroundColor: Colors.card,

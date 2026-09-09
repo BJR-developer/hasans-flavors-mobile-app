@@ -8,7 +8,10 @@
     "scheme": "mobileapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Hasan's Flavors to access your camera to scan table QR codes."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +38,13 @@
         }
       ],
       "expo-font",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Hasan's Flavors to access your camera to scan table QR codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

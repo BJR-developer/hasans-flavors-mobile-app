@@ -17,6 +17,7 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRoleStore } from '@/store/useRoleStore';
 import { Order, OrderStatus } from '@/types';
+import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -125,6 +126,55 @@ export default function KDSScreen() {
     }
   };
 
+  const handleToggleItemDone = async (orderId: string, cartItemId: string) => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+    const updatedItems = targetOrder.items.map((it: any) =>
+      it.cartItemId === cartItemId
+        ? { ...it, completedInKitchen: !it.completedInKitchen }
+        : it
+    );
+    useOrderStore.setState((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId ? { ...o, items: updatedItems } : o
+      ),
+    }));
+    try {
+      await supabase
+        .from('orders')
+        .update({ items: updatedItems, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to toggle item in Supabase:', e);
+    }
+  };
+
+  const handleAdjustEta = async (orderId: string, delta: number) => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    const targetOrder = orders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+    const cur = targetOrder.estimatedMinutes || 20;
+    const nextVal = Math.max(5, Math.min(120, cur + delta));
+    useOrderStore.setState((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId ? { ...o, estimatedMinutes: nextVal } : o
+      ),
+    }));
+    try {
+      await supabase
+        .from('orders')
+        .update({ estimated_minutes: nextVal, updated_at: new Date().toISOString() })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to update estimated time in Supabase:', e);
+    }
+  };
+
   const calculateElapsedMinutes = (dateStr: string) => {
     const elapsed = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
     return Math.max(1, elapsed);
@@ -214,26 +264,49 @@ export default function KDSScreen() {
             </View>
           </View>
 
-          {/* Elapsed Timer Pill */}
-          <View
-            style={[
-              styles.timerPill,
-              isUrgent ? styles.timerPillUrgent : isWarning ? styles.timerPillWarning : styles.timerPillNormal,
-            ]}
-          >
-            <Ionicons
-              name="time-outline"
-              size={12}
-              color={isUrgent ? Colors.error : isWarning ? Colors.warning : Colors.textSecondary}
-            />
-            <Text
+          {/* Elapsed Timer & ETA Controls */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {/* Quick ETA Adjuster for Kitchen Staff */}
+            <View style={styles.etaAdjustRow}>
+              <Ionicons name="stopwatch-outline" size={12} color={Colors.primary} />
+              <Text style={styles.etaText}>ETA: {order.estimatedMinutes || 20}m</Text>
+              <TouchableOpacity
+                onPress={() => handleAdjustEta(order.id, -5)}
+                style={styles.etaBtn}
+                hitSlop={6}
+              >
+                <Text style={styles.etaBtnText}>-</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleAdjustEta(order.id, 5)}
+                style={styles.etaBtn}
+                hitSlop={6}
+              >
+                <Text style={styles.etaBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Elapsed Timer Pill */}
+            <View
               style={[
-                styles.timerText,
-                isUrgent ? styles.timerTextUrgent : isWarning ? styles.timerTextWarning : styles.timerTextNormal,
+                styles.timerPill,
+                isUrgent ? styles.timerPillUrgent : isWarning ? styles.timerPillWarning : styles.timerPillNormal,
               ]}
             >
-              {elapsed}m ago
-            </Text>
+              <Ionicons
+                name="time-outline"
+                size={12}
+                color={isUrgent ? Colors.error : isWarning ? Colors.warning : Colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.timerText,
+                  isUrgent ? styles.timerTextUrgent : isWarning ? styles.timerTextWarning : styles.timerTextNormal,
+                ]}
+              >
+                {elapsed}m ago
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -242,29 +315,48 @@ export default function KDSScreen() {
           Customer: <Text style={styles.bold}>{order.customerName}</Text>
         </Text>
 
-        {/* Items Checklist */}
+        {/* Items Checklist (Clickable to toggle preparation status) */}
         <View style={styles.ticketItemsList}>
-          {order.items.map((item, idx) => (
-            <View key={idx} style={styles.ticketItemRow}>
-              <View style={styles.qtyBadge}>
-                <Text style={styles.qtyBadgeText}>{item.quantity}x</Text>
-              </View>
-              <View style={styles.itemTextCol}>
-                <Text style={styles.itemNameText}>{item.dish.name}</Text>
-                <Text style={styles.itemSpecsText}>
-                  {item.portion.name} • Spice {item.spiceLevel}
-                </Text>
-                {item.selectedAddons.length > 0 && (
-                  <Text style={styles.addonsText}>
-                    + {item.selectedAddons.map((a) => a.name).join(', ')}
+          {order.items.map((item: any, idx) => {
+            const isDone = !!item.completedInKitchen;
+
+            return (
+              <TouchableOpacity
+                key={idx}
+                activeOpacity={0.7}
+                style={[styles.ticketItemRow, isDone && { opacity: 0.45 }]}
+                onPress={() => handleToggleItemDone(order.id, item.cartItemId)}
+              >
+                <View style={[styles.checkboxBox, isDone && styles.checkboxBoxDone]}>
+                  {isDone && <Ionicons name="checkmark" size={12} color={Colors.textLight} />}
+                </View>
+                <View style={styles.qtyBadge}>
+                  <Text style={styles.qtyBadgeText}>{item.quantity}x</Text>
+                </View>
+                <View style={styles.itemTextCol}>
+                  <Text
+                    style={[
+                      styles.itemNameText,
+                      isDone && { textDecorationLine: 'line-through', color: Colors.textMuted },
+                    ]}
+                  >
+                    {item.dish.name}
                   </Text>
-                )}
-                {item.specialNotes ? (
-                  <Text style={styles.notesText}>Note: "{item.specialNotes}"</Text>
-                ) : null}
-              </View>
-            </View>
-          ))}
+                  <Text style={styles.itemSpecsText}>
+                    {item.portion?.name} • Spice {item.spiceLevel}
+                  </Text>
+                  {item.selectedAddons?.length > 0 && (
+                    <Text style={styles.addonsText}>
+                      + {item.selectedAddons.map((a: any) => a.name).join(', ')}
+                    </Text>
+                  )}
+                  {item.specialNotes ? (
+                    <Text style={styles.notesText}>Note: "{item.specialNotes}"</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Action Bump Button */}
@@ -660,6 +752,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'flex-start',
+    paddingVertical: 2,
+  },
+  checkboxBox: {
+    width: 18,
+    height: 18,
+    borderRadius: Radius.xs,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxBoxDone: {
+    backgroundColor: Colors.halalGreen,
+    borderColor: Colors.halalGreen,
+  },
+  etaAdjustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primaryMuted,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radius.xs,
+    gap: 4,
+  },
+  etaText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  etaBtn: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etaBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.text,
   },
   qtyBadge: {
     backgroundColor: Colors.surface,

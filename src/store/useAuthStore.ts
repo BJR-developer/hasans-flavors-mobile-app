@@ -486,17 +486,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const current = get().user;
     if (current) {
       const updated = { ...current, ...data };
-      safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+      await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
       set({ user: updated });
 
       try {
+        const payload: any = {
+          full_name: updated.name,
+          phone: updated.phone,
+          updated_at: new Date().toISOString(),
+        };
+        if (data.avatarUrl !== undefined) {
+          payload.avatar_url = data.avatarUrl;
+        }
         await supabase
           .from('profiles')
-          .update({
-            full_name: updated.name,
-            phone: updated.phone,
-            updated_at: new Date().toISOString(),
-          })
+          .update(payload)
           .eq('id', current.id);
       } catch (e) {
         console.error('Failed to update profile in Supabase:', e);

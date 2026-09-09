@@ -1,11 +1,4 @@
-import { Header } from '@/components/Header';
-import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useTableStore } from '@/store/useTableStore';
-import { useRoleStore } from '@/store/useRoleStore';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Image,
@@ -13,18 +6,107 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useTableStore } from '@/store/useTableStore';
+import { useRoleStore } from '@/store/useRoleStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, updateProfile } = useAuthStore();
   const currentTable = useTableStore((state) => state.currentTable);
   const clearTable = useTableStore((state) => state.clearTable);
   const { setRole } = useRoleStore();
+
+  // Form State
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [avatarUri, setAvatarUri] = useState<string | undefined>(user?.avatarUrl);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Notification toggles (UI-only for now)
+  const [notifyOrderStatus, setNotifyOrderStatus] = useState(true);
+  const [notifyKitchenPrep, setNotifyKitchenPrep] = useState(true);
+  const [notifyPromos, setNotifyPromos] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.name || '');
+      setPhone(user.phone || '');
+      setAvatarUri(user.avatarUrl);
+    }
+  }, [user]);
+
+  const hasFormChanges =
+    user && (fullName.trim() !== (user.name || '').trim() || phone.trim() !== (user.phone || '').trim());
+
+  // Upload/change profile picture
+  const handlePickAvatar = async () => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      const msg = 'Camera roll access is needed to change your profile picture.';
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Permission Required', msg);
+      }
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      const asset = result.assets[0];
+      const avatarString = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
+
+      setAvatarUri(avatarString);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      await updateProfile({ avatarUrl: avatarString });
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!hasFormChanges || isSaving) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
+
+    setIsSaving(true);
+    await updateProfile({
+      name: fullName.trim() || user?.name,
+      phone: phone.trim(),
+    });
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2500);
+  };
 
   const handleLogout = async () => {
     const doLogout = async () => {
@@ -43,142 +125,244 @@ export default function ProfileScreen() {
       return;
     }
 
-    Alert.alert(
-      'Sign Out',
-      'Sign out of your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: doLogout,
-        },
-      ]
-    );
+    Alert.alert('Sign Out', 'Sign out of your account?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: doLogout },
+    ]);
   };
 
-  const handleCallHotline = () => {
+  const handleCallHotline = async () => {
     try {
       Haptics.selectionAsync();
     } catch {}
-    Linking.openURL('tel:+639178882345').catch(() => {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Restaurant Hotline: +63 917 888 2345');
-      } else {
-        Alert.alert('Restaurant Hotline', 'Call +63 917 888 2345');
+
+    const phoneNumber = '+639178882345';
+    const telUrl = `tel:${phoneNumber}`;
+    const promptUrl = `telprompt:${phoneNumber}`;
+
+    try {
+      if (Platform.OS === 'ios') {
+        const canPrompt = await Linking.canOpenURL(promptUrl).catch(() => false);
+        if (canPrompt) {
+          await Linking.openURL(promptUrl);
+          return;
+        }
       }
-    });
+
+      const canTel = await Linking.canOpenURL(telUrl).catch(() => false);
+      if (canTel) {
+        await Linking.openURL(telUrl);
+        return;
+      }
+
+      Alert.alert(
+        'Call Restaurant Hotline',
+        'Direct Line: +63 917 888 2345\n\n(On physical devices, this connects directly to the phone dialer. The simulator does not support cellular calls).',
+        [{ text: 'Dismiss', style: 'cancel' }]
+      );
+    } catch {
+      Alert.alert(
+        'Call Restaurant Hotline',
+        'Direct Line: +63 917 888 2345',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
-  const handleOpenWhatsApp = () => {
+  const handleLiveChatAnnouncement = () => {
     try {
       Haptics.selectionAsync();
     } catch {}
-    const msg = encodeURIComponent("Hello Hasan's Flavors! I have an inquiry about my dining experience.");
-    Linking.openURL(`https://wa.me/639178882345?text=${msg}`).catch(() => {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('WhatsApp Hotline: +63 917 888 2345');
-      } else {
-        Alert.alert('WhatsApp Hotline', 'WhatsApp is available at +63 917 888 2345');
-      }
-    });
+    const title = 'Live Kitchen Chat • Coming Soon';
+    const message =
+      'Real-time messaging with our kitchen line and servers is coming in the next update!\n\nFor immediate requests, please call our hotline or speak to your table server.';
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message, [{ text: 'Understood' }]);
+    }
   };
 
   const handleLeaveTable = () => {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch { }
+    } catch {}
     clearTable();
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Header title="Account" />
-
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Card: Authenticated vs Guest */}
+        {/* Facebook-Style Centered Profile Card */}
         {isAuthenticated && user ? (
-          <View style={styles.userCard}>
-            <View style={styles.avatarWrapper}>
-              {user.avatarUrl ? (
-                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarCircle}>
-                  <Ionicons name="person" size={24} color={Colors.textSecondary} />
+          <View style={styles.fbProfileCard}>
+            {/* Centered Avatar with Camera Action Overlay */}
+            <View style={styles.avatarOuterWrapper}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={handlePickAvatar}
+                style={styles.avatarTouchable}
+              >
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.fbAvatar} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <Ionicons name="person" size={44} color={Colors.primary} />
+                  </View>
+                )}
+
+                {/* Camera upload badge */}
+                <View style={styles.cameraBadge}>
+                  <Ionicons name="camera" size={15} color={Colors.textLight} />
                 </View>
-              )}
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.userInfo}>
-              <View style={styles.userNameRow}>
-                <Text style={styles.userName}>{user.name}</Text>
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>
-                    {user.role === 'owner' ? 'Owner' : user.role === 'staff' ? 'Staff' : 'Customer'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.userEmail}>{user.email}</Text>
-              {user.phone ? <Text style={styles.userPhone}>{user.phone}</Text> : null}
-            </View>
-          </View>
-        ) : (
-          /* Guest Banner */
-          <View style={styles.guestCard}>
-            <View style={styles.guestTopRow}>
-              <View style={styles.guestAvatar}>
-                <Ionicons name="person-circle-outline" size={44} color={Colors.primary} />
-              </View>
-              <View style={styles.guestTextCol}>
-                <Text style={styles.guestTitle}>Welcome to Hasan's Flavors</Text>
-                <Text style={styles.guestSubtitle}>
-                  Sign in or create an account to view your orders and manage your profile.
+            {/* Profile Identity */}
+            <Text style={styles.fbProfileName}>{user.name || 'Valued Guest'}</Text>
+            {(user.role === 'owner' || user.role === 'staff') && (
+              <View style={styles.roleTag}>
+                <Text style={styles.roleTagText}>
+                  {user.role === 'owner' ? 'Owner Admin' : 'Staff'}
                 </Text>
               </View>
+            )}
+            <Text style={styles.fbProfileEmail}>{user.email}</Text>
+          </View>
+        ) : (
+          /* Guest Welcome Card */
+          <View style={styles.guestCard}>
+            <View style={styles.avatarOuterWrapper}>
+              <View style={styles.avatarFallback}>
+                <Ionicons name="person-outline" size={44} color={Colors.textMuted} />
+              </View>
             </View>
-
-            <View style={styles.guestButtonRow}>
+            <Text style={styles.fbProfileName}>Guest Diner</Text>
+            <Text style={styles.fbProfileEmail}>Sign in to save your favorite dishes and track live orders</Text>
+            <View style={styles.guestActionRow}>
               <TouchableOpacity
-                style={styles.guestSignInBtn}
+                style={styles.primaryBtn}
                 onPress={() => router.push('/auth/signin' as any)}
-                activeOpacity={0.88}
               >
-                <Text style={styles.guestSignInText}>Sign In</Text>
-                <Ionicons name="arrow-forward" size={14} color={Colors.textLight} />
+                <Text style={styles.primaryBtnText}>Sign In</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={styles.guestSignUpBtn}
+                style={styles.secondaryBtn}
                 onPress={() => router.push('/auth/signup' as any)}
-                activeOpacity={0.88}
               >
-                <Text style={styles.guestSignUpText}>Create Account</Text>
+                <Text style={styles.secondaryBtnText}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Role Portals: Strict Role Segregation */}
+        {/* Current Table Card (Minimal) */}
+        {currentTable && (
+          <View style={styles.sectionCard}>
+            <View style={styles.tableRow}>
+              <View style={styles.tableLeft}>
+                <View style={styles.tableIconBox}>
+                  <Ionicons name="restaurant" size={16} color={Colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.tableTitle}>Current Dining Table</Text>
+                  <Text style={styles.tableSub}>Assigned to {currentTable}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.releaseTableBtn}
+                onPress={handleLeaveTable}
+                hitSlop={6}
+              >
+                <Text style={styles.releaseTableText}>Release Table</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Profile Fields (Editable) */}
+        {isAuthenticated && user && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionHeading}>Personal Information</Text>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Full Name</Text>
+              <TextInput
+                style={styles.inputField}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Your full name"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Email Address</Text>
+              <TextInput
+                style={[styles.inputField, styles.disabledInput]}
+                value={user.email}
+                editable={false}
+                placeholder="Email address"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.inputField}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+63 9XX XXX XXXX"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            {hasFormChanges && (
+              <TouchableOpacity
+                style={[styles.saveBtn, isSaving && { opacity: 0.7 }]}
+                onPress={handleSaveChanges}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={Colors.textLight} />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Profile Changes</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {saveSuccess && (
+              <View style={styles.successRow}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.halalGreen} />
+                <Text style={styles.successText}>Profile updated successfully</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Staff / Owner Access Portals */}
         {user?.role === 'owner' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionCardTitle}>Executive Owner Portal</Text>
-
+            <Text style={styles.sectionHeading}>Owner Dashboard</Text>
             <TouchableOpacity
-              style={styles.menuRow}
+              style={styles.portalRow}
               onPress={() => {
                 setRole('owner');
                 router.push('/staff/owner' as any);
               }}
-              activeOpacity={0.7}
             >
-              <Ionicons name="stats-chart-outline" size={18} color={Colors.saffron} style={styles.menuIcon} />
-              <View style={styles.menuTextCol}>
-                <Text style={styles.menuItemTitle}>Owner Analytics & Inventory</Text>
-                <Text style={styles.menuItemSub}>Revenue, live order audit & stock control</Text>
+              <Ionicons name="stats-chart-outline" size={18} color={Colors.saffron} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.portalTitle}>Executive Analytics & Stock</Text>
+                <Text style={styles.portalSub}>View live restaurant revenue and inventory</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
@@ -187,172 +371,139 @@ export default function ProfileScreen() {
 
         {user?.role === 'staff' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionCardTitle}>Cashier & Kitchen Operations</Text>
-
+            <Text style={styles.sectionHeading}>Staff Operations</Text>
             <TouchableOpacity
-              style={styles.menuRow}
+              style={styles.portalRow}
               onPress={() => {
                 setRole('pos');
                 router.push('/staff/pos' as any);
               }}
-              activeOpacity={0.7}
             >
-              <Ionicons name="calculator-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
-              <View style={styles.menuTextCol}>
-                <Text style={styles.menuItemTitle}>POS Cashier Terminal</Text>
-                <Text style={styles.menuItemSub}>Ring up orders & process registers</Text>
+              <Ionicons name="calculator-outline" size={18} color={Colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.portalTitle}>POS Cashier Terminal</Text>
+                <Text style={styles.portalSub}>Process registers and orders</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.menuRow}
+              style={[styles.portalRow, { borderBottomWidth: 0 }]}
               onPress={() => {
                 setRole('kds');
                 router.push('/staff/kds' as any);
               }}
-              activeOpacity={0.7}
             >
-              <Ionicons name="flame-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
-              <View style={styles.menuTextCol}>
-                <Text style={styles.menuItemTitle}>Kitchen Display System (KDS)</Text>
-                <Text style={styles.menuItemSub}>Live kitchen ticket preparation & bump</Text>
+              <Ionicons name="flame-outline" size={18} color={Colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.portalTitle}>Kitchen Display (KDS)</Text>
+                <Text style={styles.portalSub}>Preparation line and ticket bump</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Dine-in Table Status if assigned */}
-        {currentTable && (
-          <View style={styles.sectionCard}>
-            <View style={styles.tableActiveRow}>
-              <View style={styles.tableInfoCol}>
-                <Text style={styles.sectionCardTitle}>Current Table</Text>
-                <Text style={styles.tableNumberText}>Assigned to {currentTable}</Text>
-              </View>
-              <TouchableOpacity style={styles.leaveTableBtn} onPress={handleLeaveTable}>
-                <Text style={styles.leaveTableText}>Release Table</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Live Support & Direct Contact */}
+        {/* Notification Settings (UI Only) */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionCardTitle}>Guest Support & Contact</Text>
+          <Text style={styles.sectionHeading}>Notification Preferences</Text>
 
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => router.push('/chat' as any)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chatbubbles-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>Live Kitchen & Support Chat</Text>
-              <Text style={styles.menuItemSub}>Instant chat with our dining team & chef</Text>
+          <View style={styles.switchRow}>
+            <View style={styles.switchTextCol}>
+              <Text style={styles.switchTitle}>Order Status Updates</Text>
+              <Text style={styles.switchSub}>Alerts when your order moves to kitchen or served</Text>
             </View>
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Online</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
+            <Switch
+              value={notifyOrderStatus}
+              onValueChange={setNotifyOrderStatus}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.card}
+            />
+          </View>
 
+          <View style={styles.switchRow}>
+            <View style={styles.switchTextCol}>
+              <Text style={styles.switchTitle}>Kitchen Preparation Alerts</Text>
+              <Text style={styles.switchSub}>Dish checklist completion reminders</Text>
+            </View>
+            <Switch
+              value={notifyKitchenPrep}
+              onValueChange={setNotifyKitchenPrep}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.card}
+            />
+          </View>
+
+          <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.switchTextCol}>
+              <Text style={styles.switchTitle}>Special Offers & Promos</Text>
+              <Text style={styles.switchSub}>Chef heirloom dish announcements</Text>
+            </View>
+            <Switch
+              value={notifyPromos}
+              onValueChange={setNotifyPromos}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor={Colors.card}
+            />
+          </View>
+        </View>
+
+        {/* Restaurant Support & Live Kitchen (Minimal) */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeading}>Restaurant Contact & Assistance</Text>
+
+          {/* Restaurant Hotline */}
           <TouchableOpacity
-            style={styles.menuRow}
+            style={styles.contactRow}
             onPress={handleCallHotline}
             activeOpacity={0.7}
           >
-            <Ionicons name="call-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>Restaurant Hotline</Text>
-              <Text style={styles.menuItemSub}>+63 917 888 2345 • Immediate connection</Text>
+            <View style={styles.contactIconBox}>
+              <Ionicons name="call-outline" size={18} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactTitle}>Restaurant Hotline</Text>
+              <Text style={styles.contactSub}>+63 917 888 2345 • Direct line</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Live Kitchen Chat (Coming Soon Announcement) */}
           <TouchableOpacity
-            style={[styles.menuRow, { borderBottomWidth: 0 }]}
-            onPress={handleOpenWhatsApp}
+            style={[styles.contactRow, { borderBottomWidth: 0 }]}
+            onPress={handleLiveChatAnnouncement}
             activeOpacity={0.7}
           >
-            <Ionicons name="logo-whatsapp" size={18} color="#25D366" style={styles.menuIcon} />
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuItemTitle}>WhatsApp Concierge</Text>
-              <Text style={styles.menuItemSub}>Quick reservations & special dietary requests</Text>
+            <View style={styles.contactIconBox}>
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.contactTitle}>Live Kitchen Chat</Text>
+                <View style={styles.comingSoonBadge}>
+                  <Text style={styles.comingSoonBadgeText}>Coming Soon</Text>
+                </View>
+              </View>
+              <Text style={styles.contactSub}>Direct messaging with table servers & kitchen</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        {/* Restaurant Hours & Location */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionCardTitle}>Restaurant Hours & Location</Text>
-
-          <View style={styles.infoBlock}>
-            <View style={styles.infoBlockRow}>
-              <Ionicons name="time-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
-              <View style={styles.infoBlockCol}>
-                <Text style={styles.infoBlockTitle}>Operating Hours</Text>
-                <Text style={styles.infoBlockDesc}>Monday – Sunday: 11:00 AM – 11:00 PM</Text>
-                <Text style={styles.infoBlockSub}>Kitchen last call at 10:30 PM daily</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.infoBlock, { marginTop: 10 }]}>
-            <View style={styles.infoBlockRow}>
-              <Ionicons name="location-outline" size={18} color={Colors.primary} style={styles.menuIcon} />
-              <View style={styles.infoBlockCol}>
-                <Text style={styles.infoBlockTitle}>Hasan's Bistro & Dining Lounge</Text>
-                <Text style={styles.infoBlockDesc}>28th St. Cor 7th Ave, BGC, Taguig, Metro Manila</Text>
-                <Text style={styles.infoBlockSub}>Dine-in Table Service, Curbside Pickup & Delivery</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Halal Guarantee */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionCardTitle}>Halal & Heritage Guarantee</Text>
-
-          <View style={styles.halalFeatureRow}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-            <View style={styles.halalFeatureText}>
-              <Text style={styles.halalTitle}>100% Zabihah Halal Certified</Text>
-              <Text style={styles.halalDesc}>
-                All beef, mutton, and poultry are sourced exclusively from certified halal suppliers.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.halalFeatureRow}>
-            <Ionicons name="restaurant-outline" size={18} color={Colors.textSecondary} style={styles.menuIcon} />
-            <View style={styles.halalFeatureText}>
-              <Text style={styles.halalTitle}>Authentic Heirloom Spices</Text>
-              <Text style={styles.halalDesc}>
-                Aged basmati grains and whole garam masalas hand-ground daily in-house.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Switch Account / Sign Out Button */}
+        {/* Sign Out Button */}
         {isAuthenticated && (
           <TouchableOpacity
-            style={styles.logoutButton}
+            style={styles.logoutBtn}
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={18} color={Colors.text} />
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
+            <Ionicons name="log-out-outline" size={17} color={Colors.error} />
+            <Text style={styles.logoutBtnText}>Sign Out</Text>
           </TouchableOpacity>
         )}
 
-        {/* App Version Info */}
-        <View style={styles.footerInfo}>
-          <Text style={styles.versionText}>Hasan's Flavors • v1.0.0</Text>
+        <View style={styles.versionRow}>
+          <Text style={styles.versionText}>Hasan’s Flavors • v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -364,379 +515,410 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  topBar: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: 'transparent',
+  },
+  brandCol: {
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  tableBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primaryMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 5,
+  },
+  tableBadgeText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.primary,
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.round,
+    gap: 5,
+  },
+  scanBtnText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.textSecondary,
+  },
   container: {
     flex: 1,
   },
   scrollContent: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: 90,
     gap: Spacing.md,
   },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  fbProfileCard: {
     backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 12,
     ...Shadows.subtle,
   },
-  avatarWrapper: {
+  avatarOuterWrapper: {
+    marginBottom: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTouchable: {
     position: 'relative',
   },
-  avatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: Radius.round,
-  },
-  avatarCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: Radius.round,
+  fbAvatar: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     backgroundColor: Colors.surface,
+  },
+  avatarFallback: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.card,
+    ...Shadows.subtle,
   },
-  userInfo: {
-    flex: 1,
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  userName: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+  fbProfileName: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  verifiedBadge: {
+  roleTag: {
     backgroundColor: Colors.surface,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: Radius.xs,
+    marginTop: 4,
+    marginBottom: 4,
   },
-  verifiedText: {
+  roleTagText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.textSecondary,
+    textTransform: 'uppercase',
   },
-  userEmail: {
+  fbProfileEmail: {
     fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
-    marginTop: 2,
-  },
-  userPhone: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
-    marginTop: 1,
+    marginTop: 4,
   },
   guestCard: {
     backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: Spacing.md,
+    gap: Spacing.xs,
     ...Shadows.subtle,
   },
-  guestTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  guestAvatar: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  guestTextCol: {
-    flex: 1,
-  },
-  guestTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  guestSubtitle: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  guestButtonRow: {
+  guestActionRow: {
     flexDirection: 'row',
     gap: 10,
+    width: '100%',
+    marginTop: Spacing.md,
   },
-  guestSignInBtn: {
+  primaryBtn: {
     flex: 1,
-    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    paddingVertical: 11,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    borderRadius: Radius.md,
   },
-  guestSignInText: {
+  primaryBtnText: {
     color: Colors.textLight,
-    fontSize: Typography.fontSize.xs,
     fontWeight: '700',
+    fontSize: Typography.fontSize.xs,
     fontFamily: Typography.fontFamily.bold,
   },
-  guestSignUpBtn: {
+  secondaryBtn: {
     flex: 1,
-    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 11,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: 10,
-    borderRadius: Radius.md,
   },
-  guestSignUpText: {
+  secondaryBtnText: {
     color: Colors.text,
-    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    fontSize: Typography.fontSize.xs,
     fontFamily: Typography.fontFamily.semiBold,
-  },
-  loyaltyCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.subtle,
-  },
-  loyaltyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  loyaltyBadgeText: {
-    color: Colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-  },
-  pointsText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSize.xs,
-  },
-  boldPoints: {
-    color: Colors.text,
-    fontSize: Typography.fontSize.md,
-    fontWeight: '700',
-  },
-  loyaltyTitle: {
-    color: Colors.text,
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  loyaltySub: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSize.xs,
-    lineHeight: 16,
-    marginBottom: Spacing.md,
-  },
-  loyaltyProgressTrack: {
-    height: 4,
-    backgroundColor: Colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: Spacing.sm,
-  },
-  loyaltyProgressFill: {
-    height: '100%',
-    backgroundColor: Colors.text,
-    borderRadius: 2,
-  },
-  loyaltyFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  loyaltyLevel: {
-    color: Colors.textMuted,
-    fontSize: 10,
-  },
-  redeemBtn: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radius.xs,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  redeemBtnText: {
-    color: Colors.text,
-    fontWeight: '600',
-    fontSize: 11,
   },
   sectionCard: {
     backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadows.subtle,
   },
-  sectionCardTitle: {
+  sectionHeading: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
+    letterSpacing: -0.2,
   },
-  menuRow: {
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tableLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
-  menuIcon: {
-    width: 24,
+  tableIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  menuTextCol: {
-    flex: 1,
-  },
-  menuItemTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  menuItemSub: {
-    fontSize: 11,
+  tableTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.medium,
     color: Colors.textMuted,
+  },
+  tableSub: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
     marginTop: 1,
   },
-  tableActiveRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tableInfoCol: {
-    flex: 1,
-  },
-  tableNumberText: {
-    fontSize: Typography.fontSize.md,
-    fontWeight: '600',
-    color: Colors.text,
-    marginTop: 2,
-  },
-  leaveTableBtn: {
-    backgroundColor: Colors.surface,
+  releaseTableBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
-  leaveTableText: {
-    color: Colors.error,
-    fontWeight: '600',
+  releaseTableText: {
     fontSize: 11,
-  },
-  halalFeatureRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: Spacing.sm,
-  },
-  halalFeatureText: {
-    flex: 1,
-  },
-  halalTitle: {
-    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
+    fontFamily: Typography.fontFamily.semiBold,
+    color: Colors.error,
+  },
+  fieldGroup: {
+    marginBottom: Spacing.md,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.textSecondary,
+    marginBottom: 5,
+  },
+  inputField: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    fontSize: Typography.fontSize.xs,
+    fontFamily: Typography.fontFamily.regular,
     color: Colors.text,
   },
-  halalDesc: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 15,
+  disabledInput: {
+    backgroundColor: Colors.surfaceHighlight,
+    color: Colors.textMuted,
   },
-  liveIndicator: {
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 11,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  saveBtnText: {
+    color: Colors.textLight,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+  },
+  successRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: Radius.round,
-    marginRight: 4,
+    marginTop: 8,
+    justifyContent: 'center',
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#22c55e',
+  successText: {
+    fontSize: 11,
+    color: Colors.halalGreen,
+    fontWeight: '600',
+    fontFamily: Typography.fontFamily.medium,
   },
-  liveText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#16a34a',
-  },
-  infoBlock: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  infoBlockRow: {
+  portalRow: {
     flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
   },
-  infoBlockCol: {
-    flex: 1,
-  },
-  infoBlockTitle: {
+  portalTitle: {
     fontSize: Typography.fontSize.xs,
     fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
-    marginBottom: 2,
   },
-  infoBlockDesc: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-    lineHeight: 16,
-  },
-  infoBlockSub: {
+  portalSub: {
     fontSize: 10,
     color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: 1,
   },
-  logoutButton: {
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  switchTextCol: {
+    flex: 1,
+    paddingRight: Spacing.md,
+  },
+  switchTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  switchSub: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  contactIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  contactSub: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  comingSoonBadge: {
+    backgroundColor: Colors.saffronLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  comingSoonBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.saffronDark,
+  },
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: Radius.md,
+    ...Shadows.subtle,
   },
-  logoutButtonText: {
-    color: Colors.text,
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+  logoutBtnText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.error,
   },
-  footerInfo: {
+  versionRow: {
     alignItems: 'center',
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
   versionText: {
     fontSize: 11,
     color: Colors.textMuted,
+    fontFamily: Typography.fontFamily.medium,
   },
 });

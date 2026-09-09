@@ -116,9 +116,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (!error && data && data.length > 0) {
         const mapped = data.map(mapOrderRow);
+        const unique = Array.from(new Map(mapped.map((o) => [o.id, o])).values());
         set({
-          orders: mapped,
-          activeOrderId: mapped[0]?.id || null,
+          orders: unique,
+          activeOrderId: unique[0]?.id || null,
           isLoading: false,
         });
       } else {
@@ -137,7 +138,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
               const currentOrders = get().orders;
               if (payload.eventType === 'INSERT') {
                 const newOrder = mapOrderRow(payload.new);
-                set({ orders: [newOrder, ...currentOrders] });
+                if (currentOrders.some((o) => o.id === newOrder.id)) {
+                  // Replace optimistic order in place with server confirmed order
+                  set({
+                    orders: currentOrders.map((o) =>
+                      o.id === newOrder.id ? newOrder : o
+                    ),
+                  });
+                } else {
+                  set({ orders: [newOrder, ...currentOrders] });
+                }
               } else if (payload.eventType === 'UPDATE') {
                 const updatedOrder = mapOrderRow(payload.new);
                 set({
@@ -228,11 +238,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     };
 
     // Optimistically update store
-    set((state) => ({
-      orders: [newOrder, ...state.orders],
-      activeOrderId: newOrder.id,
-      selectedOrder: newOrder,
-    }));
+    set((state) => {
+      const filtered = state.orders.filter((o) => o.id !== newOrder.id);
+      return {
+        orders: [newOrder, ...filtered],
+        activeOrderId: newOrder.id,
+        selectedOrder: newOrder,
+      };
+    });
 
     // Async push to Supabase
     const dbPayload = {

@@ -87,7 +87,7 @@ export default function OrdersScreen() {
   if (!isAuthenticated || !user) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <Header title="Your Orders" />
+        <Header showScanTable={true} />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, ...Shadows.subtle }}>
             <Ionicons name="receipt-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
@@ -111,7 +111,7 @@ export default function OrdersScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Header title="Your Orders" />
+      <Header showScanTable={true} />
 
       {/* Segmented Filter Tabs */}
       <View style={styles.tabBar}>

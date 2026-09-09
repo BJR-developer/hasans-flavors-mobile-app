@@ -1,14 +1,46 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { TableSession } from '@/types';
 import { supabase } from '@/lib/supabase';
+
+const STORAGE_KEYS = {
+  CURRENT_TABLE: '@hasan_current_table_v1',
+  GUEST_COUNT: '@hasan_guest_count_v1',
+};
+
+const safeGetItem = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web' && typeof window === 'undefined') return null;
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSetItem = async (key: string, value: string): Promise<void> => {
+  if (Platform.OS === 'web' && typeof window === 'undefined') return;
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch {}
+};
+
+const safeRemoveItem = async (key: string): Promise<void> => {
+  if (Platform.OS === 'web' && typeof window === 'undefined') return;
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {}
+};
 
 interface TableState {
   currentTable: string | null;
   guestCount: number;
   tables: TableSession[];
   isLoading: boolean;
+  isInitialized: boolean;
 
   // Actions
+  initializeTable: () => Promise<void>;
   fetchTables: () => Promise<void>;
   setTable: (tableNumber: string, guestCount?: number) => Promise<void>;
   clearTable: () => void;
@@ -23,10 +55,30 @@ export const useTableStore = create<TableState>((set, get) => ({
   guestCount: 2,
   tables: [],
   isLoading: false,
+  isInitialized: false,
+
+  initializeTable: async () => {
+    try {
+      const [savedTable, savedCount] = await Promise.all([
+        safeGetItem(STORAGE_KEYS.CURRENT_TABLE),
+        safeGetItem(STORAGE_KEYS.GUEST_COUNT),
+      ]);
+      set({
+        currentTable: savedTable || null,
+        guestCount: savedCount ? parseInt(savedCount, 10) || 2 : 2,
+        isInitialized: true,
+      });
+    } catch {
+      set({ isInitialized: true });
+    }
+  },
 
   fetchTables: async () => {
     try {
       set({ isLoading: true });
+      if (!get().isInitialized) {
+        await get().initializeTable();
+      }
       const { data, error } = await supabase
         .from('dining_tables')
         .select('*')
@@ -112,6 +164,11 @@ export const useTableStore = create<TableState>((set, get) => ({
   },
 
   setTable: async (tableNumber: string, guestCount = 2) => {
+    await Promise.all([
+      safeSetItem(STORAGE_KEYS.CURRENT_TABLE, tableNumber),
+      safeSetItem(STORAGE_KEYS.GUEST_COUNT, guestCount.toString()),
+    ]);
+
     set((state) => ({
       currentTable: tableNumber,
       guestCount,
@@ -138,6 +195,10 @@ export const useTableStore = create<TableState>((set, get) => ({
 
   clearTable: async () => {
     const current = get().currentTable;
+    await Promise.all([
+      safeRemoveItem(STORAGE_KEYS.CURRENT_TABLE),
+      safeRemoveItem(STORAGE_KEYS.GUEST_COUNT),
+    ]);
     set({ currentTable: null, guestCount: 1 });
 
     if (current) {

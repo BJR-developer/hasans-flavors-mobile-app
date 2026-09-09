@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Platform, BackHandler } from 'react-native';
@@ -6,11 +6,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTableStore } from '@/store/useTableStore';
+import { ScanTableModal } from '@/components/ScanTableModal';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const itemCount = useCartStore((state) => state.getItemCount());
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { isAuthenticated, user } = useAuthStore();
+  const { currentTable, isInitialized, initializeTable, fetchTables } = useTableStore();
+  const [hasDismissedModal, setHasDismissedModal] = useState(false);
+
+  // Initialize table state on mount
+  useEffect(() => {
+    fetchTables();
+  }, [fetchTables]);
+
+  // Determine if QR reminder popup should be visible:
+  // Show when initialized, user is a customer/guest, not seated at any table, and hasn't skipped this session
+  const showQRModal =
+    isInitialized &&
+    !currentTable &&
+    !hasDismissedModal &&
+    (!user || user.role === 'customer');
 
   // When user is authenticated on the main tabs, pressing back button should exit app on Android
   // and must never navigate back to sign-in or onboarding
@@ -46,88 +63,96 @@ export default function TabLayout() {
   const tabHeight = 56 + bottomPadding;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: Colors.card,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: tabHeight,
-          paddingBottom: bottomPadding,
-          paddingTop: 8,
-          elevation: 8,
-          shadowColor: Colors.text,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 6,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: Typography.fontFamily.semiBold,
-          fontWeight: '600',
-          marginTop: 2,
-        },
-        tabBarIconStyle: {
-          marginTop: 2,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
-          ),
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: Colors.primary,
+          tabBarInactiveTintColor: Colors.textSecondary,
+          tabBarStyle: {
+            backgroundColor: Colors.card,
+            borderTopColor: Colors.border,
+            borderTopWidth: 1,
+            height: tabHeight,
+            paddingBottom: bottomPadding,
+            paddingTop: 8,
+            elevation: 8,
+            shadowColor: Colors.text,
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.04,
+            shadowRadius: 6,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontFamily: Typography.fontFamily.semiBold,
+            fontWeight: '600',
+            marginTop: 2,
+          },
+          tabBarIconStyle: {
+            marginTop: 2,
+          },
         }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="menu"
+          options={{
+            title: 'Menu',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={22} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="cart"
+          options={{
+            title: 'Cart',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={styles.cartIconWrapper}>
+                <Ionicons name={focused ? 'bag' : 'bag-outline'} size={22} color={color} />
+                {itemCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
+                  </View>
+                )}
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="orders"
+          options={{
+            title: 'Orders',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Account',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+
+      {/* Dine-In QR Scan Reminder Popup */}
+      <ScanTableModal
+        visible={showQRModal}
+        onClose={() => setHasDismissedModal(true)}
       />
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Menu',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="cart"
-        options={{
-          title: 'Cart',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.cartIconWrapper}>
-              <Ionicons name={focused ? 'bag' : 'bag-outline'} size={22} color={color} />
-              {itemCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{itemCount > 9 ? '9+' : itemCount}</Text>
-                </View>
-              )}
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: 'Orders',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Account',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    </>
   );
 }
 

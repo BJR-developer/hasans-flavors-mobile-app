@@ -322,7 +322,7 @@ export default function HomeScreen() {
             style={styles.container}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: itemCount > 0 ? 190 : 140 },
+              { paddingBottom: itemCount > 0 ? 84 : 24 },
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -544,7 +544,7 @@ export default function HomeScreen() {
             style={styles.searchResultsContainer}
             contentContainerStyle={[
               styles.searchScrollContent,
-              { paddingBottom: itemCount > 0 ? 190 : 140 },
+              { paddingBottom: itemCount > 0 ? 84 : 24 },
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 140,
+    paddingBottom: 24,
   },
   carouselSection: {
     marginTop: 0,

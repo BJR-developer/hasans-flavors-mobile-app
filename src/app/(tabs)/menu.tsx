@@ -193,7 +193,7 @@ export default function MenuScreen() {
             style={styles.dishesScrollView}
             contentContainerStyle={[
               styles.gridContent,
-              { paddingBottom: itemCount > 0 ? 190 : 140 },
+              { paddingBottom: itemCount > 0 ? 84 : 24 },
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -212,7 +212,7 @@ export default function MenuScreen() {
             renderItem={({ item }) => <DishCard dish={item} layout="horizontal" />}
             contentContainerStyle={[
               styles.listContent,
-              { paddingBottom: itemCount > 0 ? 190 : 140 },
+              { paddingBottom: itemCount > 0 ? 84 : 24 },
             ]}
             showsVerticalScrollIndicator={false}
           />
