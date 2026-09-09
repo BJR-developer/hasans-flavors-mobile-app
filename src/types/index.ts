@@ -46,10 +46,12 @@ export interface Dish {
 export interface Category {
   id: string;
   name: string;
+  slug?: string;
   icon: string;
   count: number;
   match?: string;
   imageUrl?: string;
+  sortOrder?: number;
 }
 
 export interface PortionOption {
