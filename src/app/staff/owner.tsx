@@ -319,7 +319,7 @@ export default function OwnerDashboardScreen() {
                     <Text style={styles.streamOrderNum}>{o.orderNumber}</Text>
                     <View style={styles.streamTypeBadge}>
                       <Text style={styles.streamTypeText}>
-                        {o.type === 'dine_in' ? o.tableNumber || 'Dine-In' : o.type === 'delivery' ? 'Delivery' : 'Takeout'}
+                        {o.type === 'dine_in' ? o.tableNumber || 'Dine-In' : 'Takeout'}
                       </Text>
                     </View>
                   </View>
