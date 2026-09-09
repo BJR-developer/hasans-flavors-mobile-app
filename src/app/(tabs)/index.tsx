@@ -26,10 +26,10 @@ import { useCartStore } from '@/store/useCartStore';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(width * 0.86, 360);
-const CARD_GAP = 8;
+const CARD_WIDTH = Math.min(width * 0.88, 360);
+const CARD_GAP = 6;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
-const SIDE_SPACER = (width - CARD_WIDTH) / 2 - CARD_GAP / 2;
+const SIDE_SPACER = (width - CARD_WIDTH) / 2;
 const LOOP_MULTIPLIER = 80;
 
 const POPULAR_SUGGESTIONS = [
@@ -339,7 +339,7 @@ export default function HomeScreen() {
                 scrollEventThrottle={16}
                 decelerationRate="fast"
                 snapToInterval={SNAP_INTERVAL}
-                snapToAlignment="start"
+                snapToAlignment="center"
                 initialScrollIndex={initialIndex}
                 contentContainerStyle={styles.carouselContentContainer}
                 onScrollBeginDrag={() => {
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   carouselContentContainer: {
-    paddingHorizontal: SIDE_SPACER,
+    paddingHorizontal: SIDE_SPACER - CARD_GAP / 2,
     paddingVertical: 0,
   },
   cardWrapper: {
