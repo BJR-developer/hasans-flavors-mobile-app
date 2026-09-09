@@ -109,6 +109,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
           id: a.id,
           name: a.name,
           price: Number(a.price || 0),
+          imageUrl: a.image_url || undefined,
           inStock: a.in_stock ?? true,
         }));
         set({ addons: mappedAddons });

@@ -65,6 +65,7 @@ export interface AddonOption {
   id: string;
   name: string;
   price: number;
+  imageUrl?: string;
   inStock?: boolean;
   createdAt?: string;
   updatedAt?: string;

@@ -459,6 +459,13 @@ export default function DishDetailScreen() {
                     <View style={[styles.checkboxSquare, selected && styles.checkboxSquareActive]}>
                       {selected && <Ionicons name="checkmark" size={12} color={Colors.textLight} />}
                     </View>
+                    {addon.imageUrl ? (
+                      <Image
+                        source={{ uri: addon.imageUrl }}
+                        style={styles.addonThumb}
+                        resizeMode="cover"
+                      />
+                    ) : null}
                     <Text style={[styles.optionTitle, selected && styles.selectedOptionTitle]}>
                       {addon.name}
                     </Text>
@@ -784,6 +791,12 @@ const styles = StyleSheet.create({
   checkboxSquareActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
+  },
+  addonThumb: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.border,
   },
   optionTitle: {
     fontSize: Typography.fontSize.sm,
