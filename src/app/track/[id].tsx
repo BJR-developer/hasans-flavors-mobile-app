@@ -283,8 +283,7 @@ export default function OrderTrackingScreen() {
           <View style={styles.headerCenterCol}>
             <Text style={styles.headerTitle}>Live Order Tracking</Text>
             <Text style={styles.headerSubtitle}>
-              #{order.orderNumber} •{' '}
-              {order.type === 'dine_in' ? order.tableNumber || 'Dine-In' : 'Takeout'}
+              #{order.orderNumber} • Ref: {order.id}
             </Text>
           </View>
 

@@ -40,7 +40,7 @@ const mapOrderRow = (row: any): Order => {
     paymentStatus: row.payment_status as PaymentStatus,
     paymentHistory: Array.isArray(row.payment_history) ? row.payment_history : [],
     createdAt: row.created_at,
-    estimatedMinutes: 20,
+    estimatedMinutes: Number(row.estimated_minutes) || 10,
     specialNotes: row.notes || undefined,
   };
 };
@@ -55,12 +55,14 @@ export interface PlaceOrderParams {
   tableNumber?: string;
   paymentMethod: PaymentMethod;
   paymentStatus?: PaymentStatus;
+  status?: OrderStatus;
   subtotal: number;
   tax: number;
   serviceFee: number;
   deliveryFee: number;
   discount: number;
   total: number;
+  estimatedMinutes?: number;
   specialNotes?: string;
 }
 
@@ -92,6 +94,7 @@ interface OrderState {
   getOrderById: (orderId: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getFilteredOrders: () => Order[];
+  cancelDraftOrder: (orderId: string) => Promise<void>;
   getDailyStats: () => DailyStats;
   getStats: () => DailyStats;
 }
@@ -192,9 +195,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const nextSeq = maxSeq > 0 ? maxSeq + 1 : todayOrders.length + 1;
     const orderNumber = `#${nextSeq}`;
 
+    const isOnlinePayment = params.paymentMethod === 'card' || params.paymentMethod === 'gcash';
     const finalPaymentStatus: PaymentStatus =
-      params.paymentStatus ||
-      (params.type === 'dine_in' ? 'unpaid' : params.paymentMethod === 'cash' ? 'unpaid' : 'paid');
+      params.paymentStatus || 'unpaid';
+
+    const finalStatus: OrderStatus =
+      params.status || (isOnlinePayment && finalPaymentStatus !== 'paid' ? 'draft' : 'pending');
 
     const amountPaid = finalPaymentStatus === 'paid' ? params.total : 0;
     const balanceDue = finalPaymentStatus === 'paid' ? 0 : params.total;
@@ -217,7 +223,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       total: params.total,
       amountPaid,
       balanceDue,
-      status: 'pending',
+      status: finalStatus,
       paymentMethod: params.paymentMethod,
       paymentStatus: finalPaymentStatus,
       paymentHistory:
@@ -233,7 +239,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             ]
           : [],
       createdAt: new Date().toISOString(),
-      estimatedMinutes: params.type === 'delivery' ? 35 : 20,
+      estimatedMinutes: params.estimatedMinutes || (params.type === 'delivery' ? 25 : 10),
       specialNotes: params.specialNotes,
     };
 
@@ -474,6 +480,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       return true;
     });
+  },
+
+  cancelDraftOrder: async (orderId: string) => {
+    set((state) => ({
+      orders: state.orders.filter((o) => o.id !== orderId),
+      activeOrderId: state.activeOrderId === orderId ? null : state.activeOrderId,
+      selectedOrder: state.selectedOrder?.id === orderId ? null : state.selectedOrder,
+    }));
+
+    try {
+      await supabase.from('orders').delete().eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to remove draft order:', e);
+    }
   },
 
   getDailyStats: () => {

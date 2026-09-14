@@ -13,6 +13,8 @@ import {
   Easing,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -152,7 +154,7 @@ export default function HomeScreen() {
   const handleActivateSearch = () => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     setIsSearchActive(true);
     Animated.timing(searchAnim, {
       toValue: 1,
@@ -168,7 +170,7 @@ export default function HomeScreen() {
   const handleDeactivateSearch = () => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     Keyboard.dismiss();
     Animated.timing(searchAnim, {
       toValue: 0,
@@ -182,10 +184,21 @@ export default function HomeScreen() {
     });
   };
 
+  // Close active search on Android back button press before navigating away
+  useEffect(() => {
+    if (!isSearchActive || Platform.OS !== 'android') return;
+    const backAction = () => {
+      handleDeactivateSearch();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [isSearchActive]);
+
   const handleCategorySelect = (id: string) => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     setSelectedCategory(id);
     router.push('/(tabs)/menu' as any);
   };
@@ -199,16 +212,6 @@ export default function HomeScreen() {
   const headerOpacity = searchAnim.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [1, 0, 0],
-  });
-
-  const cancelBtnOpacity = searchAnim.interpolate({
-    inputRange: [0, 0.4, 1],
-    outputRange: [0, 0.2, 1],
-  });
-
-  const cancelBtnWidth = searchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 68],
   });
 
   // Cross-fade animations between Home Content and Search Results
@@ -269,7 +272,6 @@ export default function HomeScreen() {
             returnKeyType="search"
             autoCorrect={false}
           />
-
           {searchQuery.length > 0 ? (
             <TouchableOpacity
               onPress={() => setSearchQuery('')}
@@ -278,31 +280,21 @@ export default function HomeScreen() {
             >
               <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
-          ) : !isSearchActive ? (
-            <View style={styles.filterIconCircle}>
-              <Ionicons name="options-outline" size={16} color={Colors.textSecondary} />
-            </View>
           ) : null}
         </TouchableOpacity>
-
-        {/* Animated Cancel Button */}
-        <Animated.View
-          style={[
-            styles.cancelBtnContainer,
-            {
-              opacity: cancelBtnOpacity,
-              width: cancelBtnWidth,
-            },
-          ]}
+        <TouchableOpacity
+          style={{
+            marginLeft: -54,
+            opacity: isSearchActive ? 1 : 0,
+            transitionProperty: 'all',
+            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+            transitionDuration: '150ms',
+          } as any}
+          onPress={handleDeactivateSearch}
+          hitSlop={8}
         >
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={handleDeactivateSearch}
-            hitSlop={8}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </Animated.View>
+          <Text style={styles.cancelBtnText}>Cancel</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Dual Layer Cross-Fading Body Container */}
@@ -565,7 +557,7 @@ export default function HomeScreen() {
                       onPress={() => {
                         try {
                           Haptics.selectionAsync();
-                        } catch {}
+                        } catch { }
                         setSearchFilterCat(cat.id);
                       }}
                     >
@@ -595,7 +587,7 @@ export default function HomeScreen() {
                       onPress={() => {
                         try {
                           Haptics.selectionAsync();
-                        } catch {}
+                        } catch { }
                         setSearchQuery(tag);
                       }}
                     >
@@ -703,7 +695,7 @@ const styles = StyleSheet.create({
   },
   clearIconBtn: {
     padding: 6,
-    marginRight: 2,
+    marginRight: 38,
   },
   filterIconCircle: {
     width: 32,
@@ -714,20 +706,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 2,
   },
-  cancelBtnContainer: {
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-  },
-  cancelBtn: {
-    paddingLeft: Spacing.md,
-    paddingVertical: 10,
-  },
   cancelBtnText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
+    paddingHorizontal: Spacing.xs,
+    paddingRight: 8
+
   },
   bodyLayerContainer: {
     flex: 1,
@@ -757,6 +743,7 @@ const styles = StyleSheet.create({
   searchCatChipActive: {
     backgroundColor: Colors.primaryLight,
     borderColor: Colors.primary,
+    paddingTop: 10
   },
   searchCatChipText: {
     fontSize: 12,
@@ -928,7 +915,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.extraBold,
   },
   categorySection: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.xs,
   },
   categoryScroll: {
     paddingHorizontal: Spacing.lg,
@@ -983,7 +970,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     marginHorizontal: Spacing.lg,
-    marginTop: Spacing.xl,
+    marginTop: Spacing.md,
     marginBottom: Spacing.md,
   },
   largeSectionTitle: {

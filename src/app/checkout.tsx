@@ -8,6 +8,8 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +21,10 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { useTableStore } from '@/store/useTableStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
+
+// INR Currency Multiplier: ₱ Total * 1.65 = ₹ INR
+const INR_MULTIPLIER = 1.65;
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -26,6 +32,7 @@ export default function CheckoutScreen() {
   const {
     items,
     deliveryType,
+    setDeliveryType,
     promoCode,
     discountAmount,
     getSubtotal,
@@ -38,6 +45,7 @@ export default function CheckoutScreen() {
 
   const currentTable = useTableStore((state) => state.currentTable);
   const placeOrder = useOrderStore((state) => state.placeOrder);
+  const cancelDraftOrder = useOrderStore((state) => state.cancelDraftOrder);
   const { user, isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
@@ -46,15 +54,31 @@ export default function CheckoutScreen() {
     }
   }, [isAuthenticated, user, isLoading, router]);
 
+  // Delivery & Payment States
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'gcash' | 'inr_qr'>('cash');
+  const [inrUtrNumber, setInrUtrNumber] = useState('');
+  const [gcashRefNumber, setGcashRefNumber] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLandmark, setDeliveryLandmark] = useState('');
+  const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [showInrModal, setShowInrModal] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('Verifying payment with PayMongo...');
 
   const subtotal = getSubtotal();
   const tax = getTax();
   const deliveryFee = getDeliveryFee();
   const serviceFee = getServiceFee();
   const grandTotal = getTotal();
+
+  // Calculate INR equivalent: ₱ Total * 1.65
+  const inrAmount = Math.round(grandTotal * INR_MULTIPLIER);
+  // Dynamic UPI / INR QR code URL
+  const inrQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+    `upi://pay?pa=hasansflavors@bank&pn=Hasans+Flavors&am=${inrAmount}&cu=INR&tn=OrderBill`
+  )}`;
 
   if (items.length === 0) {
     return (
@@ -111,41 +135,164 @@ export default function CheckoutScreen() {
   }
 
   const handlePlaceOrder = async () => {
-    if (items.length === 0 || isPlacingOrder) return;
-
-    if (!isAuthenticated || !user) {
-      router.push('/auth/signin' as any);
+    if (items.length === 0 || isPlacingOrder || verifyingPayment) return;
+    if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
+      Alert.alert('Delivery Address Required', 'Please enter your complete delivery address to proceed.');
       return;
     }
 
+    const isOnlinePayment = paymentMethod === 'gcash' || paymentMethod === 'card';
+
     setIsPlacingOrder(true);
     try {
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch {}
+      const fullNotes = [
+        specialInstructions.trim(),
+        deliveryType === 'delivery' && deliveryLandmark ? `Landmark: ${deliveryLandmark}` : '',
+        paymentMethod === 'gcash' && gcashRefNumber ? `GCash Ref: ${gcashRefNumber}` : '',
+        paymentMethod === 'inr_qr' ? `Paid via INR QR: ₹${inrAmount} (Rate: 1.65)${inrUtrNumber ? ` | UPI UTR: ${inrUtrNumber}` : ''}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
 
+      // 1. Create order in store and Supabase
+      // If online payment (card/gcash), status is 'draft' so kitchen does NOT prepare it before payment
       const order = await placeOrder({
-        type: deliveryType === 'dine_in' ? 'dine_in' : 'takeout',
+        type: deliveryType,
         items,
         customerId: user.id,
         customerName: user.name || 'Valued Diner',
-        customerPhone: user.phone || undefined,
+        customerPhone: contactPhone || user.phone || undefined,
+        deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
         tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
-        paymentMethod,
+        paymentMethod: paymentMethod as any,
+        status: isOnlinePayment ? 'draft' : 'pending',
+        paymentStatus: 'unpaid',
         subtotal,
         tax,
         serviceFee,
         deliveryFee,
         discount: discountAmount,
         total: grandTotal,
-        specialNotes: specialInstructions.trim(),
+        specialNotes: fullNotes,
       });
 
+      // 2. If online payment (GCash or Card): launch PayMongo and strictly verify before proceeding
+      if (isOnlinePayment) {
+        const apiBase =
+          process.env.EXPO_PUBLIC_API_URL ||
+          'https://restaurant.aura-predictions.site';
+
+        let checkoutSessionId = '';
+        let checkoutUrl = '';
+
+        try {
+          const res = await fetch(`${apiBase}/api/paymongo/checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              amount: grandTotal,
+              paymentMethod,
+              items: items.map((i) => ({
+                name: i.dish?.name || 'Food Item',
+                price: i.unitPrice || i.dish?.price || 0,
+                quantity: i.quantity,
+              })),
+              customerName: user.name || 'Valued Diner',
+              customerEmail: user.email || 'customer@hasansflavors.com',
+              customerPhone: contactPhone || user.phone || '',
+            }),
+          });
+
+          const payData = await res.json();
+          if (!res.ok || !payData.checkoutUrl) {
+            throw new Error(payData.error || 'Failed to initialize payment gateway');
+          }
+          checkoutUrl = payData.checkoutUrl;
+          checkoutSessionId = payData.checkoutSessionId;
+        } catch (checkoutErr: any) {
+          console.error('Checkout creation error:', checkoutErr);
+          await cancelDraftOrder(order.id);
+          setIsPlacingOrder(false);
+          Alert.alert(
+            'Payment Gateway Error',
+            checkoutErr.message || 'Could not connect to payment gateway. Please try again or choose cash.'
+          );
+          return;
+        }
+
+        // Open PayMongo checkout window
+        setIsPlacingOrder(false);
+        setVerifyingPayment(true);
+        setVerificationMessage('Opening secure PayMongo payment window...');
+
+        try {
+          await WebBrowser.openBrowserAsync(checkoutUrl);
+        } catch (browserErr) {
+          console.warn('Browser launch notice:', browserErr);
+        }
+
+        // User returned from browser - verify payment with backend
+        setVerificationMessage('Verifying payment with PayMongo...');
+        let isPaid = false;
+
+        // Poll verification endpoint up to 4 times (1.5s interval)
+        for (let attempt = 1; attempt <= 4; attempt++) {
+          try {
+            const verifyRes = await fetch(`${apiBase}/api/paymongo/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: order.id,
+                checkoutSessionId,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.paid) {
+              isPaid = true;
+              break;
+            }
+          } catch (vErr) {
+            console.warn(`Verification attempt ${attempt} failed:`, vErr);
+          }
+          if (attempt < 4) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+        }
+
+        setVerifyingPayment(false);
+
+        if (isPaid) {
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch {}
+          clearCart();
+          router.replace(`/track/${order.id}` as any);
+        } else {
+          // PAYMENT WAS NOT MADE (cancelled, closed browser, or failed)
+          // Clean up the draft order from Supabase so kitchen NEVER cooks an unpaid order!
+          await cancelDraftOrder(order.id);
+          // DO NOT CLEAR CART! Keep customer items intact
+          Alert.alert(
+            'Payment Not Completed',
+            'We did not detect a completed payment from PayMongo. Your items are still in your cart so you can try again or choose another payment method.'
+          );
+        }
+        return;
+      }
+
+      // 3. For Cash or INR QR:
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
       clearCart();
       router.replace(`/track/${order.id}` as any);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to place order:', err);
       setIsPlacingOrder(false);
+      setVerifyingPayment(false);
+      Alert.alert('Order Error', err.message || 'Could not place order. Please try again.');
     }
   };
 
@@ -159,41 +306,102 @@ export default function CheckoutScreen() {
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 130 },
+          { paddingBottom: 140 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Order Dining Mode Card */}
-        <View style={styles.orderTypeCard}>
-          <View style={styles.orderTypeIconCircle}>
-            <Ionicons
-              name={
-                deliveryType === 'dine_in'
-                  ? 'restaurant-outline'
-                  : 'bag-handle-outline'
-              }
-              size={20}
-              color={Colors.primary}
-            />
+        {/* Dining Mode Selector: Dine-In, Takeout, or Delivery */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Fulfillment Channel</Text>
+          <View style={styles.typeSelectorRow}>
+            <TouchableOpacity
+              style={[styles.typeButton, deliveryType === 'dine_in' && styles.activeTypeButton]}
+              onPress={() => setDeliveryType('dine_in')}
+            >
+              <Ionicons
+                name="restaurant-outline"
+                size={16}
+                color={deliveryType === 'dine_in' ? Colors.textLight : Colors.textSecondary}
+              />
+              <Text style={[styles.typeLabel, deliveryType === 'dine_in' && styles.activeTypeLabel]}>
+                Dine In
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
+              onPress={() => setDeliveryType('takeout')}
+            >
+              <Ionicons
+                name="bag-handle-outline"
+                size={16}
+                color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
+              />
+              <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
+                Takeout
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
+              onPress={() => setDeliveryType('delivery')}
+            >
+              <Ionicons
+                name="bicycle-outline"
+                size={16}
+                color={deliveryType === 'delivery' ? Colors.textLight : Colors.textSecondary}
+              />
+              <Text style={[styles.typeLabel, deliveryType === 'delivery' && styles.activeTypeLabel]}>
+                Delivery
+              </Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.orderTypeInfo}>
-            <Text style={styles.orderTypeTitle}>
-              {deliveryType === 'dine_in'
-                ? `Dine-In • ${currentTable || 'Table 04'}`
-                : 'Takeout / Pickup'}
-            </Text>
-            <Text style={styles.orderTypeSub}>
-              Estimated preparation: 15-20 mins
+
+          <View style={styles.prepNoticeRow}>
+            <Ionicons name="time-outline" size={15} color={Colors.primary} />
+            <Text style={styles.prepNoticeText}>
+              Standard preparation time: <Text style={{ fontWeight: '700', color: Colors.text }}>10 minutes</Text>
             </Text>
           </View>
         </View>
 
-        {/* Payment Method Selector (Cash or Card) */}
+        {/* Delivery Details Card (Visible only when Delivery is chosen) */}
+        {deliveryType === 'delivery' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Delivery Information</Text>
+            <View style={{ gap: 8 }}>
+              <TextInput
+                style={styles.input}
+                value={deliveryAddress}
+                onChangeText={setDeliveryAddress}
+                placeholder="Complete street address / building & room number *"
+                placeholderTextColor={Colors.textMuted}
+              />
+              <TextInput
+                style={styles.input}
+                value={deliveryLandmark}
+                onChangeText={setDeliveryLandmark}
+                placeholder="Nearby landmark (optional)"
+                placeholderTextColor={Colors.textMuted}
+              />
+              <TextInput
+                style={styles.input}
+                value={contactPhone}
+                onChangeText={setContactPhone}
+                placeholder="Rider contact number *"
+                keyboardType="phone-pad"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Payment Methods */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Payment Method</Text>
 
           <View style={{ gap: 8 }}>
-            {/* Cash Option */}
+            {/* 1. Cash */}
             <TouchableOpacity
               activeOpacity={0.8}
               style={[
@@ -222,11 +430,11 @@ export default function CheckoutScreen() {
                         : styles.paymentNameUnselected
                     }
                   >
-                    {deliveryType === 'dine_in'
-                      ? 'Cash at Table / Counter'
-                      : 'Cash on Pickup / Takeout'}
+                    Cash (Pay at Counter)
                   </Text>
-                  <Text style={styles.paymentDesc}>Pay with cash upon service</Text>
+                  <Text style={styles.paymentNoticeBold}>
+                    ⚠️ Please approach to counter to pay now.
+                  </Text>
                 </View>
               </View>
 
@@ -239,7 +447,7 @@ export default function CheckoutScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Card Option */}
+            {/* 2. Debit / Credit Card */}
             <TouchableOpacity
               activeOpacity={0.8}
               style={[
@@ -268,9 +476,9 @@ export default function CheckoutScreen() {
                         : styles.paymentNameUnselected
                     }
                   >
-                    Credit / Debit Card
+                    Debit / Credit Card
                   </Text>
-                  <Text style={styles.paymentDesc}>Pay via card terminal upon service</Text>
+                  <Text style={styles.paymentDesc}>Visa, Mastercard, or JCB</Text>
                 </View>
               </View>
 
@@ -282,6 +490,119 @@ export default function CheckoutScreen() {
                 />
               </View>
             </TouchableOpacity>
+
+            {/* 3. GCash */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.singlePaymentOption,
+                paymentMethod === 'gcash'
+                  ? styles.paymentOptionActive
+                  : styles.paymentOptionInactive,
+              ]}
+              onPress={() => setPaymentMethod('gcash')}
+            >
+              <View style={styles.paymentLeft}>
+                <View
+                  style={
+                    paymentMethod === 'gcash'
+                      ? styles.radioCircleActive
+                      : styles.radioCircleInactive
+                  }
+                >
+                  {paymentMethod === 'gcash' && <View style={styles.radioDot} />}
+                </View>
+                <View style={styles.paymentTextCol}>
+                  <Text
+                    style={
+                      paymentMethod === 'gcash'
+                        ? styles.paymentNameSelected
+                        : styles.paymentNameUnselected
+                    }
+                  >
+                    GCash
+                  </Text>
+                  <Text style={styles.paymentDesc}>Pay via GCash account</Text>
+                </View>
+              </View>
+
+              <View style={styles.cashIconBadge}>
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={20}
+                  color={paymentMethod === 'gcash' ? Colors.primary : Colors.textMuted}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {/* 4. INR QR Code (* 1.65) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.singlePaymentOption,
+                paymentMethod === 'inr_qr'
+                  ? styles.paymentOptionActive
+                  : styles.paymentOptionInactive,
+              ]}
+              onPress={() => {
+                setPaymentMethod('inr_qr');
+                setShowInrModal(true);
+              }}
+            >
+              <View style={styles.paymentLeft}>
+                <View
+                  style={
+                    paymentMethod === 'inr_qr'
+                      ? styles.radioCircleActive
+                      : styles.radioCircleInactive
+                  }
+                >
+                  {paymentMethod === 'inr_qr' && <View style={styles.radioDot} />}
+                </View>
+                <View style={styles.paymentTextCol}>
+                  <Text
+                    style={
+                      paymentMethod === 'inr_qr'
+                        ? styles.paymentNameSelected
+                        : styles.paymentNameUnselected
+                    }
+                  >
+                    INR QR Code (UPI / India)
+                  </Text>
+                  <Text style={styles.paymentDesc}>
+                    Fixed Rate: ₱1 = ₹1.65 • Total: <Text style={{ fontWeight: '700', color: Colors.primary }}>₹{inrAmount.toLocaleString()}</Text>
+                  </Text>
+                  <Text style={styles.paymentNoticeBold}>
+                    ℹ️ Cashier will verify UPI transfer at counter.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.cashIconBadge}>
+                <Ionicons
+                  name="qr-code-outline"
+                  size={20}
+                  color={paymentMethod === 'inr_qr' ? Colors.primary : Colors.textMuted}
+                />
+              </View>
+            </TouchableOpacity>
+
+            {paymentMethod === 'inr_qr' && (
+              <View style={styles.paymentSubBox}>
+                <Text style={styles.subBoxTitle}>UPI Transaction Proof</Text>
+                <Text style={styles.subBoxText}>
+                  Enter the 12-digit UPI / UTR reference number from your payment app so the cashier can verify your order.
+                </Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6 }]}
+                  value={inrUtrNumber}
+                  onChangeText={setInrUtrNumber}
+                  placeholder="Enter 12-digit UPI UTR Number"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+            )}
           </View>
         </View>
 
@@ -351,6 +672,13 @@ export default function CheckoutScreen() {
             </View>
           )}
 
+          {deliveryType === 'delivery' && (
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>Delivery Fee</Text>
+              <Text style={styles.calcVal}>₱{deliveryFee.toLocaleString()}</Text>
+            </View>
+          )}
+
           {discountAmount > 0 && (
             <View style={styles.calcRow}>
               <Text style={styles.discountLabel}>Coupon ({promoCode})</Text>
@@ -361,11 +689,55 @@ export default function CheckoutScreen() {
           <View style={styles.divider} />
 
           <View style={styles.finalTotalRow}>
-            <Text style={styles.finalTotalLabel}>Grand Total</Text>
+            <Text style={styles.finalTotalLabel}>Grand Total (PHP)</Text>
             <Text style={styles.finalTotalVal}>₱{grandTotal.toLocaleString()}</Text>
           </View>
+
+          {paymentMethod === 'inr_qr' && (
+            <View style={styles.inrConversionBanner}>
+              <Text style={styles.inrConversionText}>INR Due (Rate: 1.65):</Text>
+              <Text style={styles.inrConversionAmount}>₹{inrAmount.toLocaleString()}</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      {/* INR Live QR Code Modal */}
+      <Modal visible={showInrModal} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.inrModalBox}>
+            <Text style={styles.inrModalTitle}>Scan to Pay in Indian Rupees (INR)</Text>
+            <Text style={styles.inrModalSub}>
+              ₱{grandTotal.toLocaleString()} × 1.65 ={' '}
+              <Text style={{ fontWeight: '800', color: Colors.primary }}>
+                ₹{inrAmount.toLocaleString()} INR
+              </Text>
+            </Text>
+            <Image source={{ uri: inrQrCodeUrl }} style={styles.qrImage} />
+            <Text style={styles.qrInstruction}>
+              Scan & pay with GPay, PhonePe, Paytm, or BHIM UPI.{'\n'}
+              Cashier will review & verify your transfer at the counter.
+            </Text>
+            <TouchableOpacity style={styles.closeModalBtn} onPress={() => setShowInrModal(false)}>
+              <Text style={styles.closeModalBtnText}>Done / Return to Checkout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Verifying Payment Modal */}
+      <Modal visible={verifyingPayment} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.verifyingModalBox}>
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginBottom: 16 }} />
+            <Text style={styles.verifyingModalTitle}>Payment in Progress</Text>
+            <Text style={styles.verifyingModalSub}>{verificationMessage}</Text>
+            <Text style={styles.verifyingModalHint}>
+              Complete your payment in PayMongo. We are securely waiting for payment confirmation from the gateway.
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* Docked Full-Width Flush Bottom Bar */}
       <View
@@ -416,40 +788,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  orderTypeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.subtle,
-  },
-  orderTypeIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.round,
-    backgroundColor: Colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  orderTypeInfo: {
-    flex: 1,
-  },
-  orderTypeTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.text,
-  },
-  orderTypeSub: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
   card: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
@@ -465,6 +803,48 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     marginBottom: 4,
+  },
+  typeSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  activeTypeButton: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  typeLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  activeTypeLabel: {
+    color: Colors.textLight,
+    fontWeight: '700',
+  },
+  prepNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.surface,
+    padding: 8,
+    borderRadius: Radius.sm,
+    marginTop: 4,
+  },
+  prepNoticeText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
   },
   singlePaymentOption: {
     flexDirection: 'row',
@@ -515,21 +895,43 @@ const styles = StyleSheet.create({
   },
   paymentNameSelected: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
   },
   paymentNameUnselected: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
     fontFamily: Typography.fontFamily.semiBold,
     color: Colors.text,
+  },
+  paymentNoticeBold: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: '#D97706',
+    marginTop: 2,
   },
   paymentDesc: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.medium,
     color: Colors.textSecondary,
     marginTop: 1,
+  },
+  paymentSubBox: {
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 4,
+  },
+  subBoxTitle: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.text,
+  },
+  subBoxText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.regular,
+    color: Colors.textSecondary,
   },
   cashIconBadge: {
     width: 36,
@@ -660,6 +1062,78 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.extraBold,
     color: Colors.primary,
   },
+  inrConversionBanner: {
+    backgroundColor: '#FEF3C7',
+    padding: 8,
+    borderRadius: Radius.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  inrConversionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  inrConversionAmount: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  inrModalBox: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 360,
+    width: '100%',
+  },
+  inrModalTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  inrModalSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  qrImage: {
+    width: 220,
+    height: 220,
+    borderRadius: Radius.md,
+    backgroundColor: '#FFFFFF',
+  },
+  qrInstruction: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  closeModalBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: Radius.md,
+    marginTop: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  closeModalBtnText: {
+    color: Colors.textLight,
+    fontWeight: '700',
+    fontSize: 12,
+  },
   flushBottomBar: {
     backgroundColor: Colors.card,
     borderTopWidth: 1,
@@ -702,5 +1176,35 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.sm,
+  },
+  verifyingModalBox: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 340,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.card,
+  },
+  verifyingModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.text,
+    textAlign: 'center',
+  },
+  verifyingModalSub: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  verifyingModalHint: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

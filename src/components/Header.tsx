@@ -33,14 +33,14 @@ export const Header: React.FC<HeaderProps> = ({
   const handleBack = () => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     if (onBackPress) {
       onBackPress();
     } else {
       if (router.canGoBack()) {
         router.back();
       } else {
-        router.push('/(tabs)' as any);
+        router.replace('/(tabs)' as any);
       }
     }
   };
@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   const handleProfilePress = () => {
     try {
       Haptics.selectionAsync();
-    } catch {}
+    } catch { }
     router.push('/(tabs)/profile' as any);
   };
 
@@ -95,8 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {currentTable
                   ? `Table: ${currentTable}`
                   : isAuthenticated && user
-                  ? (user.role === 'owner' ? 'Owner Admin' : user.role === 'staff' ? 'Staff' : 'Diner VIP')
-                  : 'Tap to Sign In'}
+                    ? (user.role === 'owner' ? 'Owner Admin' : user.role === 'staff' ? 'Staff' : 'Diner VIP')
+                    : 'Tap to Sign In'}
               </Text>
             </View>
           </TouchableOpacity>

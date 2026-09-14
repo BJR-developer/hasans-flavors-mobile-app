@@ -121,15 +121,10 @@ export default function CartScreen() {
                 color={deliveryType === 'dine_in' ? Colors.textLight : Colors.textSecondary}
               />
               <Text style={[styles.typeLabel, deliveryType === 'dine_in' && styles.activeTypeLabel]}>
-                Dine-In {currentTable ? `(${currentTable})` : ''}
+                Dine In
               </Text>
             </TouchableOpacity>
 
-            {/* 
-              DELIVERY OPTION:
-              Hidden temporarily. Online doorstep delivery is in development and will be activated in a future release.
-            */}
-            {/*
             <TouchableOpacity
               style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
               onPress={() => setDeliveryType('delivery')}
@@ -143,7 +138,6 @@ export default function CartScreen() {
                 Delivery
               </Text>
             </TouchableOpacity>
-            */}
 
             <TouchableOpacity
               style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
@@ -155,7 +149,7 @@ export default function CartScreen() {
                 color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
               />
               <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
-                Takeout / Pickup
+                Takeout
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, Platform, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
@@ -12,7 +12,7 @@ import { ScanTableModal } from '@/components/ScanTableModal';
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const itemCount = useCartStore((state) => state.getItemCount());
-  const { isAuthenticated, user } = useAuthStore();
+  const { user } = useAuthStore();
   const { currentTable, isInitialized, initializeTable, fetchTables } = useTableStore();
   const [hasDismissedModal, setHasDismissedModal] = useState(false);
 
@@ -29,35 +29,6 @@ export default function TabLayout() {
     !hasDismissedModal &&
     (!user || user.role === 'customer');
 
-  // When user is authenticated on the main tabs, pressing back button should exit app on Android
-  // and must never navigate back to sign-in or onboarding
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      const backAction = () => {
-        BackHandler.exitApp();
-        return true;
-      };
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-      return () => backHandler.remove();
-    }
-  }, []);
-
-  // On Web: prevent browser back button from returning to sign-in or onboarding
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const handlePopState = () => {
-        if (isAuthenticated) {
-          window.history.pushState(null, '', window.location.href);
-        }
-      };
-      window.history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-      return () => {
-        window.removeEventListener('popstate', handlePopState);
-      };
-    }
-  }, [isAuthenticated]);
-
   // Generous bottom padding calculation considering system gesture bar & nav items
   const bottomPadding = insets.bottom > 0 ? insets.bottom + 6 : Platform.OS === 'ios' ? 28 : 22;
   const tabHeight = 56 + bottomPadding;
@@ -65,6 +36,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
+        backBehavior="history"
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: Colors.primary,

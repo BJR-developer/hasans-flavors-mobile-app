@@ -17,7 +17,10 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
 
+  const isOutOfStock = !dish.inStock;
+
   const handlePress = () => {
+    if (isOutOfStock) return;
     if (onPress) {
       onPress();
     } else {
@@ -27,6 +30,7 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
 
   const handleQuickAdd = (e: any) => {
     e.stopPropagation();
+    if (isOutOfStock) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -37,7 +41,8 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
     return (
       <TouchableOpacity
         activeOpacity={0.88}
-        style={[styles.horizontalCard, !dish.inStock && styles.outOfStockCard]}
+        disabled={isOutOfStock}
+        style={[styles.horizontalCard, isOutOfStock && styles.outOfStockCard]}
         onPress={handlePress}
       >
         <Image source={{ uri: dish.imageUrl }} style={styles.horizontalImage} resizeMode="cover" />
@@ -58,12 +63,12 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
           <View style={styles.footerRow}>
             <Text style={styles.price}>{dish.formattedPrice}</Text>
 
-            {dish.inStock ? (
+            {!isOutOfStock ? (
               <TouchableOpacity style={styles.addButton} onPress={handleQuickAdd} hitSlop={6}>
                 <Ionicons name="add" size={16} color={Colors.textLight} />
               </TouchableOpacity>
             ) : (
-              <Text style={styles.soldOutText}>Unavailable</Text>
+              <Text style={styles.soldOutText}>Not Available</Text>
             )}
           </View>
         </View>
@@ -74,11 +79,17 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
   return (
     <TouchableOpacity
       activeOpacity={0.88}
-      style={[styles.gridCard, !dish.inStock && styles.outOfStockCard]}
+      disabled={isOutOfStock}
+      style={[styles.gridCard, isOutOfStock && styles.outOfStockCard]}
       onPress={handlePress}
     >
       <View style={styles.imageContainer}>
         <Image source={{ uri: dish.imageUrl }} style={styles.gridImage} resizeMode="cover" />
+        {isOutOfStock && (
+          <View style={styles.notAvailableOverlay}>
+            <Text style={styles.notAvailableBadgeText}>Not Available</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.gridContent}>
@@ -93,12 +104,12 @@ export const DishCard: React.FC<DishCardProps> = ({ dish, layout = 'grid', onPre
         <View style={styles.gridFooter}>
           <Text style={styles.price}>{dish.formattedPrice}</Text>
 
-          {dish.inStock ? (
+          {!isOutOfStock ? (
             <TouchableOpacity style={styles.addButton} onPress={handleQuickAdd} hitSlop={6}>
               <Ionicons name="add" size={16} color={Colors.textLight} />
             </TouchableOpacity>
           ) : (
-            <Text style={styles.soldOutText}>Unavailable</Text>
+            <Text style={styles.soldOutText}>Not Available</Text>
           )}
         </View>
       </View>
@@ -203,9 +214,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   soldOutText: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: Typography.fontFamily.semiBold,
-    color: Colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: Colors.error,
+    textTransform: 'uppercase',
+  },
+  notAvailableOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.xs,
+  },
+  notAvailableBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    fontFamily: Typography.fontFamily.bold,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

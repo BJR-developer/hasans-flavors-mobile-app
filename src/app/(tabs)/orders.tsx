@@ -190,6 +190,7 @@ export default function OrdersScreen() {
                         </Text>
                       </View>
                     </View>
+                    <Text style={styles.orderRefText}>Ref: {order.id}</Text>
                     <Text style={styles.orderDate}>
                       {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •{' '}
                       {new Date(order.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -357,6 +358,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
     color: Colors.textSecondary,
+  },
+  orderRefText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.medium,
+    color: Colors.textMuted,
+    marginTop: 2,
+    letterSpacing: 0.3,
   },
   orderDate: {
     fontSize: 11,
