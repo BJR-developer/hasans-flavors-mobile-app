@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ import { useTableStore } from '@/store/useTableStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
+import { supabase } from '@/lib/supabase';
 
 // INR Currency Multiplier: ₱ Total * 1.65 = ₹ INR
 const INR_MULTIPLIER = 1.65;
@@ -64,8 +66,88 @@ export default function CheckoutScreen() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [showInrModal, setShowInrModal] = useState(false);
+  const [razorpayQrData, setRazorpayQrData] = useState<{
+    orderId: string;
+    id: string;
+    qrImageUrl: string;
+    paymentUrl: string;
+    amountInr: number;
+  } | null>(null);
+  const [inrPaymentSuccess, setInrPaymentSuccess] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState('Verifying payment with PayMongo...');
+
+  // Automated Razorpay INR QR Real-time listener & Fallback poller
+  useEffect(() => {
+    if (!showInrModal || !razorpayQrData || inrPaymentSuccess) return;
+
+    const apiBase =
+      process.env.EXPO_PUBLIC_API_URL ||
+      'https://restaurant.aura-predictions.site';
+
+    let isMounted = true;
+
+    // 1. Supabase Realtime Listener for instant webhook update (<500ms)
+    const channel = supabase
+      .channel(`inr-pay-${razorpayQrData.orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${razorpayQrData.orderId}`,
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.payment_status === 'paid' && isMounted) {
+            triggerInrSuccess(razorpayQrData.orderId);
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Active Poller every 2.5s (fallback API verification)
+    const intervalId = setInterval(async () => {
+      if (!isMounted) return;
+      try {
+        const vRes = await fetch(`${apiBase}/api/razorpay/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: razorpayQrData.orderId,
+            paymentLinkId: razorpayQrData.id,
+            qrCodeId: razorpayQrData.id,
+          }),
+        });
+        const vData = await vRes.json();
+        if (vData.paid && isMounted) {
+          triggerInrSuccess(razorpayQrData.orderId);
+        }
+      } catch (err) {
+        // Silently retry next poll
+      }
+    }, 2500);
+
+    function triggerInrSuccess(orderId: string) {
+      if (!isMounted) return;
+      setInrPaymentSuccess(true);
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+      setTimeout(() => {
+        setShowInrModal(false);
+        setRazorpayQrData(null);
+        clearCart();
+        router.replace(`/track/${orderId}` as any);
+      }, 1200);
+    }
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      supabase.removeChannel(channel);
+    };
+  }, [showInrModal, razorpayQrData, inrPaymentSuccess, clearCart, router]);
 
   const subtotal = getSubtotal();
   const tax = getTax();
@@ -141,7 +223,7 @@ export default function CheckoutScreen() {
       return;
     }
 
-    const isOnlinePayment = paymentMethod === 'gcash' || paymentMethod === 'card';
+    const isDraftOrder = paymentMethod === 'gcash' || paymentMethod === 'card' || paymentMethod === 'inr_qr';
 
     setIsPlacingOrder(true);
     try {
@@ -149,13 +231,13 @@ export default function CheckoutScreen() {
         specialInstructions.trim(),
         deliveryType === 'delivery' && deliveryLandmark ? `Landmark: ${deliveryLandmark}` : '',
         paymentMethod === 'gcash' && gcashRefNumber ? `GCash Ref: ${gcashRefNumber}` : '',
-        paymentMethod === 'inr_qr' ? `Paid via INR QR: ₹${inrAmount} (Rate: 1.65)${inrUtrNumber ? ` | UPI UTR: ${inrUtrNumber}` : ''}` : '',
+        paymentMethod === 'inr_qr' ? `Paid via Razorpay INR QR: ₹${inrAmount} (Rate: 1.65)` : '',
       ]
         .filter(Boolean)
         .join(' | ');
 
       // 1. Create order in store and Supabase
-      // If online payment (card/gcash), status is 'draft' so kitchen does NOT prepare it before payment
+      // If online payment (card/gcash/inr_qr), status is 'draft' so kitchen does NOT prepare it before payment
       const order = await placeOrder({
         type: deliveryType,
         items,
@@ -165,7 +247,7 @@ export default function CheckoutScreen() {
         deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
         tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
         paymentMethod: paymentMethod as any,
-        status: isOnlinePayment ? 'draft' : 'pending',
+        status: isDraftOrder ? 'draft' : 'pending',
         paymentStatus: 'unpaid',
         subtotal,
         tax,
@@ -177,7 +259,7 @@ export default function CheckoutScreen() {
       });
 
       // 2. If online payment (GCash or Card): launch PayMongo and strictly verify before proceeding
-      if (isOnlinePayment) {
+      if (paymentMethod === 'gcash' || paymentMethod === 'card') {
         const apiBase =
           process.env.EXPO_PUBLIC_API_URL ||
           'https://restaurant.aura-predictions.site';
@@ -282,7 +364,54 @@ export default function CheckoutScreen() {
         return;
       }
 
-      // 3. For Cash or INR QR:
+      // 3. If INR Dynamic UPI QR (Razorpay):
+      if (paymentMethod === 'inr_qr') {
+        const apiBase =
+          process.env.EXPO_PUBLIC_API_URL ||
+          'https://restaurant.aura-predictions.site';
+
+        try {
+          const res = await fetch(`${apiBase}/api/razorpay/create-qr`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              inrAmount,
+              customerName: user.name || 'Valued Diner',
+              customerEmail: user.email || undefined,
+              customerPhone: contactPhone || user.phone || '',
+            }),
+          });
+
+          const payData = await res.json();
+          if (!res.ok || (!payData.qrImageUrl && !payData.paymentUrl)) {
+            throw new Error(payData.error || 'Failed to initialize Razorpay QR');
+          }
+
+          setRazorpayQrData({
+            orderId: order.id,
+            id: payData.id,
+            qrImageUrl: payData.qrImageUrl,
+            paymentUrl: payData.paymentUrl,
+            amountInr: payData.amountInr || inrAmount,
+          });
+          setInrPaymentSuccess(false);
+          setIsPlacingOrder(false);
+          setShowInrModal(true);
+        } catch (qrErr: any) {
+          console.error('Razorpay QR creation error:', qrErr);
+          await cancelDraftOrder(order.id);
+          setIsPlacingOrder(false);
+          Alert.alert(
+            'Payment Gateway Error',
+            qrErr.message || 'Could not connect to Razorpay. Please try again or choose cash.'
+          );
+        }
+        return;
+      }
+
+      // 4. For Cash:
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
@@ -544,10 +673,7 @@ export default function CheckoutScreen() {
                   ? styles.paymentOptionActive
                   : styles.paymentOptionInactive,
               ]}
-              onPress={() => {
-                setPaymentMethod('inr_qr');
-                setShowInrModal(true);
-              }}
+              onPress={() => setPaymentMethod('inr_qr')}
             >
               <View style={styles.paymentLeft}>
                 <View
@@ -567,13 +693,13 @@ export default function CheckoutScreen() {
                         : styles.paymentNameUnselected
                     }
                   >
-                    INR QR Code (UPI / India)
+                    INR Dynamic UPI QR (Razorpay)
                   </Text>
                   <Text style={styles.paymentDesc}>
-                    Fixed Rate: ₱1 = ₹1.65 • Total: <Text style={{ fontWeight: '700', color: Colors.primary }}>₹{inrAmount.toLocaleString()}</Text>
+                    Fixed Rate: ₱1 = ₹1.65 • Total: <Text style={{ fontWeight: '700', color: Colors.primary }}>₹{inrAmount.toLocaleString()} INR</Text>
                   </Text>
                   <Text style={styles.paymentNoticeBold}>
-                    ℹ️ Cashier will verify UPI transfer at counter.
+                    ⚡ Instant auto-detection via GPay, PhonePe, Paytm, or BHIM.
                   </Text>
                 </View>
               </View>
@@ -586,23 +712,6 @@ export default function CheckoutScreen() {
                 />
               </View>
             </TouchableOpacity>
-
-            {paymentMethod === 'inr_qr' && (
-              <View style={styles.paymentSubBox}>
-                <Text style={styles.subBoxTitle}>UPI Transaction Proof</Text>
-                <Text style={styles.subBoxText}>
-                  Enter the 12-digit UPI / UTR reference number from your payment app so the cashier can verify your order.
-                </Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6 }]}
-                  value={inrUtrNumber}
-                  onChangeText={setInrUtrNumber}
-                  placeholder="Enter 12-digit UPI UTR Number"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="numeric"
-                />
-              </View>
-            )}
           </View>
         </View>
 
@@ -702,25 +811,121 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* INR Live QR Code Modal */}
+      {/* INR Live Automated QR Code Modal */}
       <Modal visible={showInrModal} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.inrModalBox}>
-            <Text style={styles.inrModalTitle}>Scan to Pay in Indian Rupees (INR)</Text>
-            <Text style={styles.inrModalSub}>
-              ₱{grandTotal.toLocaleString()} × 1.65 ={' '}
-              <Text style={{ fontWeight: '800', color: Colors.primary }}>
-                ₹{inrAmount.toLocaleString()} INR
-              </Text>
-            </Text>
-            <Image source={{ uri: inrQrCodeUrl }} style={styles.qrImage} />
-            <Text style={styles.qrInstruction}>
-              Scan & pay with GPay, PhonePe, Paytm, or BHIM UPI.{'\n'}
-              Cashier will review & verify your transfer at the counter.
-            </Text>
-            <TouchableOpacity style={styles.closeModalBtn} onPress={() => setShowInrModal(false)}>
-              <Text style={styles.closeModalBtnText}>Done / Return to Checkout</Text>
-            </TouchableOpacity>
+            {inrPaymentSuccess ? (
+              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                <Ionicons name="checkmark-circle" size={60} color="#10B981" />
+                <Text style={[styles.inrModalTitle, { marginTop: 12, fontSize: 16 }]}>
+                  Payment Received!
+                </Text>
+                <Text style={[styles.inrModalSub, { textAlign: 'center', marginTop: 4 }]}>
+                  ₹{(razorpayQrData?.amountInr || inrAmount).toLocaleString()} INR verified. Preparing your order...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.inrModalTitle}>Scan to Pay in Indian Rupees (INR)</Text>
+                <Text style={styles.inrModalSub}>
+                  ₱{grandTotal.toLocaleString()} × 1.65 ={' '}
+                  <Text style={{ fontWeight: '800', color: Colors.primary }}>
+                    ₹{(razorpayQrData?.amountInr || inrAmount).toLocaleString()} INR
+                  </Text>
+                </Text>
+
+                {razorpayQrData?.qrImageUrl ? (
+                  <Image
+                    source={{ uri: razorpayQrData.qrImageUrl }}
+                    style={styles.qrImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.qrImage, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                  </View>
+                )}
+
+                {/* Real-time verification pulsing status */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={{ fontSize: 12, color: Colors.textSecondary, fontWeight: '600' }}>
+                    Waiting for UPI transfer...
+                  </Text>
+                </View>
+
+                <Text style={styles.qrInstruction}>
+                  Scan with GPay, PhonePe, Paytm, or BHIM UPI.{'\n'}
+                  Auto-detected instantly once paid.
+                </Text>
+
+                {/* Direct link for same-phone payment */}
+                {razorpayQrData?.paymentUrl ? (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.primary,
+                      paddingVertical: 11,
+                      paddingHorizontal: 16,
+                      borderRadius: Radius.md,
+                      marginTop: 14,
+                      width: '100%',
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
+                    onPress={async () => {
+                      try {
+                        await WebBrowser.openBrowserAsync(razorpayQrData.paymentUrl);
+                      } catch {
+                        Linking.openURL(razorpayQrData.paymentUrl);
+                      }
+                    }}
+                  >
+                    <Ionicons name="open-outline" size={16} color={Colors.textLight} />
+                    <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>
+                      Pay via UPI App / Browser
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                <TouchableOpacity
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: Radius.md,
+                    marginTop: 8,
+                    width: '100%',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cancel UPI Payment?',
+                      'Your items will stay in your cart so you can try again anytime.',
+                      [
+                        { text: 'Keep Waiting', style: 'cancel' },
+                        {
+                          text: 'Cancel Payment',
+                          style: 'destructive',
+                          onPress: async () => {
+                            if (razorpayQrData?.orderId) {
+                              await cancelDraftOrder(razorpayQrData.orderId);
+                            }
+                            setShowInrModal(false);
+                            setRazorpayQrData(null);
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '600' }}>
+                    Cancel & Return to Cart
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
