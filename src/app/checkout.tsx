@@ -270,11 +270,6 @@ export default function CheckoutScreen() {
       try {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {}
-
-      Alert.alert(
-        'Location Attached',
-        'Your exact GPS location and Google Maps pin have been attached to this delivery!'
-      );
     } catch (err: any) {
       console.error('Error getting location:', err);
       Alert.alert(
@@ -297,15 +292,14 @@ export default function CheckoutScreen() {
 
     setIsPlacingOrder(true);
     try {
-      const fullNotes = [
-        specialInstructions.trim(),
-        deliveryType === 'delivery' && deliveryLandmark ? `Landmark: ${deliveryLandmark}` : '',
-        locationCoords ? `Google Maps: https://maps.google.com/?q=${locationCoords.latitude},${locationCoords.longitude}` : '',
-        paymentMethod === 'gcash' && gcashRefNumber ? `GCash Ref: ${gcashRefNumber}` : '',
-        paymentMethod === 'inr_qr' ? `Paid via Razorpay INR QR: ₹${inrAmount} (Rate: 1.65)` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
+      const finalDeliveryAddress =
+        deliveryType === 'delivery'
+          ? [deliveryAddress.trim(), deliveryLandmark.trim() ? `(Landmark: ${deliveryLandmark.trim()})` : '']
+              .filter(Boolean)
+              .join(' ')
+          : undefined;
+
+      const cleanNotes = specialInstructions.trim() || undefined;
 
       // 1. Create order in store and Supabase
       // If online payment (card/gcash/inr_qr), status is 'draft' so kitchen does NOT prepare it before payment
@@ -315,7 +309,7 @@ export default function CheckoutScreen() {
         customerId: user.id,
         customerName: user.name || 'Valued Diner',
         customerPhone: contactPhone || user.phone || undefined,
-        deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
+        deliveryAddress: finalDeliveryAddress,
         tableNumber: deliveryType === 'dine_in' ? currentTable || 'Table 04' : undefined,
         paymentMethod: paymentMethod as any,
         status: isDraftOrder ? 'draft' : 'pending',
@@ -326,7 +320,8 @@ export default function CheckoutScreen() {
         deliveryFee,
         discount: discountAmount,
         total: grandTotal,
-        specialNotes: fullNotes,
+        estimatedMinutes: deliveryType === 'delivery' ? 25 : 10,
+        specialNotes: cleanNotes,
       });
 
       // 2. If online payment (GCash or Card): launch PayMongo and strictly verify before proceeding
@@ -560,7 +555,10 @@ export default function CheckoutScreen() {
           <View style={styles.prepNoticeRow}>
             <Ionicons name="time-outline" size={15} color={Colors.primary} />
             <Text style={styles.prepNoticeText}>
-              Standard preparation time: <Text style={{ fontWeight: '700', color: Colors.text }}>10 minutes</Text>
+              Standard preparation time:{' '}
+              <Text style={{ fontWeight: '700', color: Colors.text }}>
+                {deliveryType === 'delivery' ? '25 minutes' : '10 minutes'}
+              </Text>
             </Text>
           </View>
         </View>
@@ -669,11 +667,6 @@ export default function CheckoutScreen() {
                   >
                     {deliveryType === 'delivery' ? 'Cash on Delivery' : 'Cash (Pay at Counter)'}
                   </Text>
-                  {deliveryType !== 'delivery' && (
-                    <Text style={styles.paymentNoticeBold}>
-                      ⚠️ Please approach to counter to pay now.
-                    </Text>
-                  )}
                 </View>
               </View>
 
