@@ -16,7 +16,6 @@ import { Header } from '@/components/Header';
 import { SpiceMeter } from '@/components/SpiceMeter';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useCartStore } from '@/store/useCartStore';
-import { useTableStore } from '@/store/useTableStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import * as Haptics from 'expo-haptics';
 
@@ -24,28 +23,23 @@ export default function CartScreen() {
   const router = useRouter();
   const {
     items,
-    deliveryType,
     promoCode,
     discountAmount,
-    setDeliveryType,
     updateQuantity,
     clearCart,
     applyPromoCode,
     removePromoCode,
     getSubtotal,
-    getDeliveryFee,
     getTax,
     getTotal,
   } = useCartStore();
 
-  const currentTable = useTableStore((state) => state.currentTable);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState('');
 
   const subtotal = getSubtotal();
-  const deliveryFee = getDeliveryFee();
   const tax = getTax();
   const total = getTotal();
 
@@ -104,80 +98,6 @@ export default function CartScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Dining Mode Segmented Selector (Dine-In & Takeout) */}
-        <View style={styles.diningTypeCard}>
-          <Text style={styles.sectionTitle}>Dining Method</Text>
-          <View style={styles.typeSelectorRow}>
-            <TouchableOpacity
-              style={[styles.typeButton, deliveryType === 'dine_in' && styles.activeTypeButton]}
-              onPress={() => {
-                setDeliveryType('dine_in');
-                if (!currentTable) router.push('/qr-scan' as any);
-              }}
-            >
-              <Ionicons
-                name="restaurant-outline"
-                size={16}
-                color={deliveryType === 'dine_in' ? Colors.textLight : Colors.textSecondary}
-              />
-              <Text style={[styles.typeLabel, deliveryType === 'dine_in' && styles.activeTypeLabel]}>
-                Dine In
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.typeButton, deliveryType === 'delivery' && styles.activeTypeButton]}
-              onPress={() => setDeliveryType('delivery')}
-            >
-              <Ionicons
-                name="bicycle-outline"
-                size={16}
-                color={deliveryType === 'delivery' ? Colors.textLight : Colors.textSecondary}
-              />
-              <Text style={[styles.typeLabel, deliveryType === 'delivery' && styles.activeTypeLabel]}>
-                Delivery
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.typeButton, deliveryType === 'takeout' && styles.activeTypeButton]}
-              onPress={() => setDeliveryType('takeout')}
-            >
-              <Ionicons
-                name="bag-handle-outline"
-                size={16}
-                color={deliveryType === 'takeout' ? Colors.textLight : Colors.textSecondary}
-              />
-              <Text style={[styles.typeLabel, deliveryType === 'takeout' && styles.activeTypeLabel]}>
-                Takeout
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {deliveryType === 'dine_in' ? (
-            <View style={styles.dineInNotice}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.saffron} />
-              <Text style={styles.dineInNoticeText}>
-                {currentTable
-                  ? `Assigned to ${currentTable}.`
-                  : 'Please select your table number for direct table delivery.'}
-              </Text>
-              {!currentTable && (
-                <TouchableOpacity onPress={() => router.push('/qr-scan' as any)}>
-                  <Text style={styles.pickTableLink}>Select Table</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <View style={styles.dineInNotice}>
-              <Ionicons name="bag-check-outline" size={16} color={Colors.halalGreen} />
-              <Text style={styles.dineInNoticeText}>
-                Your order will be packed hot and fresh for pickup at the counter.
-              </Text>
-            </View>
-          )}
-        </View>
-
         {/* Cart Item Rows */}
         <View style={styles.itemsCard}>
           <View style={styles.itemsCardHeader}>
@@ -359,72 +279,12 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.bold,
     fontSize: Typography.fontSize.sm,
   },
-  diningTypeCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.subtle,
-  },
   sectionTitle: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.text,
     marginBottom: Spacing.sm,
-  },
-  typeSelectorRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  typeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingVertical: 11,
-    gap: 6,
-  },
-  activeTypeButton: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  typeLabel: {
-    fontSize: Typography.fontSize.xs,
-    fontFamily: Typography.fontFamily.medium,
-    color: Colors.textSecondary,
-  },
-  activeTypeLabel: {
-    color: Colors.textLight,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-  },
-  dineInNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: Spacing.sm,
-    borderRadius: Radius.sm,
-    marginTop: Spacing.sm,
-    gap: 6,
-  },
-  dineInNoticeText: {
-    flex: 1,
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.regular,
-    color: Colors.textSecondary,
-  },
-  pickTableLink: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: Typography.fontFamily.bold,
-    color: Colors.primary,
-    textDecorationLine: 'underline',
   },
   itemsCard: {
     backgroundColor: Colors.card,
