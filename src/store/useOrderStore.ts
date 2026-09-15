@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DailyStats, Order, OrderStatus, PaymentMethod, PaymentStatus, CartItem } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { parseOrderNotes, formatOrderNotes } from '@/lib/orderUtils';
 
 const mapOrderRow = (row: any): Order => {
   const subtotal = Number(row.subtotal || 0);
@@ -16,6 +17,7 @@ const mapOrderRow = (row: any): Order => {
       : 0
   );
   const balanceDue = Math.max(0, total - amountPaid);
+  const { deliveryAddress, specialNotes } = parseOrderNotes(row.notes, row.type);
 
   return {
     id: String(row.id),
@@ -25,7 +27,7 @@ const mapOrderRow = (row: any): Order => {
     tableNumber: row.table_number || undefined,
     customerName: row.customer_name || 'Diner',
     customerPhone: row.customer_phone || undefined,
-    deliveryAddress: row.notes || undefined,
+    deliveryAddress,
     items: Array.isArray(row.items) ? row.items : [],
     subtotal,
     tax,
@@ -47,7 +49,7 @@ const mapOrderRow = (row: any): Order => {
         ? 25
         : 10
     ),
-    specialNotes: row.notes || undefined,
+    specialNotes,
   };
 };
 
@@ -279,7 +281,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       total: newOrder.total,
       amount_paid: amountPaid,
       payment_history: newOrder.paymentHistory,
-      notes: newOrder.specialNotes || newOrder.deliveryAddress || null,
+      notes: formatOrderNotes(newOrder.deliveryAddress, newOrder.specialNotes, newOrder.type),
       items: newOrder.items,
       estimated_minutes: newOrder.estimatedMinutes,
       created_at: newOrder.createdAt,
@@ -498,7 +500,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }));
 
     try {
-      await supabase.from('orders').delete().eq('id', orderId);
+      // Strictly delete only if still in draft status (never delete paid or pending orders)
+      await supabase.from('orders').delete().eq('id', orderId).eq('status', 'draft');
     } catch (e) {
       console.error('Failed to remove draft order:', e);
     }

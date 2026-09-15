@@ -385,8 +385,8 @@ export default function CheckoutScreen() {
         setVerificationMessage('Verifying payment with PayMongo...');
         let isPaid = false;
 
-        // Poll verification endpoint up to 4 times (1.5s interval)
-        for (let attempt = 1; attempt <= 4; attempt++) {
+        // Poll verification endpoint up to 6 times (1.5s interval, ~9 seconds)
+        for (let attempt = 1; attempt <= 6; attempt++) {
           try {
             const verifyRes = await fetch(`${apiBase}/api/paymongo/verify`, {
               method: 'POST',
@@ -404,8 +404,25 @@ export default function CheckoutScreen() {
           } catch (vErr) {
             console.warn(`Verification attempt ${attempt} failed:`, vErr);
           }
-          if (attempt < 4) {
+          if (attempt < 6) {
             await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+        }
+
+        // Final safety check against Supabase directly (in case webhook already marked it paid)
+        if (!isPaid) {
+          try {
+            const { data: dbCheck } = await supabase
+              .from('orders')
+              .select('status, payment_status')
+              .eq('id', order.id)
+              .single();
+
+            if (dbCheck && (dbCheck.payment_status === 'paid' || dbCheck.status !== 'draft')) {
+              isPaid = true;
+            }
+          } catch (checkErr) {
+            console.warn('Final DB check error:', checkErr);
           }
         }
 
@@ -418,10 +435,8 @@ export default function CheckoutScreen() {
           clearCart();
           router.replace(`/track/${order.id}` as any);
         } else {
-          // PAYMENT WAS NOT MADE (cancelled, closed browser, or failed)
-          // Clean up the draft order from Supabase so kitchen NEVER cooks an unpaid order!
+          // Strictly clean up only if truly unpaid and still in draft status
           await cancelDraftOrder(order.id);
-          // DO NOT CLEAR CART! Keep customer items intact
           Alert.alert(
             'Payment Not Completed',
             'We did not detect a completed payment from PayMongo. Your items are still in your cart so you can try again or choose another payment method.'

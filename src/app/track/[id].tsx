@@ -15,6 +15,7 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useOrderStore } from '@/store/useOrderStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { parseOrderNotes } from '@/lib/orderUtils';
 
 // Helper: Calculate remaining preparation minutes from order creation timestamp and total estimated time
 function calculateRemainingMinutes(createdAt?: string, totalEst?: number): number {
@@ -63,6 +64,7 @@ export default function OrderTrackingScreen() {
               ? 25
               : 10
           );
+          const { deliveryAddress, specialNotes } = parseOrderNotes(data.notes, data.type);
           const mapped: Order = {
             id: String(data.id),
             orderNumber: data.order_number,
@@ -71,7 +73,7 @@ export default function OrderTrackingScreen() {
             tableNumber: data.table_number || undefined,
             customerName: data.customer_name || 'Diner',
             customerPhone: data.customer_phone || undefined,
-            deliveryAddress: data.notes || undefined,
+            deliveryAddress,
             items: Array.isArray(data.items) ? data.items : [],
             subtotal: Number(data.subtotal || 0),
             tax: Number(data.tax || 0),
@@ -84,7 +86,7 @@ export default function OrderTrackingScreen() {
             paymentStatus: data.payment_status,
             createdAt: data.created_at,
             estimatedMinutes: estMin,
-            specialNotes: data.notes || undefined,
+            specialNotes,
           };
           setOrder(mapped);
           setCountdownMinutes(calculateRemainingMinutes(mapped.createdAt, estMin));
