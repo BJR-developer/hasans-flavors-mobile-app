@@ -40,7 +40,13 @@ const mapOrderRow = (row: any): Order => {
     paymentStatus: row.payment_status as PaymentStatus,
     paymentHistory: Array.isArray(row.payment_history) ? row.payment_history : [],
     createdAt: row.created_at,
-    estimatedMinutes: Number(row.estimated_minutes) || 10,
+    estimatedMinutes: Number(
+      row.estimated_minutes !== undefined && row.estimated_minutes !== null
+        ? row.estimated_minutes
+        : row.type === 'delivery'
+        ? 25
+        : 10
+    ),
     specialNotes: row.notes || undefined,
   };
 };
@@ -94,6 +100,7 @@ interface OrderState {
   getOrderById: (orderId: string) => Order | undefined;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getFilteredOrders: () => Order[];
+  updateEstimatedMinutes: (orderId: string, estimatedMinutes: number) => Promise<void>;
   cancelDraftOrder: (orderId: string) => Promise<void>;
   getDailyStats: () => DailyStats;
   getStats: () => DailyStats;
@@ -274,6 +281,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       payment_history: newOrder.paymentHistory,
       notes: newOrder.specialNotes || newOrder.deliveryAddress || null,
       items: newOrder.items,
+      estimated_minutes: newOrder.estimatedMinutes,
       created_at: newOrder.createdAt,
       updated_at: new Date().toISOString(),
     };
@@ -493,6 +501,30 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await supabase.from('orders').delete().eq('id', orderId);
     } catch (e) {
       console.error('Failed to remove draft order:', e);
+    }
+  },
+
+  updateEstimatedMinutes: async (orderId: string, estimatedMinutes: number) => {
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId ? { ...o, estimatedMinutes } : o
+      ),
+      selectedOrder:
+        state.selectedOrder?.id === orderId
+          ? { ...state.selectedOrder, estimatedMinutes }
+          : state.selectedOrder,
+    }));
+
+    try {
+      await supabase
+        .from('orders')
+        .update({
+          estimated_minutes: estimatedMinutes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error('Failed to update estimated time in Supabase:', e);
     }
   },
 

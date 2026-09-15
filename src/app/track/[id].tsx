@@ -16,6 +16,17 @@ import { useOrderStore } from '@/store/useOrderStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
 
+// Helper: Calculate remaining preparation minutes from order creation timestamp and total estimated time
+function calculateRemainingMinutes(createdAt?: string, totalEst?: number): number {
+  const estTotal = Number(totalEst) || 10;
+  if (!createdAt) return estTotal;
+  const createdMs = new Date(createdAt).getTime();
+  if (isNaN(createdMs)) return estTotal;
+  const elapsedMinutes = Math.floor((Date.now() - createdMs) / 60000);
+  const remaining = estTotal - elapsedMinutes;
+  return Math.max(1, remaining);
+}
+
 export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -24,22 +35,19 @@ export default function OrderTrackingScreen() {
   const [order, setOrder] = useState<Order | undefined>(storeOrder);
   const [isLoading, setIsLoading] = useState<boolean>(!storeOrder);
   const [countdownMinutes, setCountdownMinutes] = useState<number>(
-    storeOrder?.estimatedMinutes || 20
+    calculateRemainingMinutes(storeOrder?.createdAt, storeOrder?.estimatedMinutes)
   );
 
   const fetchOrderDetails = async () => {
     const fromStore = useOrderStore.getState().getOrderById(id || '');
     if (fromStore) {
       setOrder(fromStore);
-      if (fromStore.estimatedMinutes) {
-        setCountdownMinutes(fromStore.estimatedMinutes);
-      }
+      setCountdownMinutes(calculateRemainingMinutes(fromStore.createdAt, fromStore.estimatedMinutes));
       setIsLoading(false);
-      return;
     }
 
     if (id) {
-      setIsLoading(true);
+      if (!fromStore) setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('orders')
@@ -48,7 +56,13 @@ export default function OrderTrackingScreen() {
           .single();
 
         if (!error && data) {
-          const estMin = Number(data.estimated_minutes || data.estimatedMinutes || 20);
+          const estMin = Number(
+            data.estimated_minutes !== undefined && data.estimated_minutes !== null
+              ? data.estimated_minutes
+              : data.type === 'delivery'
+              ? 25
+              : 10
+          );
           const mapped: Order = {
             id: String(data.id),
             orderNumber: data.order_number,
@@ -73,7 +87,7 @@ export default function OrderTrackingScreen() {
             specialNotes: data.notes || undefined,
           };
           setOrder(mapped);
-          setCountdownMinutes(estMin);
+          setCountdownMinutes(calculateRemainingMinutes(mapped.createdAt, estMin));
         }
       } catch (err) {
         console.warn('Failed to fetch order:', err);
@@ -90,9 +104,41 @@ export default function OrderTrackingScreen() {
     fetchOrderDetails();
   }, [id, storeOrder]);
 
-  // Realtime Supabase Subscription for live order bumps, checklist items, and estimated time
+  // Realtime Supabase Subscription & Polling Fallback for live order bumps, status, and cashier ETA adjustments
   useEffect(() => {
     if (!id) return;
+
+    // 1. Polling fallback every 8 seconds (ensures mobile clients never miss cashier ETA updates if WebSocket disconnects)
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('orders')
+          .select('id, status, payment_status, estimated_minutes, items, created_at, updated_at')
+          .or(`id.eq.${id},order_number.eq.${id}`)
+          .single();
+
+        if (data) {
+          const nextEst = Number(
+            data.estimated_minutes !== undefined && data.estimated_minutes !== null
+              ? data.estimated_minutes
+              : 10
+          );
+          setOrder((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              status: data.status as OrderStatus,
+              paymentStatus: data.payment_status,
+              items: Array.isArray(data.items) ? data.items : prev.items,
+              estimatedMinutes: nextEst,
+            };
+          });
+          setCountdownMinutes(calculateRemainingMinutes(data.created_at, nextEst));
+        }
+      } catch {}
+    }, 8000);
+
+    // 2. Realtime WebSocket channel for instant push updates
     const channel = supabase
       .channel(`mobile:track:order:${id}`)
       .on(
@@ -101,14 +147,15 @@ export default function OrderTrackingScreen() {
         (payload) => {
           const updated: any = payload.new;
           if (updated && (String(updated.id) === id || updated.order_number === id)) {
+            const nextEst =
+              updated.estimated_minutes !== undefined && updated.estimated_minutes !== null
+                ? Number(updated.estimated_minutes)
+                : 10;
+
             setOrder((prev) => {
               if (!prev) return undefined;
               const nextItems = Array.isArray(updated.items) ? updated.items : prev.items;
               const nextStatus = (updated.status as OrderStatus) || prev.status;
-              const nextEst =
-                updated.estimated_minutes !== undefined
-                  ? Number(updated.estimated_minutes)
-                  : prev.estimatedMinutes;
 
               return {
                 ...prev,
@@ -119,23 +166,28 @@ export default function OrderTrackingScreen() {
               };
             });
 
-            if (updated.estimated_minutes !== undefined) {
-              setCountdownMinutes(Number(updated.estimated_minutes));
-            }
+            setCountdownMinutes(calculateRemainingMinutes(updated.created_at || order?.createdAt, nextEst));
           }
         }
       )
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, order?.createdAt]);
 
+  // Dynamic countdown timer ticking every 15s to keep minutes exact against real clock
   useEffect(() => {
     const timer = setInterval(() => {
-      setCountdownMinutes((prev) => Math.max(1, prev - 1));
-    }, 60000);
+      setOrder((currentOrder) => {
+        if (currentOrder && currentOrder.status !== 'completed' && currentOrder.status !== 'served') {
+          setCountdownMinutes(calculateRemainingMinutes(currentOrder.createdAt, currentOrder.estimatedMinutes));
+        }
+        return currentOrder;
+      });
+    }, 15000);
     return () => clearInterval(timer);
   }, []);
 
