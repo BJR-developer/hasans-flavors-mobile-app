@@ -23,6 +23,7 @@ import { useTableStore } from '@/store/useTableStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
+import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 
 // INR Currency Multiplier: ₱ Total * 1.65 = ₹ INR
@@ -65,6 +66,8 @@ export default function CheckoutScreen() {
   const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showInrModal, setShowInrModal] = useState(false);
   const [razorpayQrData, setRazorpayQrData] = useState<{
     orderId: string;
@@ -216,6 +219,73 @@ export default function CheckoutScreen() {
     );
   }
 
+  const handleUseCurrentLocation = async () => {
+    try {
+      setIsLocating(true);
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Needed',
+          'Please allow location access so we can pin your exact delivery address on Google Maps.'
+        );
+        setIsLocating(false);
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = loc.coords;
+      setLocationCoords({ latitude, longitude });
+
+      try {
+        const reverseResults = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (reverseResults && reverseResults.length > 0) {
+          const place = reverseResults[0];
+          const parts = [
+            place.name,
+            place.streetNumber ? `${place.streetNumber} ${place.street}` : place.street,
+            place.district || place.subregion,
+            place.city,
+            place.postalCode,
+          ].filter(Boolean);
+
+          const formatted = parts.join(', ');
+          if (formatted.trim()) {
+            setDeliveryAddress(formatted);
+          }
+        }
+      } catch (geoErr) {
+        console.warn('Reverse geocode error:', geoErr);
+        if (!deliveryAddress.trim()) {
+          setDeliveryAddress(`GPS Location (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`);
+        }
+      }
+
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+
+      Alert.alert(
+        'Location Attached',
+        'Your exact GPS location and Google Maps pin have been attached to this delivery!'
+      );
+    } catch (err: any) {
+      console.error('Error getting location:', err);
+      Alert.alert(
+        'Location Error',
+        'Could not detect your current location. Please verify GPS is enabled or enter your address manually.'
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (items.length === 0 || isPlacingOrder || verifyingPayment) return;
     if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
@@ -230,6 +300,7 @@ export default function CheckoutScreen() {
       const fullNotes = [
         specialInstructions.trim(),
         deliveryType === 'delivery' && deliveryLandmark ? `Landmark: ${deliveryLandmark}` : '',
+        locationCoords ? `Google Maps: https://maps.google.com/?q=${locationCoords.latitude},${locationCoords.longitude}` : '',
         paymentMethod === 'gcash' && gcashRefNumber ? `GCash Ref: ${gcashRefNumber}` : '',
         paymentMethod === 'inr_qr' ? `Paid via Razorpay INR QR: ₹${inrAmount} (Rate: 1.65)` : '',
       ]
@@ -497,7 +568,44 @@ export default function CheckoutScreen() {
         {/* Delivery Details Card (Visible only when Delivery is chosen) */}
         {deliveryType === 'delivery' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Delivery Information</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.cardTitle}>Delivery Information</Text>
+              <TouchableOpacity
+                onPress={handleUseCurrentLocation}
+                disabled={isLocating}
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: locationCoords ? '#ECFDF5' : '#FFF1F2',
+                  borderWidth: 1,
+                  borderColor: locationCoords ? '#A7F3D0' : '#FECDD3',
+                  paddingHorizontal: 9,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                }}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Ionicons
+                    name={locationCoords ? "checkmark-circle" : "navigate"}
+                    size={13}
+                    color={locationCoords ? '#059669' : Colors.primary}
+                  />
+                )}
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: locationCoords ? '#059669' : Colors.primary,
+                  }}
+                >
+                  {isLocating ? 'Detecting GPS...' : locationCoords ? 'GPS Pin Attached' : 'Share My Location'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={{ gap: 8 }}>
               <TextInput
                 style={styles.input}

@@ -10,7 +10,8 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow Hasan's Flavors to access your camera to scan table QR codes."
+        "NSCameraUsageDescription": "Allow Hasan's Flavors to access your camera to scan table QR codes.",
+        "NSLocationWhenInUseUsageDescription": "Allow Hasan's Flavors to access your current location to deliver food directly to your doorstep."
       }
     },
     "android": {
@@ -20,6 +21,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false,
       "package": "com.halalfooddotcom.bjr_pro"
     },

@@ -213,7 +213,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     const balanceDue = finalPaymentStatus === 'paid' ? 0 : params.total;
 
     const newOrder: Order = {
-      id: `ord_${Date.now()}`,
+      id: `ord_mob_${Date.now()}`,
       orderNumber,
       customerId: params.customerId,
       type: params.type,
