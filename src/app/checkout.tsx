@@ -667,11 +667,13 @@ export default function CheckoutScreen() {
                         : styles.paymentNameUnselected
                     }
                   >
-                    Cash (Pay at Counter)
+                    {deliveryType === 'delivery' ? 'Cash on Delivery' : 'Cash (Pay at Counter)'}
                   </Text>
-                  <Text style={styles.paymentNoticeBold}>
-                    ⚠️ Please approach to counter to pay now.
-                  </Text>
+                  {deliveryType !== 'delivery' && (
+                    <Text style={styles.paymentNoticeBold}>
+                      ⚠️ Please approach to counter to pay now.
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -805,9 +807,6 @@ export default function CheckoutScreen() {
                   </Text>
                   <Text style={styles.paymentDesc}>
                     Fixed Rate: ₱1 = ₹1.65 • Total: <Text style={{ fontWeight: '700', color: Colors.primary }}>₹{inrAmount.toLocaleString()} INR</Text>
-                  </Text>
-                  <Text style={styles.paymentNoticeBold}>
-                    ⚡ Instant auto-detection via GPay, PhonePe, Paytm, or BHIM.
                   </Text>
                 </View>
               </View>
