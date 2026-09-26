@@ -30,7 +30,6 @@ export default function CartScreen() {
     applyPromoCode,
     removePromoCode,
     getSubtotal,
-    getTax,
     getTotal,
   } = useCartStore();
 
@@ -40,7 +39,6 @@ export default function CartScreen() {
   const [promoError, setPromoError] = useState('');
 
   const subtotal = getSubtotal();
-  const tax = getTax();
   const total = getTotal();
 
   const handleApplyPromo = () => {
@@ -188,11 +186,6 @@ export default function CartScreen() {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryVal}>₱{subtotal.toLocaleString()}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax & VAT (5%)</Text>
-            <Text style={styles.summaryVal}>₱{tax.toLocaleString()}</Text>
           </View>
 
           {discountAmount > 0 && (

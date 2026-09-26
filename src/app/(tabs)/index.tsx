@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Dimensions,
   Image,
@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Header } from '@/components/Header';
 import { DishCard } from '@/components/DishCard';
 import { CartFloatingBar } from '@/components/CartFloatingBar';
@@ -167,33 +167,38 @@ export default function HomeScreen() {
   };
 
   // Dismiss / Deactivate Animated Search
-  const handleDeactivateSearch = () => {
+  const handleDeactivateSearch = useCallback(() => {
     try {
       Haptics.selectionAsync();
     } catch { }
     Keyboard.dismiss();
+    setIsSearchActive(false);
     Animated.timing(searchAnim, {
       toValue: 0,
-      duration: 260,
+      duration: 240,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start(() => {
-      setIsSearchActive(false);
       setSearchQuery('');
       setSearchFilterCat('all');
     });
-  };
+  }, [searchAnim]);
 
-  // Close active search on Android back button press before navigating away
-  useEffect(() => {
-    if (!isSearchActive || Platform.OS !== 'android') return;
-    const backAction = () => {
-      handleDeactivateSearch();
-      return true;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
-  }, [isSearchActive]);
+  // Intercept hardware / system back button to exit search instead of closing the app
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (isSearchActive) {
+          handleDeactivateSearch();
+          return true; // Prevent default action (closing app)
+        }
+        return false;
+      };
+
+      const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => backSubscription.remove();
+    }, [isSearchActive, handleDeactivateSearch])
+  );
 
   const handleCategorySelect = (id: string) => {
     try {
@@ -257,9 +262,20 @@ export default function HomeScreen() {
           style={[styles.roundedSearchBar, isSearchActive && styles.roundedSearchBarActive]}
           onPress={!isSearchActive ? handleActivateSearch : undefined}
         >
-          <View style={styles.searchIconCircle}>
-            <Ionicons name="search" size={16} color={Colors.primary} />
-          </View>
+          {isSearchActive ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleDeactivateSearch}
+              style={styles.searchIconCircle}
+              hitSlop={8}
+            >
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.searchIconCircle}>
+              <Ionicons name="search" size={16} color={Colors.primary} />
+            </View>
+          )}
 
           <TextInput
             ref={searchInputRef}
@@ -282,19 +298,17 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : null}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={{
-            marginLeft: -54,
-            opacity: isSearchActive ? 1 : 0,
-            transitionProperty: 'all',
-            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
-            transitionDuration: '150ms',
-          } as any}
-          onPress={handleDeactivateSearch}
-          hitSlop={8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
+
+        {isSearchActive && (
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={handleDeactivateSearch}
+            hitSlop={8}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Dual Layer Cross-Fading Body Container */}
@@ -695,25 +709,18 @@ const styles = StyleSheet.create({
   },
   clearIconBtn: {
     padding: 6,
-    marginRight: 38,
   },
-  filterIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.round,
-    backgroundColor: Colors.surface,
+  cancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 2,
   },
   cancelBtnText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
     fontFamily: Typography.fontFamily.bold,
     color: Colors.primary,
-    paddingHorizontal: Spacing.xs,
-    paddingRight: 8
-
   },
   bodyLayerContainer: {
     flex: 1,

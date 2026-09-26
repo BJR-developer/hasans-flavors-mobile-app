@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useRoleStore } from '@/store/useRoleStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { isCashOrderPendingReview } from '@/lib/orderUtils';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -97,9 +98,17 @@ export default function KDSScreen() {
     );
   }
 
-  const pendingOrders = orders.filter(
-    (o) => (o.status === 'pending' || o.status === 'sent_to_kitchen') && (filterType === 'all' || o.type === filterType)
-  );
+  const pendingOrders = orders
+    .filter(
+      (o) => (o.status === 'pending' || o.status === 'sent_to_kitchen') && (filterType === 'all' || o.type === filterType)
+    )
+    .sort((a, b) => {
+      const aReview = isCashOrderPendingReview(a);
+      const bReview = isCashOrderPendingReview(b);
+      if (aReview && !bReview) return -1;
+      if (!aReview && bReview) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   const preparingOrders = orders.filter(
     (o) => o.status === 'preparing' && (filterType === 'all' || o.type === filterType)
   );
@@ -215,6 +224,7 @@ export default function KDSScreen() {
     const elapsed = calculateElapsedMinutes(order.createdAt);
     const isUrgent = elapsed > 20;
     const isWarning = elapsed > 10 && elapsed <= 20;
+    const isReviewPending = isCashOrderPendingReview(order);
 
     return (
       <View
@@ -223,6 +233,7 @@ export default function KDSScreen() {
           styles.ticketCard,
           isUrgent && styles.urgentTicket,
           isWarning && styles.warningTicket,
+          isReviewPending && { borderColor: '#F59E0B', borderWidth: 2 },
         ]}
       >
         {/* Ticket Header */}
@@ -245,9 +256,9 @@ export default function KDSScreen() {
                 paddingHorizontal: 6,
                 paddingVertical: 2,
                 borderRadius: Radius.xs,
-                backgroundColor: order.paymentStatus === 'paid' ? '#E8F5E9' : '#FFF8E1',
+                backgroundColor: order.paymentStatus === 'paid' ? '#E8F5E9' : isReviewPending ? '#FEF3C7' : '#FFF8E1',
                 borderWidth: 1,
-                borderColor: order.paymentStatus === 'paid' ? '#C8E6C9' : '#FFE082',
+                borderColor: order.paymentStatus === 'paid' ? '#C8E6C9' : isReviewPending ? '#F59E0B' : '#FFE082',
                 marginLeft: 4,
               }}
             >
@@ -255,11 +266,11 @@ export default function KDSScreen() {
                 style={{
                   fontSize: 9,
                   fontWeight: '800',
-                  color: order.paymentStatus === 'paid' ? '#2E7D32' : '#B45309',
+                  color: order.paymentStatus === 'paid' ? '#2E7D32' : isReviewPending ? '#92400E' : '#B45309',
                   textTransform: 'uppercase',
                 }}
               >
-                {order.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
+                {order.paymentStatus === 'paid' ? 'PAID' : isReviewPending ? 'COD REVIEW' : 'UNPAID'}
               </Text>
             </View>
           </View>
@@ -315,6 +326,53 @@ export default function KDSScreen() {
           Customer: <Text style={styles.bold}>{order.customerName}</Text>
         </Text>
 
+        {/* Cash on Delivery / Mobile Cash Approval Gate */}
+        {isReviewPending && (
+          <View style={styles.reviewBanner}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 }}>
+                <Ionicons name="shield-outline" size={14} color="#92400E" />
+                <Text style={styles.reviewBannerTitle}>Cash on Delivery Review</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#78350F' }}>
+                Collect ₱{Number(order.total || 0).toLocaleString()}
+              </Text>
+            </View>
+            <Text style={styles.reviewBannerDesc}>
+              Placed via mobile app. Verify customer before food preparation starts.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TouchableOpacity
+                style={styles.reviewAcceptBtn}
+                onPress={() => handleBumpStatus(order.id, order.status)}
+              >
+                <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                <Text style={styles.reviewAcceptBtnText}>Accept & Cook</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reviewRejectBtn}
+                onPress={() => {
+                  Alert.alert(
+                    'Reject Order',
+                    `Reject cash order ${order.orderNumber}? Customer will be notified.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Reject',
+                        style: 'destructive',
+                        onPress: () => updateOrderStatus(order.id, 'cancelled'),
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={14} color="#DC2626" />
+                <Text style={styles.reviewRejectBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Items Checklist (Clickable to toggle preparation status) */}
         <View style={styles.ticketItemsList}>
           {order.items.map((item: any, idx) => {
@@ -364,7 +422,9 @@ export default function KDSScreen() {
           activeOpacity={0.88}
           style={[
             styles.bumpButton,
-            order.status === 'pending' || order.status === 'sent_to_kitchen'
+            isReviewPending
+              ? { backgroundColor: '#16A34A' }
+              : order.status === 'pending' || order.status === 'sent_to_kitchen'
               ? styles.bumpPending
               : order.status === 'preparing'
               ? styles.bumpPreparing
@@ -376,7 +436,9 @@ export default function KDSScreen() {
         >
           <Ionicons
             name={
-              order.status === 'pending' || order.status === 'sent_to_kitchen'
+              isReviewPending
+                ? 'checkmark-circle-outline'
+                : order.status === 'pending' || order.status === 'sent_to_kitchen'
                 ? 'flame-outline'
                 : order.status === 'preparing'
                 ? 'checkmark-circle-outline'
@@ -388,7 +450,9 @@ export default function KDSScreen() {
             color={Colors.textLight}
           />
           <Text style={styles.bumpButtonText}>
-            {order.status === 'pending' || order.status === 'sent_to_kitchen'
+            {isReviewPending
+              ? 'Accept & Cook'
+              : order.status === 'pending' || order.status === 'sent_to_kitchen'
               ? 'Start Cooking'
               : order.status === 'preparing'
               ? 'Mark Ready for Service'
@@ -666,6 +730,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     ...Shadows.subtle,
+  },
+  reviewBanner: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  reviewBannerTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  reviewBannerDesc: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  reviewAcceptBtn: {
+    flex: 1,
+    backgroundColor: '#16A34A',
+    borderRadius: Radius.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  reviewAcceptBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  reviewRejectBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: Radius.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  reviewRejectBtnText: {
+    color: '#DC2626',
+    fontSize: 11,
+    fontWeight: '700',
   },
   urgentTicket: {
     borderColor: Colors.error,

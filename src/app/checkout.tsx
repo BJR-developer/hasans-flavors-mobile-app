@@ -86,7 +86,7 @@ export default function CheckoutScreen() {
 
     const apiBase =
       process.env.EXPO_PUBLIC_API_URL ||
-      'https://restaurant.aura-predictions.site';
+      'https://hasansflavours.vercel.app';
 
     let isMounted = true;
 
@@ -153,10 +153,10 @@ export default function CheckoutScreen() {
   }, [showInrModal, razorpayQrData, inrPaymentSuccess, clearCart, router]);
 
   const subtotal = getSubtotal();
-  const tax = getTax();
+  const tax = getTax(paymentMethod);
   const deliveryFee = getDeliveryFee();
-  const serviceFee = getServiceFee();
-  const grandTotal = getTotal();
+  const serviceFee = 0;
+  const grandTotal = getTotal(paymentMethod);
 
   // Calculate INR equivalent: ₱ Total * 1.65
   const inrAmount = Math.round(grandTotal * INR_MULTIPLIER);
@@ -328,7 +328,7 @@ export default function CheckoutScreen() {
       if (paymentMethod === 'gcash' || paymentMethod === 'card') {
         const apiBase =
           process.env.EXPO_PUBLIC_API_URL ||
-          'https://restaurant.aura-predictions.site';
+          'https://hasansflavours.vercel.app';
 
         let checkoutSessionId = '';
         let checkoutUrl = '';
@@ -449,7 +449,7 @@ export default function CheckoutScreen() {
       if (paymentMethod === 'inr_qr') {
         const apiBase =
           process.env.EXPO_PUBLIC_API_URL ||
-          'https://restaurant.aura-predictions.site';
+          'https://hasansflavours.vercel.app';
 
         try {
           const res = await fetch(`${apiBase}/api/razorpay/create-qr`, {
@@ -682,6 +682,11 @@ export default function CheckoutScreen() {
                   >
                     {deliveryType === 'delivery' ? 'Cash on Delivery' : 'Cash (Pay at Counter)'}
                   </Text>
+                  {paymentMethod === 'cash' && (
+                    <Text style={{ fontSize: 11, color: '#B45309', marginTop: 2, fontWeight: '500' }}>
+                      Requires kitchen staff approval before cooking
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -884,15 +889,10 @@ export default function CheckoutScreen() {
             <Text style={styles.calcVal}>₱{subtotal.toLocaleString()}</Text>
           </View>
 
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>Tax & VAT (5%)</Text>
-            <Text style={styles.calcVal}>₱{tax.toLocaleString()}</Text>
-          </View>
-
-          {deliveryType === 'dine_in' && (
+          {paymentMethod === 'card' && tax > 0 && (
             <View style={styles.calcRow}>
-              <Text style={styles.calcLabel}>Service Charge (5%)</Text>
-              <Text style={styles.calcVal}>₱{serviceFee.toLocaleString()}</Text>
+              <Text style={styles.calcLabel}>Tax & VAT (5%)</Text>
+              <Text style={styles.calcVal}>₱{tax.toLocaleString()}</Text>
             </View>
           )}
 

@@ -28,10 +28,10 @@ interface CartState {
   // Computed Getters
   getItemCount: () => number;
   getSubtotal: () => number;
-  getTax: () => number;
+  getTax: (paymentMethod?: string) => number;
   getDeliveryFee: () => number;
   getServiceFee: () => number;
-  getTotal: () => number;
+  getTotal: (paymentMethod?: string) => number;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -150,8 +150,11 @@ export const useCartStore = create<CartState>((set, get) => ({
     return get().items.reduce((sum, item) => sum + item.totalPrice, 0);
   },
 
-  getTax: () => {
-    return Math.round(get().getSubtotal() * 0.05); // 5% local tax/vat
+  getTax: (paymentMethod?: string) => {
+    if (paymentMethod === 'card') {
+      return Math.round(get().getSubtotal() * 0.05); // 5% VAT applied only for card payments
+    }
+    return 0;
   },
 
   getDeliveryFee: () => {
@@ -164,16 +167,12 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   getServiceFee: () => {
-    const { deliveryType } = get();
-    if (deliveryType === 'dine_in') {
-      return Math.round(get().getSubtotal() * 0.05); // 5% dine-in service charge
-    }
-    return 0;
+    return 0; // Disabled per user instruction
   },
 
-  getTotal: () => {
+  getTotal: (paymentMethod?: string) => {
     const subtotal = get().getSubtotal();
-    const tax = get().getTax();
+    const tax = get().getTax(paymentMethod);
     const delivery = get().getDeliveryFee();
     const service = get().getServiceFee();
     const discount = get().discountAmount;

@@ -2,6 +2,33 @@
  * Order utility functions for mobile app: parsing notes, delivery addresses, and mobile order tags
  */
 
+export function isMobileOrder(order?: { id?: string | number; notes?: string | null; specialNotes?: string | null } | null): boolean {
+  if (!order || order.id === undefined || order.id === null) return false;
+  const idStr = String(order.id);
+  if (idStr.startsWith('ord_mob_')) return true;
+  if (idStr.startsWith('order_')) return false;
+  const notes = order.notes || order.specialNotes || '';
+  if (notes.includes('Counter POS')) return false;
+  if (idStr.startsWith('ord_') || idStr.startsWith('ord-')) return true;
+  return false;
+}
+
+export function isCashOrderPendingReview(order?: {
+  id?: string | number;
+  notes?: string | null;
+  specialNotes?: string | null;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  status?: string;
+} | null): boolean {
+  if (!order) return false;
+  if (!isMobileOrder(order)) return false;
+  const isCash = order.paymentMethod === 'cash';
+  const isUnpaid = order.paymentStatus !== 'paid';
+  const isPending = order.status === 'pending' || order.status === 'sent_to_kitchen';
+  return isCash && isUnpaid && isPending;
+}
+
 export function formatOrderNotes(deliveryAddress?: string, specialNotes?: string, type?: string): string | null {
   const addr = (deliveryAddress || '').trim();
   const notes = (specialNotes || '').trim();

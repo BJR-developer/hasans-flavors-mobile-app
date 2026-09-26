@@ -15,7 +15,7 @@ import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme'
 import { useOrderStore } from '@/store/useOrderStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { parseOrderNotes } from '@/lib/orderUtils';
+import { parseOrderNotes, isCashOrderPendingReview } from '@/lib/orderUtils';
 
 // Helper: Calculate remaining preparation minutes from order creation timestamp and total estimated time
 function calculateRemainingMinutes(createdAt?: string, totalEst?: number): number {
@@ -243,8 +243,14 @@ export default function OrderTrackingScreen() {
     );
   }
 
+  const isReviewPending = isCashOrderPendingReview(order);
+
   const steps: { key: OrderStatus; label: string; icon: string }[] = [
-    { key: 'pending', label: 'Received', icon: 'checkmark' },
+    {
+      key: 'pending',
+      label: isReviewPending ? 'Reviewing' : 'Received',
+      icon: isReviewPending ? 'shield-checkmark' : 'checkmark',
+    },
     { key: 'preparing', label: 'Kitchen', icon: 'flame' },
     {
       key: 'ready',
@@ -276,9 +282,24 @@ export default function OrderTrackingScreen() {
 
   const getStatusHeadline = () => {
     switch (order.status) {
+      case 'cancelled':
+        return {
+          badge: 'ORDER DECLINED',
+          title: 'Order Not Accepted',
+          desc: 'The restaurant was unable to accept this order at this time. Please contact support or place a new order.',
+        };
       case 'draft':
       case 'pending':
       case 'sent_to_kitchen':
+        if (isReviewPending) {
+          return {
+            badge: 'AWAITING KITCHEN APPROVAL',
+            title: 'Pending Staff Review',
+            desc: order.type === 'delivery'
+              ? 'Because this is a Cash on Delivery order, our kitchen is reviewing your details before food preparation starts. You will be notified the moment it is approved.'
+              : 'Our kitchen is reviewing your cash order before food preparation starts. You will be notified the moment it is approved.',
+          };
+        }
         return {
           badge: 'ORDER RECEIVED',
           title: 'Ticket Received by Kitchen',
@@ -369,7 +390,11 @@ export default function OrderTrackingScreen() {
             <View
               style={[
                 styles.statusPill,
-                order.status === 'completed' || order.status === 'served'
+                order.status === 'cancelled'
+                  ? { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }
+                  : isReviewPending
+                  ? { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }
+                  : order.status === 'completed' || order.status === 'served'
                   ? styles.statusPillCompleted
                   : styles.statusPillActive,
               ]}
@@ -377,7 +402,11 @@ export default function OrderTrackingScreen() {
               <View
                 style={[
                   styles.statusDot,
-                  order.status === 'completed' || order.status === 'served'
+                  order.status === 'cancelled'
+                    ? { backgroundColor: Colors.error }
+                    : isReviewPending
+                    ? { backgroundColor: '#D97706' }
+                    : order.status === 'completed' || order.status === 'served'
                     ? styles.statusDotCompleted
                     : styles.statusDotActive,
                 ]}
@@ -385,7 +414,11 @@ export default function OrderTrackingScreen() {
               <Text
                 style={[
                   styles.statusPillText,
-                  order.status === 'completed' || order.status === 'served'
+                  order.status === 'cancelled'
+                    ? { color: Colors.error }
+                    : isReviewPending
+                    ? { color: '#B45309' }
+                    : order.status === 'completed' || order.status === 'served'
                     ? styles.statusPillTextCompleted
                     : styles.statusPillTextActive,
                 ]}
@@ -397,12 +430,28 @@ export default function OrderTrackingScreen() {
 
           {/* Big Minimal ETA Counter */}
           <View style={styles.etaDisplaySection}>
-            {order.status === 'completed' || order.status === 'served' ? (
+            {order.status === 'cancelled' ? (
+              <View style={styles.deliveredIconWrapper}>
+                <Ionicons name="close-circle" size={48} color={Colors.error} />
+                <Text style={[styles.deliveredTitle, { color: Colors.error }]}>Order Declined</Text>
+                <Text style={styles.deliveredSub}>
+                  This cash order could not be accepted by the kitchen staff.
+                </Text>
+              </View>
+            ) : order.status === 'completed' || order.status === 'served' ? (
               <View style={styles.deliveredIconWrapper}>
                 <Ionicons name="checkmark-circle" size={48} color={Colors.halalGreen} />
                 <Text style={styles.deliveredTitle}>Order Delivered</Text>
                 <Text style={styles.deliveredSub}>
                   Enjoy your meal at {order.tableNumber || 'your table'}!
+                </Text>
+              </View>
+            ) : isReviewPending ? (
+              <View style={styles.deliveredIconWrapper}>
+                <Ionicons name="shield-checkmark-outline" size={44} color="#D97706" />
+                <Text style={[styles.deliveredTitle, { color: '#B45309', marginTop: 6 }]}>Awaiting Review</Text>
+                <Text style={[styles.deliveredSub, { maxWidth: 280, textAlign: 'center' }]}>
+                  Kitchen is reviewing your cash order details. Cooking timer will begin immediately upon confirmation.
                 </Text>
               </View>
             ) : (
@@ -599,10 +648,12 @@ export default function OrderTrackingScreen() {
             <Text style={styles.calcVal}>₱{order.subtotal.toLocaleString()}</Text>
           </View>
 
-          <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>Tax & VAT (5%)</Text>
-            <Text style={styles.calcVal}>₱{order.tax.toLocaleString()}</Text>
-          </View>
+          {order.tax > 0 && (
+            <View style={styles.calcRow}>
+              <Text style={styles.calcLabel}>Tax & VAT (5%)</Text>
+              <Text style={styles.calcVal}>₱{order.tax.toLocaleString()}</Text>
+            </View>
+          )}
 
           {order.type === 'dine_in' && order.serviceFee > 0 && (
             <View style={styles.calcRow}>
