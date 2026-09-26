@@ -18,7 +18,7 @@ export const mapDishRow = (row: any): Dish => ({
   isHalal: row.is_halal ?? true,
   isChefSpecial: row.is_chef_special ?? false,
   isPopular: row.is_popular ?? false,
-  inStock: row.in_stock ?? true,
+  inStock: (row.in_stock ?? true) && (row.stock_quantity === undefined || row.stock_quantity === null || Number(row.stock_quantity) > 0),
   preparationTime: row.preparation_time || '15-20 mins',
   calories: row.calories || '',
   rating: String(row.rating || '4.8'),
@@ -110,7 +110,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
           name: a.name,
           price: Number(a.price || 0),
           imageUrl: a.image_url || undefined,
-          inStock: a.in_stock ?? true,
+          inStock: (a.in_stock ?? true) && (a.stock_quantity === undefined || a.stock_quantity === null || Number(a.stock_quantity) > 0),
         }));
         set({ addons: mappedAddons });
       }

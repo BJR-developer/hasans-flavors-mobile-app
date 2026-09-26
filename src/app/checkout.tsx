@@ -283,6 +283,17 @@ export default function CheckoutScreen() {
 
   const handlePlaceOrder = async () => {
     if (items.length === 0 || isPlacingOrder || verifyingPayment) return;
+
+    // Check if any cart item is out of stock
+    const outOfStockItem = items.find((i) => i.dish && !i.dish.inStock);
+    if (outOfStockItem) {
+      Alert.alert(
+        'Item Out of Stock',
+        `"${outOfStockItem.dish.name}" is currently sold out. Please remove it from your cart to complete your order.`
+      );
+      return;
+    }
+
     if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
       Alert.alert('Delivery Address Required', 'Please enter your complete delivery address to proceed.');
       return;
