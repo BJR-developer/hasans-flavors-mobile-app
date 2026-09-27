@@ -75,9 +75,9 @@ export default function SignInScreen() {
 
   const handleRouteByRole = (role: 'customer' | 'staff' | 'owner') => {
     if (role === 'owner') {
-      router.replace('/staff/owner' as any);
+      router.replace('/staff/kds' as any);
     } else if (role === 'staff') {
-      router.replace('/staff/pos' as any);
+      router.replace('/staff/kds' as any);
     } else {
       router.replace('/(tabs)' as any);
     }

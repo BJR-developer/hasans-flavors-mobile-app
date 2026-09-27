@@ -27,10 +27,10 @@ export default function Index() {
   // 2. User is authenticated: direct to their role dashboard
   if (isAuthenticated && user) {
     if (user.role === 'owner') {
-      return <Redirect href="/staff/owner" />;
+      return <Redirect href="/staff/kds" />;
     }
     if (user.role === 'staff') {
-      return <Redirect href="/staff/pos" />;
+      return <Redirect href="/staff/kds" />;
     }
     return <Redirect href="/(tabs)" />;
   }

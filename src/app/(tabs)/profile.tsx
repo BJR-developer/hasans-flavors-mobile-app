@@ -21,14 +21,12 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTableStore } from '@/store/useTableStore';
-import { useRoleStore } from '@/store/useRoleStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, logout, updateProfile } = useAuthStore();
   const currentTable = useTableStore((state) => state.currentTable);
   const clearTable = useTableStore((state) => state.clearTable);
-  const { setRole } = useRoleStore();
 
   // Form State
   const [fullName, setFullName] = useState(user?.name || '');
@@ -348,51 +346,13 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Staff / Owner Access Portals */}
-        {user?.role === 'owner' && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeading}>Owner Dashboard</Text>
-            <TouchableOpacity
-              style={styles.portalRow}
-              onPress={() => {
-                setRole('owner');
-                router.push('/staff/owner' as any);
-              }}
-            >
-              <Ionicons name="stats-chart-outline" size={18} color={Colors.saffron} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.portalTitle}>Executive Analytics & Stock</Text>
-                <Text style={styles.portalSub}>View live restaurant revenue and inventory</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {user?.role === 'staff' && (
+        {/* Staff Access Portal (POS, reports and inventory live in the web ops portal) */}
+        {(user?.role === 'owner' || user?.role === 'staff') && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeading}>Staff Operations</Text>
             <TouchableOpacity
-              style={styles.portalRow}
-              onPress={() => {
-                setRole('pos');
-                router.push('/staff/pos' as any);
-              }}
-            >
-              <Ionicons name="calculator-outline" size={18} color={Colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.portalTitle}>POS Cashier Terminal</Text>
-                <Text style={styles.portalSub}>Process registers and orders</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.portalRow, { borderBottomWidth: 0 }]}
-              onPress={() => {
-                setRole('kds');
-                router.push('/staff/kds' as any);
-              }}
+              onPress={() => router.push('/staff/kds' as any)}
             >
               <Ionicons name="flame-outline" size={18} color={Colors.primary} />
               <View style={{ flex: 1 }}>

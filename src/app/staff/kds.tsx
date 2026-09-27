@@ -15,7 +15,6 @@ import { useRouter } from 'expo-router';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useOrderStore } from '@/store/useOrderStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRoleStore } from '@/store/useRoleStore';
 import { Order, OrderStatus } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { isCashOrderPendingReview } from '@/lib/orderUtils';
@@ -27,7 +26,6 @@ export default function KDSScreen() {
   const router = useRouter();
   const { orders, updateOrderStatus } = useOrderStore();
   const { user, logout } = useAuthStore();
-  const { setRole } = useRoleStore();
   const [filterType, setFilterType] = useState<'all' | 'dine_in' | 'delivery'>('all');
 
   // Role Gate: KDS is strictly restricted to Kitchen Staff / Cashier
@@ -75,28 +73,6 @@ export default function KDSScreen() {
     );
   }
 
-  // Role Gate: Owner restricted from Kitchen KDS
-  if (user.role === 'owner') {
-    return (
-      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
-        <View style={{ maxWidth: 400, width: '100%', backgroundColor: Colors.card, borderRadius: Radius.lg, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: Colors.border }}>
-          <Ionicons name="shield-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 }}>
-            Kitchen KDS Restricted
-          </Text>
-          <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
-            You are signed in as Owner. Kitchen display and bump operations are managed by kitchen staff.
-          </Text>
-          <TouchableOpacity
-            style={{ backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: Radius.md, width: '100%', alignItems: 'center' }}
-            onPress={() => router.replace('/staff/owner' as any)}
-          >
-            <Text style={{ color: Colors.textLight, fontWeight: '700', fontSize: 13 }}>Go to Owner Dashboard</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   const pendingOrders = orders
     .filter(
@@ -480,18 +456,6 @@ export default function KDSScreen() {
         </View>
 
         <View style={styles.navActionsRow}>
-          <TouchableOpacity
-            style={styles.actionPill}
-            onPress={() => {
-              setRole('pos');
-              router.push('/staff/pos' as any);
-            }}
-            hitSlop={6}
-          >
-            <Ionicons name="calculator-outline" size={15} color={Colors.primary} />
-            <Text style={styles.actionPillText}>POS</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={handleSignOut}

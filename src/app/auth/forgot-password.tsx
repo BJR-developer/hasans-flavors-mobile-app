@@ -50,8 +50,8 @@ export default function ForgotPasswordScreen() {
   // If already authenticated, redirect away from auth screens
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === 'owner') router.replace('/staff/owner' as any);
-      else if (user.role === 'staff') router.replace('/staff/pos' as any);
+      if (user.role === 'owner') router.replace('/staff/kds' as any);
+      else if (user.role === 'staff') router.replace('/staff/kds' as any);
       else router.replace('/(tabs)' as any);
     }
   }, [isAuthenticated, user]);

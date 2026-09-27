@@ -109,8 +109,6 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
-        <Stack.Screen name="staff/owner" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="staff/pos" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="staff/kds" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </SafeAreaProvider>

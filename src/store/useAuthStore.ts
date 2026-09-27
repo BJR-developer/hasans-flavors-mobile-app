@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { useRoleStore } from './useRoleStore';
 import { validateEmail, validatePassword } from '@/lib/validation';
 
 const STORAGE_KEYS = {
@@ -170,14 +169,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.warn('Supabase session check error:', e);
       }
 
-      if (user) {
-        if (user.role === 'owner') useRoleStore.getState().setRole('owner');
-        else if (user.role === 'staff') useRoleStore.getState().setRole('pos');
-        else useRoleStore.getState().setRole('customer');
-      } else {
-        useRoleStore.getState().setRole('customer');
-      }
-
       set({
         isOnboarded: isOnboarded || !!user,
         hasSeenSplash,
@@ -238,9 +229,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               savedAddresses: [],
             };
 
-        if (userProfile.role === 'owner') useRoleStore.getState().setRole('owner');
-        else if (userProfile.role === 'staff') useRoleStore.getState().setRole('pos');
-        else useRoleStore.getState().setRole('customer');
 
         await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
         await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
@@ -336,7 +324,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             savedAddresses: [],
           };
 
-      useRoleStore.getState().setRole('customer');
       await safeSetItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(userProfile));
       await safeSetItem(STORAGE_KEYS.ONBOARDED, 'true');
 
@@ -376,7 +363,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.warn('Sign out error:', e);
     }
     await safeRemoveItem(STORAGE_KEYS.USER_PROFILE);
-    useRoleStore.getState().setRole('customer');
     set({
       user: null,
       isAuthenticated: false,
